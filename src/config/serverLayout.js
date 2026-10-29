@@ -189,7 +189,7 @@ const V = ChannelType.GuildVoice;
 const SEPARATOR = '┃';
 const ICONS = {
   willkommen: '👋', ankündigungen: '📢', prognosen: '📈', regeln: '📜', pings: '🔔',
-  diskussionen: '💬', analysen: '📊', medien: '📸', vorschläge: '💡', talk: '🔊', support: '🎫', 'support-steuerung': '📋', 'support-warteraum': '⏳', 'support-1': '🎧', 'support-2': '🎧',
+  diskussionen: '💬', analysen: '📊', medien: '📸', vorschläge: '💡', 'voice-1': '🔊', 'voice-2': '🔊', 'voice-3': '🔊', support: '🎫', 'support-steuerung': '📋', 'support-warteraum': '⏳', 'support-1': '🎧', 'support-2': '🎧',
   betrieb: '🔧', prüfprotokoll: '🧾', systemmeldungen: '📡', moderation: '🔨', team: '👥',
 };
 const named = (plain, ...older) => ({
@@ -241,7 +241,9 @@ const CATEGORIES = [
       { key: 'analyses', ...named('analysen', '📊┃marktanalysen', '┃marktanalysen', 'marktanalysen'), type: T, legacy: ['analyses'], topic: 'Fundierte Analysen zu einzelnen Prognosen. Keine Anlageberatung.', permissions: profiles.memberChat(), rateLimitPerUser: 30 },
       { key: 'media', ...named('medien'), type: T, topic: 'Bilder, Screenshots und Clips rund um HugoSMP und die Prognosen. Bitte nur eigene Inhalte.', permissions: profiles.memberChat(), rateLimitPerUser: 30 },
       { key: 'ideas', ...named('vorschläge'), type: T, topic: 'Ideen für Server, Bot und Website. Neue Prognosen bitte über „Prognose vorschlagen“ in #prognosen.', permissions: profiles.memberChat(), rateLimitPerUser: 60 },
-      { key: 'voice', ...named('talk'), type: V, permissions: profiles.memberVoice() },
+      { key: 'voice', ...named('voice-1', '🔊┃talk', '┃talk', 'talk'), type: V, permissions: profiles.memberVoice() },
+      { key: 'voice2', ...named('voice-2'), type: V, permissions: profiles.memberVoice() },
+      { key: 'voice3', ...named('voice-3'), type: V, permissions: profiles.memberVoice() },
     ],
   },
   {
