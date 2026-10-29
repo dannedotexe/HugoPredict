@@ -42,7 +42,7 @@ test('Struktur entspricht exakt der Vorgabe', () => {
   assert.deepEqual(L.CATEGORIES.map((c) => [c.name, c.channels.map((ch) => ch.name)]), [
     ['INFORMATIONEN', ['👋┃willkommen', '📢┃ankündigungen', '📈┃prognosen', '📜┃regeln', '🔔┃pings']],
     ['COMMUNITY', ['💬┃diskussionen', '📊┃analysen', '📸┃medien', '💡┃vorschläge', '🔊┃talk']],
-    ['KUNDENSERVICE', ['🎫┃support', '⏳┃warteraum', '🎧┃support-1', '🎧┃support-2']],
+    ['KUNDENSERVICE', ['🎫┃support', '⏳┃support-warteraum', '🎧┃support-1', '🎧┃support-2']],
     ['INTERN · PRIVAT', ['🔧┃betrieb', '🧾┃prüfprotokoll', '📡┃systemmeldungen', '🔨┃moderation', '👥┃team']],
   ]);
   // Genau ein Emoji, dann „┃“, dann Kleinbuchstaben

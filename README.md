@@ -17,7 +17,7 @@ API an.
 |---|---|---|
 | **INFORMATIONEN** | `👋┃willkommen`, `📢┃ankündigungen`, `📈┃prognosen`, `📜┃regeln`, `🔔┃pings` | alle (nur lesen) |
 | **COMMUNITY** | `💬┃diskussionen`, `📊┃analysen`, `📸┃medien`, `💡┃vorschläge`, `🔊┃talk` (Sprachkanal) | ab *Mitglied* |
-| **KUNDENSERVICE** | `🎫┃support` (+ private Anfrage-Channels), Sprachkanäle `⏳┃warteraum`, `🎧┃support-1`, `🎧┃support-2` | alle (nur lesen); Anfragen nur für Ersteller und Team. Im Warteraum darf jeder warten (ohne zu sprechen); die Support-Räume betritt nur das Team, Nutzer werden hineingezogen. Wer den Warteraum betritt, wird in `moderation` mit Ping der Supporter gemeldet |
+| **KUNDENSERVICE** | `🎫┃support` (+ private Anfrage-Channels), Sprachkanäle `⏳┃support-warteraum`, `🎧┃support-1`, `🎧┃support-2` | alle (nur lesen); Anfragen nur für Ersteller und Team. Im Warteraum darf jeder warten (ohne zu sprechen); die Support-Räume betritt nur das Team, Nutzer werden hineingezogen. Wer den Warteraum betritt, wird in `moderation` mit Ping der Supporter gemeldet |
 | **INTERN · PRIVAT** | `🔧┃betrieb`, `🧾┃prüfprotokoll`, `📡┃systemmeldungen`, `🔨┃moderation`, `👥┃team` | nur zuständige Teamrollen |
 
 **Interne Channels im Detail**
