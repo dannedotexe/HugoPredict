@@ -78,6 +78,9 @@ Standard-Emoji ersetzt.
 | Konto (privat) | `/verify`, `/balance`, `/portfolio`, `/history`, `/daily`, `/leaderboard`. Alle Antworten sind nur für die anfragende Person sichtbar |
 | Kundenservice | Fünf Anliegen. Jede Anfrage wird ein privater Channel nur für Ersteller und zuständiges Team. Es gibt „Übernehmen“ und „Anfrage schließen“ (mit Bestätigung). Das Abschlussprotokoll mit `.txt`-Transkript landet in `moderation` |
 | Marktvorschläge | `/vorschlag` öffnet ein Formular. Der Vorschlag wird in `betrieb` geprüft, angenommen oder (mit Begründung) abgelehnt, und die einreichende Person erhält eine Direktnachricht. Eine Annahme legt den Markt nur bei aktivierter API an (`MARKET_CREATION_ENABLED`) |
+| Moderation | `/mod verwarnen`, `timeout`, `timeout-aufheben`, `kicken`, `bannen`, `entbannen`, `verlauf`. Pflichtbegründung, Hierarchieprüfung (nie gegen gleich- oder höhergestellte Rollen, Eigentümer oder Bot), nummerierte Fälle, Benachrichtigung per Direktnachricht, Protokoll in `moderation` (Kick/Bann zusätzlich in `prüfprotokoll`). Moderator darf verwarnen, Timeout vergeben und kicken; bannen und entbannen dürfen nur Inhaber und Administrator |
+| Begrüßung | Neue Mitglieder erhalten eine Direktnachricht mit den drei ersten Schritten (Dokumentation, Konto verknüpfen, Support). Kein Beitrag im öffentlichen Chat. Benötigt den *Server Members Intent* |
+| Statistik | Ein Embed in `systemmeldungen` (stündlich aktualisiert): Mitglieder, online, neu in 7 Tagen, Rollen Mitglied/Verifiziert, offene Anfragen, Vorschläge in Prüfung, Moderationsfälle. Rollen- und Beitrittszahlen benötigen den *Server Members Intent* |
 | Sicherheit | Rechteprüfung bei jedem privilegierten Command, Button und Formular. Dazu kommen Rate-Limits, Sperren gegen Doppelklicks und Idempotency-Keys für Daily und Marktanlage |
 
 ## Migration von der früheren Struktur
@@ -121,13 +124,18 @@ cp .env.example .env    # danach .env ausfüllen
 1. <https://discord.com/developers/applications>, dann **New Application**.
 2. Unter **Bot** auf **Reset Token** klicken und den Token als `DISCORD_TOKEN` in `.env` eintragen.
 3. Unter **General Information** die **Application ID** als `DISCORD_CLIENT_ID` eintragen.
-4. Bot einladen (ersetze `CLIENT_ID`):
+4. Optional, aber empfohlen: Unter **Bot → Privileged Gateway Intents** den **Server Members Intent**
+   aktivieren (für Begrüßung und vollständige Statistik). Der Bot erkennt die Freigabe selbst und
+   startet innerhalb von zehn Minuten neu. Ohne Freigabe läuft er normal weiter, nur ohne diese beiden Funktionen.
+5. Bot einladen (ersetze `CLIENT_ID`):
    ```
-   https://discord.com/oauth2/authorize?client_id=CLIENT_ID&scope=bot+applications.commands&permissions=378225945680
+   https://discord.com/oauth2/authorize?client_id=CLIENT_ID&scope=bot+applications.commands&permissions=1477737573462
    ```
-   Die Berechtigungszahl enthält genau die Rechte, die das Setup braucht
-   (u. a. Rollen und Channels verwalten, Nachrichten verwalten). **Kein** Administrator-Recht.
-5. Server-ID kopieren (Entwicklermodus, dann Rechtsklick auf den Server) und als `DISCORD_GUILD_ID` eintragen.
+   Die Berechtigungszahl enthält genau die Rechte, die Einrichtung und Moderation brauchen
+   (u. a. Rollen und Channels verwalten, Nachrichten verwalten, Timeout, Kicken, Bannen).
+   **Kein** Administrator-Recht. Wurde der Bot früher ohne Moderationsrechte eingeladen, aktiviere
+   bei seiner Rolle *Mitglieder timeouten*, *Mitglieder kicken* und *Mitglieder bannen*.
+6. Server-ID kopieren (Entwicklermodus, dann Rechtsklick auf den Server) und als `DISCORD_GUILD_ID` eintragen.
 
 ### 2. Slash-Commands registrieren und starten
 

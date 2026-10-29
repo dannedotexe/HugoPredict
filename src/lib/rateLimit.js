@@ -62,6 +62,7 @@ const LIMITS = {
   ticket: { limit: 2, windowMs: 5 * 60_000 },
   vote: { limit: 20, windowMs: 60_000 },
   setup: { limit: 2, windowMs: 60_000 },
+  moderate: { limit: 15, windowMs: 60_000 },
 };
 
 module.exports = { RateLimiter, LockSet, LIMITS };

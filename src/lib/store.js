@@ -47,6 +47,7 @@ class Store {
     g.ticketCounter ??= 0;
     g.suggestions ??= {};
     g.suggestionCounter ??= 0;
+    g.moderation ??= { counter: 0, cases: [] };
     return g;
   }
 

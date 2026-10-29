@@ -12,6 +12,9 @@ module.exports = {
       { name: 'Märkte', value: '`/markets` Märkte anzeigen\n`/leaderboard` Ranglisten\n`/vorschlag` Markt vorschlagen', inline: true },
       { name: 'Hilfe', value: 'Anfragen an den Kundenservice stellst du in #support.\n`/ping` Systemstatus', inline: false },
     );
+    if (interaction.member && ctx.can(interaction.member, 'moderate')) {
+      e.addFields({ name: 'Moderation', value: '`/mod verwarnen` · `/mod timeout` · `/mod timeout-aufheben` · `/mod kicken`\n`/mod bannen` · `/mod entbannen` (nur Inhaber/Administrator)\n`/mod verlauf` Verlauf einer Person', inline: false });
+    }
     if (interaction.member && ctx.can(interaction.member, 'setup')) {
       e.addFields({ name: 'Verwaltung', value: '`/setup-panels` Panels veröffentlichen\n`/ankündigung` Ankündigung veröffentlichen\n`/aufräumen` Archiv und alte Kategorien löschen', inline: false });
     }

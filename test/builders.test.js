@@ -66,6 +66,6 @@ test('Embeds für Märkte, Ranglisten, Vorschläge, Ankündigungen und Setup', (
 
 test('Slash-Commands sind gültig und vollständig', () => {
   const names = [...loadCommands().keys()].sort();
-  assert.deepEqual(names, ['ankündigung', 'aufräumen', 'balance', 'daily', 'help', 'history', 'leaderboard', 'markets', 'ping', 'portfolio', 'setup-panels', 'verify', 'vorschlag']);
+  assert.deepEqual(names, ['ankündigung', 'aufräumen', 'balance', 'daily', 'help', 'history', 'leaderboard', 'markets', 'mod', 'ping', 'portfolio', 'setup-panels', 'verify', 'vorschlag']);
   for (const c of loadCommands().values()) assert.equal(c.data.toJSON().contexts[0], 0);
 });

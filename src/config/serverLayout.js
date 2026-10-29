@@ -95,6 +95,8 @@ const PRIVILEGES = {
   announce: ['owner', 'admin'],
   marketDecision: ['owner', 'admin', 'marketMod'],
   ticketStaff: ['owner', 'admin', 'moderator', 'support'],
+  moderate: ['owner', 'admin', 'moderator'],
+  ban: ['owner', 'admin'],
 };
 
 // Rollen, die der Bot selbst vergeben darf (alle anderen vergeben nur Menschen)
@@ -217,6 +219,7 @@ const LOG_ROUTES = {
   audit: 'audit', // Setup, Panels, Ankündigungen, Daily, Verifizierung, verweigerte Zugriffe
   tickets: 'moderation', // Ticket-Eröffnung, -Übernahme, -Abschluss mit Transkript
   operations: 'operations', // Marktvorschläge und Entscheidungen
+  moderation: 'moderation', // Moderationsfälle (Verwarnung, Timeout, Kick, Bann)
 };
 
 // ---------------------------------------------------------------------------
