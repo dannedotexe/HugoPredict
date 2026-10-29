@@ -17,7 +17,7 @@ const typeOf = (key) => TICKET_TYPES.find((t) => t.key === key);
 const openTicketsOf = (g, userId) => Object.values(g.tickets).filter((t) => t.ownerId === userId && t.status === 'open');
 
 function slug(name) {
-  return name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 20) || 'user';
+  return name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 20) || 'user';
 }
 
 /** Darf dieses Mitglied das Ticket als Team bearbeiten? */
