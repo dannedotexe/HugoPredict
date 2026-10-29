@@ -37,6 +37,45 @@ function panelDefinitions() {
       },
     },
     {
+      key: 'notify',
+      channelKey: 'docs',
+      build: () => card({
+        icon: 'announce',
+        title: 'Benachrichtigungen',
+        intro: 'Entscheide selbst, worüber du informiert wirst. Ein Klick meldet dich an, ein weiterer wieder ab.',
+        logo: false,
+        blocks: [{
+          body: [
+            `${emojis.icon('open')}**Neue Märkte**\nPing, sobald ein neuer Markt eröffnet wird.`,
+            `${emojis.icon('announce')}**Ankündigungen**\nPing bei wichtigen Mitteilungen des Teams.`,
+          ].join('\n'),
+        }],
+        footer: null,
+        actions: [new ActionRowBuilder().addComponents(
+          withEmoji(new ButtonBuilder().setCustomId('hm:notify:notifyMarkets').setStyle(ButtonStyle.Secondary).setLabel('Neue Märkte'), 'open'),
+          withEmoji(new ButtonBuilder().setCustomId('hm:notify:notifyNews').setStyle(ButtonStyle.Secondary).setLabel('Ankündigungen'), 'announce'),
+        )],
+      }),
+    },
+    {
+      key: 'suggest',
+      channelKey: 'marketOverview',
+      build: () => card({
+        icon: 'platform',
+        title: 'Markt vorschlagen',
+        intro: 'Du hast eine Idee für einen neuen Markt? Reiche sie hier ein. Die Marktverwaltung prüft jeden Vorschlag und meldet sich per Direktnachricht.',
+        logo: false,
+        blocks: [{
+          heading: 'Ein guter Vorschlag hat',
+          body: 'eine eindeutige, überprüfbare Frage,\nklar abgegrenzte Ergebnisse (z. B. Ja / Nein),\neine nachvollziehbare Entscheidungsquelle.',
+        }],
+        footer: null,
+        actions: [new ActionRowBuilder().addComponents(
+          withEmoji(new ButtonBuilder().setCustomId('hm:suggest:open').setStyle(ButtonStyle.Success).setLabel('Markt vorschlagen'), 'check'),
+        )],
+      }),
+    },
+    {
       key: 'tickets',
       channelKey: 'support',
       build: () => card({

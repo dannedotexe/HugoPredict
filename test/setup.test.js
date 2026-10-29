@@ -120,14 +120,15 @@ for (const withStore of [true, false]) {
     const plan = planSetup(guild, store);
     assert.equal(plan.channelsNew.length, brandNew, 'nur Channels ohne Vorgänger werden neu angelegt');
     assert.equal(plan.channelsMigrated.length, migratable);
-    assert.equal(plan.rolesNew, 0);
-    assert.equal(plan.rolesRenamed.length, L.ROLES.length);
+    const newRoles = L.ROLES.filter((r) => !r.legacyNames?.length).length;
+    assert.equal(plan.rolesNew, newRoles, 'nur Rollen ohne Vorgänger sind neu');
+    assert.equal(plan.rolesRenamed.length, L.ROLES.length - newRoles);
 
     const res = await runSetup(guild, store);
     assert.deepEqual(res.errors, []);
-    assert.equal(res.created.length, brandNew, 'keine Duplikate');
+    assert.equal(res.created.length, brandNew + newRoles, 'keine Duplikate');
     assert.equal(guild.channels.cache.size, channelsBefore + brandNew, 'kein Channel gelöscht, nur neue hinzugefügt');
-    assert.equal(guild.roles.cache.size, rolesBefore, 'keine Rolle gelöscht oder hinzugefügt');
+    assert.equal(guild.roles.cache.size, rolesBefore + newRoles, 'keine Rolle gelöscht, nur neue hinzugefügt');
     assert.equal(guild.deleted.length, 0);
 
     // Vorgänger behält ID und Nachrichten, bekommt neuen Namen, neue Kategorie und neue Rechte
@@ -309,4 +310,19 @@ test('syncChannelNames benennt #dokumentation in #regeln um, sonst nichts', asyn
   assert.equal(docs.name, 'regeln');
   assert.equal(custom.name, 'mein-chat', 'selbst gewählte Namen bleiben');
   assert.equal((await syncChannelNames(guild, store)).renamed.length, 0);
+});
+
+test('ensureMissingRoles legt nur neue Rollen an', async () => {
+  const { ensureMissingRoles } = require('../src/setup/setupServer');
+  const guild = fakeGuild(allBot);
+  const store = tmpStore();
+  await runSetup(guild, store);
+  const g = store.guild('G');
+  const keep = guild.roles.cache.get(g.roles.owner);
+  guild.roles.cache.delete(g.roles.notifyMarkets);
+  delete g.roles.notifyMarkets;
+  const res = await ensureMissingRoles(guild, store);
+  assert.deepEqual(res.created, ['Neue Märkte']);
+  assert.ok(guild.roles.cache.has(keep.id));
+  assert.equal((await ensureMissingRoles(guild, store)).created.length, 0, 'idempotent');
 });

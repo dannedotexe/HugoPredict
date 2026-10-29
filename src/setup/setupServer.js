@@ -384,6 +384,30 @@ async function ensureMissingChannels(guild, store) {
 }
 
 /**
+ * Legt ausschließlich FEHLENDE Rollen des Layouts an (z. B. neue
+ * Benachrichtigungs-Rollen). Bestehende Rollen bleiben unverändert.
+ */
+async function ensureMissingRoles(guild, store) {
+  const g = store.guild(guild.id);
+  const created = [];
+  const errors = [];
+  for (const { def, action } of buildPlan(guild, store).roles) {
+    if (action !== 'create') continue;
+    try {
+      const role = await guild.roles.create({
+        name: def.name, color: def.color, hoist: def.hoist, mentionable: def.mentionable, permissions: [], reason: REASON,
+      });
+      g.roles[def.key] = role.id;
+      created.push(def.name);
+    } catch (err) {
+      errors.push(`Rolle ${def.name}: ${err.message}`);
+    }
+  }
+  if (created.length) store.save();
+  return { created, errors };
+}
+
+/**
  * Benennt Layout-Channels mit einem früheren Namen (previousNames) um.
  * Ändert ausschließlich den Namen – keine Rechte, Kategorien oder Nachrichten.
  */
@@ -432,4 +456,4 @@ async function syncRoleNames(guild, store) {
   return { renamed, warnings };
 }
 
-module.exports = { planSetup, runSetup, buildPlan, resolveOverwrites, missingBotPermissions, syncRoleNames, syncChannelNames, ensureMissingChannels };
+module.exports = { planSetup, runSetup, buildPlan, resolveOverwrites, missingBotPermissions, syncRoleNames, syncChannelNames, ensureMissingChannels, ensureMissingRoles };

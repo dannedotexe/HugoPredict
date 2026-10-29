@@ -81,6 +81,9 @@ Standard-Emoji ersetzt.
 | Moderation | `/mod verwarnen`, `timeout`, `timeout-aufheben`, `kicken`, `bannen`, `entbannen`, `verlauf`. Pflichtbegründung, Hierarchieprüfung (nie gegen gleich- oder höhergestellte Rollen, Eigentümer oder Bot), nummerierte Fälle, Benachrichtigung per Direktnachricht, Protokoll in `moderation` (Kick/Bann zusätzlich in `prüfprotokoll`). Moderator darf verwarnen, Timeout vergeben und kicken; bannen und entbannen dürfen nur Inhaber und Administrator |
 | Begrüßung | In `willkommen` begrüßt der Bot jedes neue Mitglied mit einer Karte (Profilbild, Erwähnung, Mitgliedsnummer, erste drei Schritte). Ohne den Channel geht die Begrüßung als Direktnachricht raus. Benötigt den *Server Members Intent* |
 | Statistik | Ein Embed in `systemmeldungen` (stündlich aktualisiert): Mitglieder, online, neu in 7 Tagen, Rollen Mitglied/Verifiziert, offene Anfragen, Vorschläge in Prüfung, Moderationsfälle. Rollen- und Beitrittszahlen benötigen den *Server Members Intent* |
+| Benachrichtigungen | In `regeln` melden sich Mitglieder per Button für die Rollen **Neue Märkte** und **Ankündigungen** an und wieder ab. Der Bot pingt diese Rollen bei neuen Märkten bzw. Ankündigungen. Dafür braucht die Bot-Rolle das Recht *@everyone, @here und alle Rollen erwähnen*. Mitglieder selbst können die Rollen nicht pingen |
+| Geplante Ankündigungen | `/ankündigung zeitpunkt:20:00` (oder `morgen 18:30`, `14.11. 20:00`, deutsche Zeit) plant eine Ankündigung; `benachrichtigen:false` verzichtet auf den Ping. `/geplant` listet alles Geplante und bricht es auf Wunsch ab. Geplantes übersteht Neustarts |
+| Markt vorschlagen | Karte mit Button ganz oben in `marktübersicht` öffnet das Vorschlagsformular (wie `/vorschlag`) |
 | Sicherheit | Rechteprüfung bei jedem privilegierten Command, Button und Formular. Dazu kommen Rate-Limits, Sperren gegen Doppelklicks und Idempotency-Keys für Daily und Marktanlage |
 
 ## Migration von der früheren Struktur
@@ -129,7 +132,7 @@ cp .env.example .env    # danach .env ausfüllen
    startet innerhalb von zehn Minuten neu. Ohne Freigabe läuft er normal weiter, nur ohne diese beiden Funktionen.
 5. Bot einladen (ersetze `CLIENT_ID`):
    ```
-   https://discord.com/oauth2/authorize?client_id=CLIENT_ID&scope=bot+applications.commands&permissions=1477737573462
+   https://discord.com/oauth2/authorize?client_id=CLIENT_ID&scope=bot+applications.commands&permissions=1477737704534
    ```
    Die Berechtigungszahl enthält genau die Rechte, die Einrichtung und Moderation brauchen
    (u. a. Rollen und Channels verwalten, Nachrichten verwalten, Timeout, Kicken, Bannen).

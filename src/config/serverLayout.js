@@ -71,6 +71,9 @@ const ROLES = [
   { key: 'support', name: 'Support', description: 'Tickets bearbeiten und Nutzern helfen', icon: 'support', legacyNames: ['🎫 Support', 'Kundenservice'], color: 0x6ee7b7, hoist: true, mentionable: true, permissions: [] },
   { key: 'verified', name: 'Verifiziert', description: 'Minecraft-Konto erfolgreich verknüpft', icon: 'verified', legacyNames: ['⛏️ Verified'], color: 0xa7b4c2, hoist: false, mentionable: false, permissions: [] },
   { key: 'member', name: 'Mitglied', description: 'Standardrolle für Community-Mitglieder', icon: 'member', legacyNames: ['👤 Member'], color: 0x6b7280, hoist: false, mentionable: false, permissions: [] },
+  // Benachrichtigungs-Rollen: freiwillig per Button in #regeln, nur der Bot pingt sie.
+  { key: 'notifyMarkets', name: 'Neue Märkte', description: 'Benachrichtigung bei neuen Märkten', icon: 'open', notify: true, color: 0x4b5563, hoist: false, mentionable: false, permissions: [] },
+  { key: 'notifyNews', name: 'Ankündigungen', description: 'Benachrichtigung bei Ankündigungen', icon: 'announce', notify: true, color: 0x4b5563, hoist: false, mentionable: false, permissions: [] },
   {
     key: 'bots',
     name: 'HugoPredict Bot',
@@ -100,7 +103,7 @@ const PRIVILEGES = {
 };
 
 // Rollen, die der Bot selbst vergeben darf (alle anderen vergeben nur Menschen)
-const SELF_ASSIGNABLE_VIA_BOT = ['member', 'verified'];
+const SELF_ASSIGNABLE_VIA_BOT = ['member', 'verified', 'notifyMarkets', 'notifyNews'];
 
 // ---------------------------------------------------------------------------
 // Berechtigungs-Bausteine
@@ -247,6 +250,9 @@ const REQUIRED_BOT_PERMISSIONS = [
   P.CreatePublicThreads, P.CreatePrivateThreads,
 ];
 
+// Damit der Bot die (nicht frei erwähnbaren) Benachrichtigungs-Rollen pingen darf.
+const NOTIFY_BOT_PERMISSION = P.MentionEveryone;
+
 function allChannels() {
   return CATEGORIES.flatMap((c) => c.channels.map((ch) => ({ ...ch, category: c.key })));
 }
@@ -263,6 +269,7 @@ module.exports = {
   TICKET_TYPES,
   LOG_ROUTES,
   REQUIRED_BOT_PERMISSIONS,
+  NOTIFY_BOT_PERMISSION,
   BOT_TEXT,
   allChannels,
 };

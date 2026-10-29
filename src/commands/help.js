@@ -17,7 +17,7 @@ module.exports = {
       blocks.push({ heading: 'Moderation', icon: 'moderator', body: '`/mod verwarnen` · `/mod timeout` · `/mod timeout-aufheben`\n`/mod kicken` · `/mod verlauf`\n`/mod bannen` · `/mod entbannen` (Inhaber/Administrator)' });
     }
     if (can('setup')) {
-      blocks.push({ heading: 'Verwaltung', icon: 'admin', body: '`/setup-panels` Panels veröffentlichen\n`/ankündigung` Ankündigung veröffentlichen\n`/aufräumen` Archiv und alte Kategorien löschen' });
+      blocks.push({ heading: 'Verwaltung', icon: 'admin', body: '`/setup-panels` Panels veröffentlichen\n`/ankündigung` Ankündigung veröffentlichen oder planen\n`/geplant` Geplante Ankündigungen\n`/aufräumen` Archiv und alte Kategorien löschen' });
     }
     return replyPrivate(interaction, card({
       icon: 'logo',

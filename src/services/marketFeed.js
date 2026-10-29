@@ -44,7 +44,7 @@ function marketActions(market) {
 }
 
 /** Karte für einen Markt (#marktübersicht und /markets). */
-function marketCard(market, { currency }, { ephemeral = false } = {}) {
+function marketCard(market, { currency }, { ephemeral = false, pingRoleId = null } = {}) {
   const label = STATUS_LABELS[market.status] ?? market.status;
   const blocks = [];
   if (market.description) blocks.push({ text: quote(truncate(market.description, 600)) });
@@ -68,9 +68,10 @@ function marketCard(market, { currency }, { ephemeral = false } = {}) {
     ].filter(Boolean).join('\n'),
   });
   if (market.status === 'paused') blocks.push({ heading: 'Hinweis', icon: 'paused', body: 'Der Handel ist vorübergehend ausgesetzt.' });
-  return card({
+  const payload = card({
     eyebrow: `${emojis.icon(market.status)}Markt · ${label}`,
     title: truncate(market.title, 200),
+    intro: pingRoleId ? `-# Neuer Markt für <@&${pingRoleId}>` : null,
     accent: STATUS_COLORS[market.status] ?? theme.colors.neutral,
     logo: false,
     blocks,
@@ -78,6 +79,8 @@ function marketCard(market, { currency }, { ephemeral = false } = {}) {
     footer: `Aktualisiert ${discordTime(new Date(), 'f')}`,
     ephemeral,
   });
+  if (pingRoleId) payload.allowedMentions = { roles: [pingRoleId] };
+  return payload;
 }
 
 /** Änderungen unter einem Prozentpunkt bzw. einem HugoCoin lösen keine Bearbeitung aus. */
@@ -156,8 +159,11 @@ function createMarketFeed({ api, store, env, ctx, logger, statusService }) {
       initialized: Boolean(feed.initialized.overview), maxMarkets: env.marketFeedMaxMarkets,
     });
 
+    // Ping nur für wirklich neue, offene Märkte – nicht bei der Ersteinrichtung oder bei Bearbeitungen.
+    const pingRoleId = feed.initialized.overview ? ctx.roleId(guild.id, 'notifyMarkets') : null;
     for (const { type, market } of actions) {
-      const payload = marketCard(market, env);
+      const isNew = type === 'post' && market.status === 'open';
+      const payload = marketCard(market, env, { pingRoleId: isNew ? pingRoleId : null });
       try {
         const ref = feed.messages[market.id];
         // Bearbeiten, sonst (fehlende oder alte Embed-Nachricht) neu senden.

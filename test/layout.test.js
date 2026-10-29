@@ -33,7 +33,7 @@ function effective(spec, roles) {
 const can = (spec, roles, p) => (effective(spec, roles) & p) === p;
 
 test('Rollen: deutsche Namen, geforderte Reihenfolge, ohne Emojis', () => {
-  assert.deepEqual(L.ROLES.map((r) => r.name), ['Inhaber', 'Administrator', 'Entwickler', 'Marktverwaltung', 'Moderator', 'Support', 'Verifiziert', 'Mitglied', 'HugoPredict Bot']);
+  assert.deepEqual(L.ROLES.map((r) => r.name), ['Inhaber', 'Administrator', 'Entwickler', 'Marktverwaltung', 'Moderator', 'Support', 'Verifiziert', 'Mitglied', 'Neue Märkte', 'Ankündigungen', 'HugoPredict Bot']);
   for (const r of L.ROLES) assert.ok(r.description && r.icon, `${r.name}: Beschreibung und Icon`);
   for (const r of L.ROLES) assert.match(r.name, /^[A-Za-zÄÖÜäöüß ]+$/);
 });
@@ -108,7 +108,7 @@ test('Interne Channels: für Mitglieder unsichtbar, Zugriff nur für zuständige
 });
 
 test('Selbst vergebbare Rollen sind nicht privilegiert', () => {
-  assert.deepEqual([...L.SELF_ASSIGNABLE_VIA_BOT].sort(), ['member', 'verified']);
+  assert.deepEqual([...L.SELF_ASSIGNABLE_VIA_BOT].sort(), ['member', 'notifyMarkets', 'notifyNews', 'verified']);
   for (const k of L.SELF_ASSIGNABLE_VIA_BOT) assert.equal(L.ROLES.find((r) => r.key === k).permissions.length, 0);
 });
 

@@ -47,8 +47,11 @@ test('Panels sind gültige Karten (mit und ohne Website-URL)', () => {
   for (const e of [env, { ...env, websiteUrl: '' }]) {
     for (const def of panelDefinitions()) {
       const json = assertCard(def.build({ guild: { id: '1' }, env: e, roleIds: {}, channelIds: {} }), def.key);
-      assert.match(json, /"content":"# /, `${def.key}: große Überschrift`);
-      assert.match(json, /attachment:\/\/hugopredict\.png/, `${def.key}: Logo oben rechts`);
+      // Haupt-Panels mit großer Überschrift und Logo, Zusatzkarten kompakt
+      if (['docs', 'tickets'].includes(def.key)) {
+        assert.match(json, /"content":"# /, `${def.key}: große Überschrift`);
+        assert.match(json, /attachment:\/\/hugopredict\.png/, `${def.key}: Logo oben rechts`);
+      }
     }
   }
 });
@@ -92,6 +95,6 @@ test('Karten für Märkte, Ranglisten, Vorschläge, Ankündigungen, Statistik un
 
 test('Slash-Commands sind gültig und vollständig', () => {
   const names = [...loadCommands().keys()].sort();
-  assert.deepEqual(names, ['ankündigung', 'aufräumen', 'balance', 'daily', 'help', 'history', 'leaderboard', 'markets', 'mod', 'ping', 'portfolio', 'setup-panels', 'verify', 'vorschlag']);
+  assert.deepEqual(names, ['ankündigung', 'aufräumen', 'balance', 'daily', 'geplant', 'help', 'history', 'leaderboard', 'markets', 'mod', 'ping', 'portfolio', 'setup-panels', 'verify', 'vorschlag']);
   for (const c of loadCommands().values()) assert.equal(c.data.toJSON().contexts[0], 0);
 });
