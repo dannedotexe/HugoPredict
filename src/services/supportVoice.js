@@ -46,10 +46,22 @@ function createSupportVoiceService({ store, ctx, logger, now = Date.now, renderD
     return queue;
   }
 
+  const SUPPORT_VOICE_KEYS = ['waitingRoom', 'supportRoom1', 'supportRoom2'];
+  const supportVoiceIds = (guild) => SUPPORT_VOICE_KEYS.map((k) => store.guild(guild.id).channels[k]).filter(Boolean);
+
+  /** Teammitglieder im Warteraum und in den Support-Räumen (ohne Doppelte). */
+  function supportTeam(guild) {
+    const seen = new Map();
+    for (const id of supportVoiceIds(guild)) {
+      for (const m of guild.channels.cache.get(id)?.members?.values() ?? []) if (!m.user?.bot && isStaff(m)) seen.set(m.id, m);
+    }
+    return [...seen.values()];
+  }
+
   function buildQueueCard(guild) {
     const g = store.guild(guild.id);
     const queue = [...syncQueue(guild).entries()];
-    const team = [...(waitingChannel(guild)?.members.values() ?? [])].filter((m) => !m.user?.bot && isStaff(m));
+    const team = supportTeam(guild);
     const lines = queue.map(([id, since], i) => `**${i + 1}.** <@${id}> · wartet seit ${discordTime(new Date(since), 'R')}`);
     return card({
       icon: 'support',
@@ -63,7 +75,7 @@ function createSupportVoiceService({ store, ctx, logger, now = Date.now, renderD
           heading: `${queue.length} von ${WAITING_ROOM_LIMIT} Plätzen belegt`,
           body: lines.length ? lines.join('\n') : 'Gerade wartet niemand.',
         },
-        { heading: 'Team im Warteraum', body: team.length ? team.map((m) => `<@${m.id}>`).join(', ') : 'Gerade niemand – wir sind gleich für dich da.' },
+        { heading: 'Team im Support', body: team.length ? team.map((m) => `<@${m.id}>`).join(', ') : 'Gerade niemand – wir sind gleich für dich da.' },
       ],
       footer: null,
     });
@@ -122,14 +134,15 @@ function createSupportVoiceService({ store, ctx, logger, now = Date.now, renderD
     if (!guild || !member || member.user?.bot) return;
     const waitingId = store.guild(guild.id).channels.waitingRoom;
     if (!waitingId || oldState.channelId === newState.channelId) return;
+    // Das Team steht nicht in der Schlange, wird aber unter „Team im Support“ angezeigt.
+    if (isStaff(member)) {
+      const ids = supportVoiceIds(guild);
+      if (ids.includes(oldState.channelId) || ids.includes(newState.channelId)) scheduleRender(guild);
+      return;
+    }
     const joined = newState.channelId === waitingId;
     const left = oldState.channelId === waitingId;
     if (!joined && !left) return;
-    // Das Team steht nicht in der Schlange, wird aber auf der Karte angezeigt.
-    if (isStaff(member)) {
-      scheduleRender(guild);
-      return;
-    }
 
     const queue = queueOf(guild.id);
     if (left) queue.delete(member.id);

@@ -168,7 +168,12 @@ test('Warteschlange im Warteraum-Chat: Reihenfolge nach Ankunft, Team zählt nic
   assert.ok(text.indexOf('<@anna>') < text.indexOf('<@ben>'), 'Anna zuerst');
   assert.ok(!text.includes('<@staff> · wartet'), 'Team steht nicht in der Schlange');
   assert.match(text, /2 von 5 Plätzen belegt/);
-  assert.match(text, /Team im Warteraum.*<@staff>/, 'Team wird angezeigt');
+  assert.match(text, /Team im Support.*<@staff>/, 'Team wird angezeigt');
+  // Team in einem Support-Raum zählt ebenfalls
+  members.delete('staff');
+  store.guild('G').channels.supportRoom1 = 'S1';
+  guild.channels.cache.set('S1', { members: new Collection([['staff', { id: 'staff', user: { bot: false } }]]) });
+  assert.match(JSON.stringify(svc.buildQueueCard(guild)), /Team im Support.*<@staff>/);
 
   members.delete('anna');
   await svc.onVoiceStateUpdate({ channelId: 'W' }, { guild, member: { id: 'anna', user: {} }, channelId: null });
