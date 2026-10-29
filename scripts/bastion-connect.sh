@@ -2,7 +2,9 @@
 # Für Oracle Cloud Shell: findet die aktive Bastion-Sitzung (Managed SSH),
 # verbindet sich mit dem Server und startet dort scripts/install-server.sh.
 # Aufruf in Cloud Shell:  bash <(curl -sL <raw-URL dieses Skripts>)
+# Nur prüfen (verändert nichts):  bash <(curl -sL <raw-URL dieses Skripts>) pruefen
 set -euo pipefail
+MODE="${1:-install}"
 
 KEY="${KEY:-$HOME/.ssh/bastion}"
 BRANCH="${BRANCH:-claude/hugosmp-market-discord-kyruph}"
@@ -34,9 +36,16 @@ PORT=$(oci bastion session get --session-id "$SESSION" \
   --query 'data."target-resource-details"."target-resource-port"' --raw-output)
 [ "$PORT" = "null" ] && PORT=22
 
+if [ "$MODE" = "pruefen" ]; then
+  # Nur lesend: das Prüfskript direkt von GitHub ausführen, ohne etwas zu installieren.
+  REMOTE="curl -sL https://raw.githubusercontent.com/dannedotexe/HugoPredict/$BRANCH/scripts/diagnose-server.sh | bash"
+else
+  REMOTE="if [ -d ~/HugoPredict/.git ]; then git -C ~/HugoPredict pull --ff-only origin $BRANCH; else git clone -b $BRANCH $REPO ~/HugoPredict; fi && bash ~/HugoPredict/scripts/install-server.sh"
+fi
+
 echo "==> Verbinde mit $USERNAME@$IP über den Bastion"
 OPTS=(-o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30)
 exec ssh -i "$KEY" "${OPTS[@]}" \
   -o ProxyCommand="ssh -i $KEY -o StrictHostKeyChecking=accept-new -W %h:%p -p 22 $SESSION@host.bastion.$REGION.oci.oraclecloud.com" \
   -p "$PORT" -t "$USERNAME@$IP" \
-  "if [ -d ~/HugoPredict/.git ]; then git -C ~/HugoPredict pull --ff-only origin $BRANCH; else git clone -b $BRANCH $REPO ~/HugoPredict; fi && bash ~/HugoPredict/scripts/install-server.sh"
+  "$REMOTE"

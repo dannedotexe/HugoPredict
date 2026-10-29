@@ -95,5 +95,9 @@ fi
 
 echo "==> Automatische Updates einrichten (alle 15 Sekunden)"
 CRON="* * * * * PATH=$PATH bash $DIR/scripts/auto-update.sh >> $DIR/data/update.log 2>&1"
-( crontab -l 2>/dev/null | grep -v 'scripts/auto-update.sh' || true; echo "$CRON" ) | crontab -
-echo "Auto-Update aktiv. Protokoll: $DIR/data/update.log"
+# Sicherung der bestehenden crontab anlegen.
+BACKUP="$HOME/crontab-backup-$(date +%Y%m%d-%H%M%S).txt"
+crontab -l > "$BACKUP" 2>/dev/null || true
+# Nur die EIGENE Zeile ersetzen (exakter Pfad dieses Bots) – Einträge anderer Bots bleiben unberührt.
+( crontab -l 2>/dev/null | grep -vF "$DIR/scripts/auto-update.sh" || true; echo "$CRON" ) | crontab -
+echo "Auto-Update aktiv. Protokoll: $DIR/data/update.log (Sicherung der crontab: $BACKUP)"
