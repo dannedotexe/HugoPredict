@@ -52,19 +52,19 @@ test('Daily-Key ist pro Nutzer und Tag stabil', () => {
   assert.notEqual(dailyKey('1', d), dailyKey('1', new Date('2026-10-30T00:00:01Z')));
 });
 
-test('Marktübersicht: Hash ignoriert Kleinstschwankungen', () => {
+test('Prognosen: Hash ignoriert Kleinstschwankungen', () => {
   const m = { title: 'X', yesPrice: 0.5, volume: 100, status: 'open' };
   assert.equal(feed.marketHash(m), feed.marketHash({ ...m, yesPrice: 0.502, volume: 100.3 }));
   assert.notEqual(feed.marketHash(m), feed.marketHash({ ...m, yesPrice: 0.52 }));
   assert.notEqual(feed.marketHash(m), feed.marketHash({ ...m, status: 'paused' }));
 });
 
-test('Marktübersicht: eine Nachricht pro Markt, Bearbeitung statt Neupost', () => {
+test('Prognosen: eine Nachricht pro Markt, Bearbeitung statt Neupost', () => {
   const a = { id: 'a', title: 'A', status: 'open', createdAt: '2026-01-02' };
   const b = { id: 'b', title: 'B', status: 'paused', createdAt: '2026-01-01' };
   const base = { resolved: [], seenResolved: new Set(), initialized: false, maxMarkets: 10 };
 
-  // Ersteinrichtung: aktive Märkte werden (älteste zuerst) gepostet
+  // Ersteinrichtung: aktive Prognosen werden (älteste zuerst) gepostet
   let actions = feed.planFeed({ ...base, active: [a, b], messages: {} });
   assert.deepEqual(actions.map((x) => [x.type, x.market.id]), [['post', 'b'], ['post', 'a']]);
 
@@ -79,7 +79,7 @@ test('Marktübersicht: eine Nachricht pro Markt, Bearbeitung statt Neupost', () 
   assert.deepEqual(actions.map((x) => [x.type, x.market.id]), [['edit', 'a']]);
 });
 
-test('Marktübersicht: alte entschiedene Märkte werden bei der Ersteinrichtung nicht gepostet', () => {
+test('Prognosen: alte entschiedene Prognosen werden bei der Ersteinrichtung nicht gepostet', () => {
   const r = { id: 'r', title: 'R', status: 'resolved' };
   const base = { active: [], messages: {}, maxMarkets: 10 };
   assert.equal(feed.planFeed({ ...base, resolved: [r], seenResolved: new Set(), initialized: false }).length, 0);
@@ -87,7 +87,7 @@ test('Marktübersicht: alte entschiedene Märkte werden bei der Ersteinrichtung 
   assert.equal(feed.planFeed({ ...base, resolved: [r], seenResolved: new Set(), initialized: true }).length, 1);
 });
 
-test('Marktübersicht: Obergrenze für aktive Märkte', () => {
+test('Prognosen: Obergrenze für aktive Prognosen', () => {
   const active = Array.from({ length: 5 }, (_, i) => ({ id: String(i), title: String(i), status: 'open' }));
   const actions = feed.planFeed({ active, resolved: [], messages: { 0: { messageId: 'x', hash: feed.marketHash(active[0]) } }, seenResolved: new Set(), initialized: true, maxMarkets: 3 });
   assert.equal(actions.filter((x) => x.type === 'post').length, 2);

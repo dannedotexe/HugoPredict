@@ -46,13 +46,13 @@ function panelDefinitions() {
         logo: false,
         blocks: [{
           body: [
-            `${emojis.icon('open')}**Neue Märkte**\nPing, sobald ein neuer Markt eröffnet wird.`,
+            `${emojis.icon('open')}**Neue Prognosen**\nPing, sobald eine neue Prognose eröffnet wird.`,
             `${emojis.icon('announce')}**Ankündigungen**\nPing bei wichtigen Mitteilungen des Teams.`,
           ].join('\n'),
         }],
         footer: null,
         actions: [new ActionRowBuilder().addComponents(
-          withEmoji(new ButtonBuilder().setCustomId('hm:notify:notifyMarkets').setStyle(ButtonStyle.Secondary).setLabel('Neue Märkte'), 'open'),
+          withEmoji(new ButtonBuilder().setCustomId('hm:notify:notifyMarkets').setStyle(ButtonStyle.Secondary).setLabel('Neue Prognosen'), 'open'),
           withEmoji(new ButtonBuilder().setCustomId('hm:notify:notifyNews').setStyle(ButtonStyle.Secondary).setLabel('Ankündigungen'), 'announce'),
         )],
       }),
@@ -62,8 +62,8 @@ function panelDefinitions() {
       channelKey: 'marketOverview',
       build: () => card({
         icon: 'platform',
-        title: 'Markt vorschlagen',
-        intro: 'Du hast eine Idee für einen neuen Markt? Reiche sie hier ein. Die Marktverwaltung prüft jeden Vorschlag und meldet sich per Direktnachricht.',
+        title: 'Prognose vorschlagen',
+        intro: 'Du hast eine Idee für eine neue Prognose? Reiche sie hier ein. Die Prognoseverwaltung prüft jeden Vorschlag und meldet sich per Direktnachricht.',
         logo: false,
         blocks: [{
           heading: 'Ein guter Vorschlag hat',
@@ -71,7 +71,7 @@ function panelDefinitions() {
         }],
         footer: null,
         actions: [new ActionRowBuilder().addComponents(
-          withEmoji(new ButtonBuilder().setCustomId('hm:suggest:open').setStyle(ButtonStyle.Success).setLabel('Markt vorschlagen'), 'check'),
+          withEmoji(new ButtonBuilder().setCustomId('hm:suggest:open').setStyle(ButtonStyle.Success).setLabel('Prognose vorschlagen'), 'check'),
         )],
       }),
     },

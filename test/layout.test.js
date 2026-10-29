@@ -33,7 +33,7 @@ function effective(spec, roles) {
 const can = (spec, roles, p) => (effective(spec, roles) & p) === p;
 
 test('Rollen: deutsche Namen, geforderte Reihenfolge, ohne Emojis', () => {
-  assert.deepEqual(L.ROLES.map((r) => r.name), ['Inhaber', 'Administrator', 'Entwickler', 'Marktverwaltung', 'Moderator', 'Support', 'Verifiziert', 'Mitglied', 'Neue Märkte', 'Ankündigungen', 'HugoPredict Bot']);
+  assert.deepEqual(L.ROLES.map((r) => r.name), ['Inhaber', 'Administrator', 'Entwickler', 'Prognoseverwaltung', 'Moderator', 'Support', 'Verifiziert', 'Mitglied', 'Neue Prognosen', 'Ankündigungen', 'HugoPredict Bot']);
   for (const r of L.ROLES) assert.ok(r.description && r.icon, `${r.name}: Beschreibung und Icon`);
   for (const r of L.ROLES) assert.match(r.name, /^[A-Za-zÄÖÜäöüß ]+$/);
 });
@@ -41,7 +41,7 @@ test('Rollen: deutsche Namen, geforderte Reihenfolge, ohne Emojis', () => {
 test('Struktur entspricht exakt der Vorgabe', () => {
   assert.deepEqual(L.CATEGORIES.map((c) => [c.name, c.channels.map((ch) => ch.name)]), [
     ['INFORMATIONEN', ['👋┃willkommen', '📢┃ankündigungen', '📈┃prognosen', '📜┃regeln', '🔔┃pings']],
-    ['COMMUNITY', ['💬┃diskussionen', '📊┃marktanalysen', '📸┃medien']],
+    ['COMMUNITY', ['💬┃diskussionen', '📊┃analysen', '📸┃medien']],
     ['KUNDENSERVICE', ['🎫┃support']],
     ['INTERN · PRIVAT', ['🔧┃betrieb', '🧾┃prüfprotokoll', '📡┃systemmeldungen', '🔨┃moderation', '👥┃team']],
   ]);
@@ -77,7 +77,7 @@ test('Ankündigungen: lesen alle, schreiben nur Inhaber und Administrator', () =
   assert.ok(can(ch, ['admin'], P.SendMessages));
 });
 
-test('Marktübersicht und Dokumentation sind schreibgeschützt; Marktverwaltung darf moderieren', () => {
+test('Prognosen und Dokumentation sind schreibgeschützt; Prognoseverwaltung darf moderieren', () => {
   for (const key of ['marketOverview', 'docs', 'support']) {
     assert.ok(can(channel(key), [], P.ViewChannel), key);
     assert.ok(!can(channel(key), ['member', 'verified'], P.SendMessages), key);

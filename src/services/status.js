@@ -41,7 +41,7 @@ function createStatusService({ api, store, env, logger }) {
       blocks: [
         { heading: 'Discord-Bot', body: line(true, `Betriebsbereit · gestartet ${discordTime(startedAt, 'R')}`) },
         { heading: 'Website-API', body: api.configured ? line(state.apiOk, state.apiOk ? 'Betriebsbereit' : `Gestört${state.apiError ? ` · ${state.apiError}` : ''}`) : line(null, 'Nicht verbunden') },
-        { heading: 'Marktübersicht', body: state.lastSyncAt ? line(state.lastSyncOk, `${state.lastSyncOk ? 'Synchron' : 'Gestört'} · ${discordTime(state.lastSyncAt, 'R')}`) : line(null, 'Noch keine Synchronisierung') },
+        { heading: 'Prognosen', body: state.lastSyncAt ? line(state.lastSyncOk, `${state.lastSyncOk ? 'Synchron' : 'Gestört'} · ${discordTime(state.lastSyncAt, 'R')}`) : line(null, 'Noch keine Synchronisierung') },
       ],
       footer: `Zuletzt geprüft ${discordTime(new Date(), 't')}`,
     });

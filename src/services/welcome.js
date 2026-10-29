@@ -24,7 +24,7 @@ function welcomePayload({ guildId, guildName, ids = {}, websiteUrl, userId, avat
     intro: `${userId ? `<@${userId}>, schön` : 'Schön'}, dass du bei **${guildName}** dabei bist.${memberCount ? `\n-# Mitglied Nr. ${nf.format(memberCount)}` : ''}`,
     thumbnailUrl: avatarUrl,
     blocks: [
-      { heading: '1. Regeln lesen', icon: 'rules', body: `In ${ref('docs', '#regeln')} findest du Plattform, Marktregeln und Verhaltensregeln.\nMit „Regeln akzeptieren“ erhältst du Zugang zur Community.` },
+      { heading: '1. Regeln lesen', icon: 'rules', body: `In ${ref('docs', '#regeln')} findest du Plattform, Prognoseregeln und Verhaltensregeln.\nMit „Regeln akzeptieren“ erhältst du Zugang zur Community.` },
       { heading: '2. Konto verknüpfen', icon: 'link', body: 'Mit `/verify` oder „Konto verknüpfen“ rufst du Guthaben und Portfolio privat ab.' },
       { heading: '3. Bei Fragen', icon: 'support', body: `Der Support hilft dir in ${ref('support', '#support')}.` },
     ],

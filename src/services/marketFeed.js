@@ -8,8 +8,8 @@ const theme = require('../config/theme');
 const { emojis, withEmoji } = require('../lib/emojis');
 
 /*
- * #prognosen: Jeder Markt erhält genau EINE Nachricht. Sie entsteht, wenn
- * der Markt erstmals auftaucht, und wird bei Statuswechseln (pausiert,
+ * #prognosen: Jede Prognose erhält genau EINE Nachricht. Sie entsteht, wenn
+ * die Prognose erstmals auftaucht, und wird bei Statuswechseln (pausiert,
  * Handel beendet, entschieden) oder relevanten Änderungen bearbeitet –
  * es entstehen keine Folgenachrichten und keine Benachrichtigungsflut.
  */
@@ -40,10 +40,10 @@ function priceBar(yes, segments = 12) {
 
 function marketActions(market) {
   if (!market.url) return [];
-  return [new ActionRowBuilder().addComponents(withEmoji(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Zum Markt').setURL(market.url), 'external'))];
+  return [new ActionRowBuilder().addComponents(withEmoji(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Zur Prognose').setURL(market.url), 'external'))];
 }
 
-/** Karte für einen Markt (#prognosen und /markets). */
+/** Karte für eine Prognose (#prognosen und /prognosen). */
 function marketCard(market, { currency }, { ephemeral = false, pingRoleId = null } = {}) {
   const label = STATUS_LABELS[market.status] ?? market.status;
   const blocks = [];
@@ -69,9 +69,9 @@ function marketCard(market, { currency }, { ephemeral = false, pingRoleId = null
   });
   if (market.status === 'paused') blocks.push({ heading: 'Hinweis', icon: 'paused', body: 'Der Handel ist vorübergehend ausgesetzt.' });
   const payload = card({
-    eyebrow: `${emojis.icon(market.status)}Markt · ${label}`,
+    eyebrow: `${emojis.icon(market.status)}Prognose · ${label}`,
     title: truncate(market.title, 200),
-    intro: pingRoleId ? `-# Neuer Markt für <@&${pingRoleId}>` : null,
+    intro: pingRoleId ? `-# Neue Prognose für <@&${pingRoleId}>` : null,
     accent: STATUS_COLORS[market.status] ?? theme.colors.neutral,
     logo: false,
     blocks,
@@ -94,9 +94,9 @@ function marketHash(m) {
 
 /**
  * Bestimmt die nötigen Aktionen ohne Discord-Zugriff (testbar).
- * - Aktive Märkte (offen/pausiert/beendet) erhalten eine Nachricht, solange das Limit nicht erreicht ist.
- * - Entschiedene Märkte: bestehende Nachricht wird aktualisiert; ohne Nachricht nur
- *   gepostet, wenn der Markt nach der Ersteinrichtung entschieden wurde.
+ * - Aktive Prognosen (offen/pausiert/beendet) erhalten eine Nachricht, solange das Limit nicht erreicht ist.
+ * - Entschiedene Prognosen: bestehende Nachricht wird aktualisiert; ohne Nachricht nur
+ *   gepostet, wenn die Prognose nach der Ersteinrichtung entschieden wurde.
  */
 function planFeed({ active, resolved, messages, seenResolved, initialized, maxMarkets }) {
   const actions = [];
@@ -132,8 +132,8 @@ function createMarketFeed({ api, store, env, ctx, logger, statusService }) {
     const key = `${step}:${err.code ?? err.message}`;
     if (Date.now() - (errorLog.get(key) ?? 0) < 10 * 60_000) return;
     errorLog.set(key, Date.now());
-    logger.warn(`Marktübersicht (${step}):`, err.message);
-    ctx.audit(guild, 'system', { title: 'Störung der Marktübersicht', description: `**${step}:** ${err.message}`, color: theme.colors.warning });
+    logger.warn(`Prognosen (${step}):`, err.message);
+    ctx.audit(guild, 'system', { title: 'Störung bei den Prognosen', description: `**${step}:** ${err.message}`, color: theme.colors.warning });
   }
 
   async function syncGuild(guild) {
@@ -150,7 +150,7 @@ function createMarketFeed({ api, store, env, ctx, logger, statusService }) {
       statusService.recordSync(true);
     } catch (err) {
       statusService.recordSync(false, err);
-      return reportError(guild, 'Märkte laden', err);
+      return reportError(guild, 'Prognosen laden', err);
     }
 
     const seenResolved = new Set(feed.seen.resolved ?? []);
@@ -159,7 +159,7 @@ function createMarketFeed({ api, store, env, ctx, logger, statusService }) {
       initialized: Boolean(feed.initialized.overview), maxMarkets: env.marketFeedMaxMarkets,
     });
 
-    // Ping nur für wirklich neue, offene Märkte – nicht bei der Ersteinrichtung oder bei Bearbeitungen.
+    // Ping nur für wirklich neue, offene Prognosen – nicht bei der Ersteinrichtung oder bei Bearbeitungen.
     const pingRoleId = feed.initialized.overview ? ctx.roleId(guild.id, 'notifyMarkets') : null;
     for (const { type, market } of actions) {
       const isNew = type === 'post' && market.status === 'open';
@@ -170,7 +170,7 @@ function createMarketFeed({ api, store, env, ctx, logger, statusService }) {
         const msg = await upsert(channel, type === 'edit' && ref ? { channelId: channel.id, messageId: ref.messageId } : null, payload);
         feed.messages[market.id] = { messageId: msg.id, hash: marketHash(market) };
       } catch (err) {
-        reportError(guild, `Markt ${market.id}`, err);
+        reportError(guild, `Prognose ${market.id}`, err);
       }
     }
 

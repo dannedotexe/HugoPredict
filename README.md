@@ -2,11 +2,11 @@
 
 Discord-Bot für **HugoPredict**, den Prognosemarkt für Ereignisse rund um den Minecraft-Server HugoSMP.
 Er richtet eine schlanke, professionelle Serverstruktur ein, veröffentlicht Dokumentation und
-Kundenservice-Panel, pflegt die Marktübersicht und bindet die Website über eine klar definierte
+Kundenservice-Panel, pflegt die Prognosen und bindet die Website über eine klar definierte
 API an.
 
 > **Wichtig:** Der Bot führt **keine eigene Wirtschaft**. Guthaben, Positionen, Transaktionen,
-> Daily-Boni, Märkte und Ranglisten kommen ausschließlich von der Website
+> Daily-Boni, Prognosen und Ranglisten kommen ausschließlich von der Website
 > (Schnittstelle: [`docs/API.md`](docs/API.md)). Ohne konfigurierte API funktionieren
 > Einrichtung, Dokumentation, Kundenservice und Vorschläge trotzdem. Kontofunktionen melden
 > dann „nicht verbunden“, statt Werte zu erfinden.
@@ -16,7 +16,7 @@ API an.
 | Kategorie | Channels | Sichtbar für |
 |---|---|---|
 | **INFORMATIONEN** | `👋┃willkommen`, `📢┃ankündigungen`, `📈┃prognosen`, `📜┃regeln`, `🔔┃pings` | alle (nur lesen) |
-| **COMMUNITY** | `💬┃diskussionen`, `📊┃marktanalysen`, `📸┃medien` | ab *Mitglied* |
+| **COMMUNITY** | `💬┃diskussionen`, `📊┃analysen`, `📸┃medien` | ab *Mitglied* |
 | **KUNDENSERVICE** | `🎫┃support` (+ private Anfrage-Channels) | alle (nur lesen); Anfragen nur für Ersteller und Team |
 | **INTERN · PRIVAT** | `🔧┃betrieb`, `🧾┃prüfprotokoll`, `📡┃systemmeldungen`, `🔨┃moderation`, `👥┃team` | nur zuständige Teamrollen |
 
@@ -24,7 +24,7 @@ API an.
 
 | Channel | Inhalt | Zugriff |
 |---|---|---|
-| `betrieb` | Marktvorschläge prüfen, annehmen, ablehnen | Marktverwaltung, Inhaber, Administrator |
+| `betrieb` | Prognosevorschläge prüfen, annehmen, ablehnen | Prognoseverwaltung, Inhaber, Administrator |
 | `prüfprotokoll` | Einrichtung, Ankündigungen, Daily-Gutschriften, Kontoverknüpfungen, verweigerte Zugriffe | Inhaber, Administrator (nur lesen) |
 | `systemmeldungen` | Systemstatus, API-Störungen, Fehler | Entwickler, Inhaber, Administrator (nur lesen) |
 | `moderation` | Moderation, Ticket-Protokolle mit Transkript | Moderator, Support, Inhaber, Administrator |
@@ -37,7 +37,7 @@ API an.
 | Inhaber | Vollzugriff auf Server, Bot und Plattform |
 | Administrator | Serververwaltung, Benutzer und Moderation |
 | Entwickler | Technik, Bot, Website und Systemwartung |
-| Marktverwaltung | Märkte prüfen, verwalten und Ergebnisse bearbeiten |
+| Prognoseverwaltung | Prognosen prüfen, verwalten und Ergebnisse bearbeiten |
 | Moderator | Regeln durchsetzen und Diskussionen moderieren |
 | Support | Tickets bearbeiten und Nutzern helfen |
 | Verifiziert | Minecraft-Konto erfolgreich verknüpft |
@@ -46,7 +46,7 @@ API an.
 
 - **Administrator** ist die **einzige** Rolle mit dem Administrator-Recht. **Inhaber** hat
   umfassende Verwaltungsrechte, aber bewusst ohne Administrator-Flag.
-- **Marktverwaltung** moderiert `prognosen` und entscheidet über Vorschläge, hat aber keine
+- **Prognoseverwaltung** moderiert `prognosen` und entscheidet über Vorschläge, hat aber keine
   Guthaben-Funktionen und keinen Zugriff auf das Prüfprotokoll.
 - **Support** bearbeitet zugewiesene Anfragen. Kontostände lassen sich über den Bot
   grundsätzlich nicht ändern.
@@ -62,7 +62,7 @@ die Texte von `regeln` in [`src/config/docs.js`](src/config/docs.js).
 Statt Standard-Emojis nutzt der Bot ein eigenes, einheitliches Icon-Set: Linien-Icons in Emerald auf
 dunkler Kachel (`assets/emojis/`, erzeugt mit `scripts/build-emojis.js`). Beim Start lädt der Bot sie
 als **Application Emojis** hoch. Sie gehören dem Bot und belegen keine Emoji-Plätze des Servers.
-Verwendet werden sie in Panels, Buttons, Auswahlmenüs, der Marktübersicht und im Systemstatus.
+Verwendet werden sie in Panels, Buttons, Auswahlmenüs, der Prognosen und im Systemstatus.
 Channel-Namen bleiben ohne Emojis, weil Discord dort keine Custom-Emojis zulässt. Hat der Server
 Boost-Stufe 2, setzt die Einrichtung die Icons zusätzlich als **Rollen-Icons**. Bereits gesetzte
 Icons werden nicht überschrieben. Fehlt ein Emoji, wird es weggelassen und nie durch ein
@@ -74,17 +74,17 @@ Standard-Emoji ersetzt.
 |---|---|
 | ~~`/setup-server`~~ | **Entfernt**, weil die Struktur eingerichtet ist. Die Einrichtungslogik (`src/setup/setupServer.js`) bleibt erhalten. Den Befehl stellst du bei Bedarf aus der Git-Historie wieder her (`git checkout 599f0f9 -- src/commands/setup-server.js`) |
 | `/setup-panels` | Regeln & Infos (mit „Regeln akzeptieren“ und „Konto verknüpfen“), Kundenservice-Panel mit Auswahlmenü, Systemstatus und Statistik in `systemmeldungen`. Ein erneuter Aufruf **bearbeitet** die Panels, statt neue zu posten. Außerdem legt der Befehl **fehlende** Channels des Layouts an (z. B. `willkommen`) und benennt Rollen mit früherem Namen um. Bestehende Channels und Rollenrechte bleiben dabei unverändert |
-| `prognosen` | Jeder Markt erhält **genau eine Nachricht**. Sie entsteht beim ersten Erscheinen und wird bei Statuswechseln (offen, pausiert, Handel beendet, entschieden) bearbeitet. Kleinstschwankungen lösen keine Bearbeitung aus, Folgenachrichten gibt es nicht |
+| `prognosen` | Jede Prognose erhält **genau eine Nachricht**. Sie entsteht beim ersten Erscheinen und wird bei Statuswechseln (offen, pausiert, Handel beendet, entschieden) bearbeitet. Kleinstschwankungen lösen keine Bearbeitung aus, Folgenachrichten gibt es nicht |
 | Konto (privat) | `/verify`, `/balance`, `/portfolio`, `/history`, `/daily`, `/leaderboard`. Alle Antworten sind nur für die anfragende Person sichtbar |
 | Kundenservice | Fünf Anliegen. Jede Anfrage wird ein privater Channel nur für Ersteller und zuständiges Team. Es gibt „Übernehmen“ und „Anfrage schließen“ (mit Bestätigung). Das Abschlussprotokoll mit `.txt`-Transkript landet in `moderation` |
-| Marktvorschläge | `/vorschlag` öffnet ein Formular. Der Vorschlag wird in `betrieb` geprüft, angenommen oder (mit Begründung) abgelehnt, und die einreichende Person erhält eine Direktnachricht. Eine Annahme legt den Markt nur bei aktivierter API an (`MARKET_CREATION_ENABLED`) |
+| Prognosevorschläge | `/vorschlag` öffnet ein Formular. Der Vorschlag wird in `betrieb` geprüft, angenommen oder (mit Begründung) abgelehnt, und die einreichende Person erhält eine Direktnachricht. Eine Annahme legt die Prognose nur bei aktivierter API an (`MARKET_CREATION_ENABLED`) |
 | Moderation | `/mod verwarnen`, `timeout`, `timeout-aufheben`, `kicken`, `bannen`, `entbannen`, `verlauf`. Pflichtbegründung, Hierarchieprüfung (nie gegen gleich- oder höhergestellte Rollen, Eigentümer oder Bot), nummerierte Fälle, Benachrichtigung per Direktnachricht, Protokoll in `moderation` (Kick/Bann zusätzlich in `prüfprotokoll`). Moderator darf verwarnen, Timeout vergeben und kicken; bannen und entbannen dürfen nur Inhaber und Administrator |
 | Begrüßung | In `willkommen` begrüßt der Bot jedes neue Mitglied mit einer Karte (Profilbild, Erwähnung, Mitgliedsnummer, erste drei Schritte). Ohne den Channel geht die Begrüßung als Direktnachricht raus. Benötigt den *Server Members Intent* |
 | Statistik | Ein Embed in `systemmeldungen` (stündlich aktualisiert): Mitglieder, online, neu in 7 Tagen, Rollen Mitglied/Verifiziert, offene Anfragen, Vorschläge in Prüfung, Moderationsfälle. Rollen- und Beitrittszahlen benötigen den *Server Members Intent* |
-| Benachrichtigungen | In `pings` melden sich Mitglieder per Button für die Rollen **Neue Märkte** und **Ankündigungen** an und wieder ab. Der Bot pingt diese Rollen bei neuen Märkten bzw. Ankündigungen. Dafür braucht die Bot-Rolle das Recht *@everyone, @here und alle Rollen erwähnen*. Mitglieder selbst können die Rollen nicht pingen |
+| Benachrichtigungen | In `pings` melden sich Mitglieder per Button für die Rollen **Neue Prognosen** und **Ankündigungen** an und wieder ab. Der Bot pingt diese Rollen bei neuen Prognosen bzw. Ankündigungen. Dafür braucht die Bot-Rolle das Recht *@everyone, @here und alle Rollen erwähnen*. Mitglieder selbst können die Rollen nicht pingen |
 | Ankündigungen | `/ankündigung` veröffentlicht eine Ankündigungskarte in `ankündigungen` und pingt die Rolle **Ankündigungen**; `benachrichtigen:false` verzichtet auf den Ping |
-| Markt vorschlagen | Karte mit Button ganz oben in `prognosen` öffnet das Vorschlagsformular (wie `/vorschlag`) |
-| Sicherheit | Rechteprüfung bei jedem privilegierten Command, Button und Formular. Dazu kommen Rate-Limits, Sperren gegen Doppelklicks und Idempotency-Keys für Daily und Marktanlage |
+| Prognose vorschlagen | Karte mit Button ganz oben in `prognosen` öffnet das Vorschlagsformular (wie `/vorschlag`) |
+| Sicherheit | Rechteprüfung bei jedem privilegierten Command, Button und Formular. Dazu kommen Rate-Limits, Sperren gegen Doppelklicks und Idempotency-Keys für Daily und Prognose anlegen |
 
 ## Migration von der früheren Struktur
 
@@ -97,7 +97,7 @@ gespeicherte IDs oder die alten Namen. Die Vorschau listet alle Änderungen auf,
 - **Umbenannt und verschoben** (Nachrichtenverlauf bleibt erhalten, neue Rechte werden gesetzt):
   `📢・ankündigungen` → `ankündigungen`, `📈・live-markets` → `prognosen`,
   `👋・willkommen` → `regeln`, `💬・allgemeiner-chat` → `diskussionen`,
-  `🧠・analysen` → `marktanalysen`, `🎫・ticket-erstellen` → `support`,
+  `🧠・analysen` → `analysen`, `🎫・ticket-erstellen` → `support`,
   `⚖️・markt-entscheidungen` → `betrieb`, `📝・moderations-logs` → `prüfprotokoll`,
   `🛠️・bot-logs` → `systemmeldungen`, `🎫・ticket-logs` → `moderation`, `💬・team-chat` → `team`.
   Kategorien und Rollen werden ebenso umbenannt (z. B. `👑 Owner` → `Inhaber`).
@@ -184,7 +184,7 @@ npm start        # startet den Bot
 | `BRAND_NAME` | nein | `HugoPredict` | Name in Embeds |
 | `CURRENCY_NAME` | nein | `HugoCoins` | Währungsname (der frühere Wert `HC` wird als HugoCoins angezeigt) |
 | `MARKET_FEED_INTERVAL_SECONDS` | nein | `60` | Abfrageintervall für `prognosen` |
-| `MARKET_FEED_MAX_MARKETS` | nein | `25` | Höchstzahl aktiver Märkte mit eigener Nachricht |
+| `MARKET_FEED_MAX_MARKETS` | nein | `25` | Höchstzahl aktiver Prognosen mit eigener Nachricht |
 | `TICKET_CLOSE_CONFIRMATION` | nein | `true` | Bestätigung vor dem Schließen einer Anfrage |
 | `MAX_OPEN_TICKETS_PER_USER` | nein | `2` | Offene Anfragen pro Person |
 | `DATA_DIR` | nein | `./data` | Speicherort für IDs, Panels, Tickets |
@@ -234,7 +234,7 @@ gespeicherten IDs.
 ## Entwicklung
 
 ```bash
-npm test         # Tests: Struktur, Berechtigungen, Migration, API-Client, Marktübersicht, Embeds
+npm test         # Tests: Struktur, Berechtigungen, Migration, API-Client, Prognosen, Embeds
 npm run check    # Syntaxprüfung aller Dateien + Validierung aller Commands
 ```
 
@@ -262,7 +262,7 @@ src/
     cleanup.js             /aufräumen
     panels.js              /setup-panels-Inhalte
   services/
-    marketFeed.js          #prognosen (eine Nachricht pro Markt)
+    marketFeed.js          #prognosen (eine Nachricht pro Prognose)
     leaderboards.js        Ranglisten-Embed für /leaderboard
     status.js              Systemstatus in #systemmeldungen
   commands/                Slash-Commands

@@ -44,7 +44,7 @@ module.exports = {
     if (newRoles.created.length) e.addFields({ name: 'Rollen angelegt', value: newRoles.created.join('\n'), inline: false });
     if (newRoles.errors.length) e.addFields({ name: 'Rollen-Fehler', value: newRoles.errors.join('\n').slice(0, 1024), inline: false });
     if (!interaction.guild.members.me.permissions.has(NOTIFY_BOT_PERMISSION)) {
-      e.addFields({ name: 'Hinweis zu Benachrichtigungen', value: 'Damit die Rollen „Neue Märkte“ und „Ankündigungen“ gepingt werden, aktiviere bei der Bot-Rolle das Recht „@everyone, @here und alle Rollen erwähnen“.', inline: false });
+      e.addFields({ name: 'Hinweis zu Benachrichtigungen', value: 'Damit die Rollen „Neue Prognosen“ und „Ankündigungen“ gepingt werden, aktiviere bei der Bot-Rolle das Recht „@everyone, @here und alle Rollen erwähnen“.', inline: false });
     }
     if (renamedChannels.renamed.length) e.addFields({ name: 'Channels umbenannt', value: renamedChannels.renamed.join('\n').slice(0, 1024), inline: false });
     if (renamedChannels.warnings.length) e.addFields({ name: 'Hinweise (Channels)', value: renamedChannels.warnings.join('\n').slice(0, 1024), inline: false });
@@ -53,7 +53,7 @@ module.exports = {
     if (roles.renamed.length) e.addFields({ name: 'Rollen umbenannt', value: roles.renamed.join('\n').slice(0, 1024), inline: false });
     if (roles.warnings.length) e.addFields({ name: 'Hinweise', value: roles.warnings.join('\n').slice(0, 1024), inline: false });
     if (result.errors.length) e.addFields({ name: 'Fehler', value: result.errors.join('\n').slice(0, 1024), inline: false });
-    // Marktübersicht und Status direkt einmal aktualisieren.
+    // Prognosen und Status direkt einmal aktualisieren.
     deps.services.runFeedsNow?.();
     return replyPrivate(interaction, { embeds: [e] });
   },

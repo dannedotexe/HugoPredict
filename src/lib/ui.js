@@ -28,7 +28,7 @@ const quote = (text) => String(text).split('\n').map((l) => (l.trim() ? `> ${l}`
  * @param {string} o.title        Große Überschrift
  * @param {string} [o.icon]       Emoji-Schlüssel vor der Überschrift
  * @param {string} [o.intro]      Text unter der Überschrift
- * @param {string} [o.eyebrow]    Kleine Zeile über der Überschrift (z. B. „Markt · Offen“)
+ * @param {string} [o.eyebrow]    Kleine Zeile über der Überschrift (z. B. „Prognose · Offen“)
  * @param {number} [o.accent]     Farbe der Akzentleiste
  * @param {boolean} [o.logo]      Logo oben rechts anzeigen (Standard: true)
  * @param {Array}  [o.blocks]     Abschnitte: { heading, icon, body, quote } oder { text }

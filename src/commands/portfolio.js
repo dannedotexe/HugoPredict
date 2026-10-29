@@ -21,7 +21,7 @@ module.exports = {
         body: [
           `Anteile **${p.shares ?? '—'}** · Wert **${formatAmount(p.value, c)}**`,
           `Ø Einstieg ${formatPrice(p.avgPrice)} · aktuell ${formatPrice(p.currentPrice)}`,
-          p.url ? `[Zum Markt](${p.url})` : null,
+          p.url ? `[Zur Prognose](${p.url})` : null,
         ].filter(Boolean).join('\n'),
       }));
       if (!shown.length) blocks.push({ text: 'Du hast derzeit keine offenen Positionen.' });

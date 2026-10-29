@@ -69,18 +69,18 @@ test('Modals sind gültig', () => {
   for (const t of TICKET_TYPES) ticketModal(t).toJSON();
 });
 
-test('Karten für Märkte, Ranglisten, Vorschläge, Ankündigungen, Statistik und Begrüßung', () => {
+test('Karten für Prognosen, Ranglisten, Vorschläge, Ankündigungen, Statistik und Begrüßung', () => {
   for (const status of ['open', 'paused', 'closed', 'resolved']) {
     const m = { id: '1', title: 'T'.repeat(300), description: 'D'.repeat(1000), yesPrice: 0.4, noPrice: 0.6, volume: 10, status, outcome: 'Ja', url: 'https://x.test/m/1', closesAt: '2026-11-01T00:00:00Z' };
-    const json = assertCard(marketCard(m, env), `Markt ${status}`);
-    assert.match(json, /Markt · /);
+    const json = assertCard(marketCard(m, env), `Prognose ${status}`);
+    assert.match(json, /Prognose · /);
     assertCard(marketCard({ ...m, url: null }, env, { ephemeral: true }), 'Markt ohne Link');
   }
   assert.equal(priceBar(0.5, 10), '`▰▰▰▰▰▱▱▱▱▱`');
   assert.equal(priceBar(null), null);
   for (const b of BOARDS) {
     assertCard(leaderboardCard(b, { entries: [], period: null, generatedAt: null }, env), b.type);
-    const entries = Array.from({ length: 10 }, (_, i) => ({ rank: i + 1, username: `u${i}`, discordId: null, value: 0.7, detail: '12 Märkte' }));
+    const entries = Array.from({ length: 10 }, (_, i) => ({ rank: i + 1, username: `u${i}`, discordId: null, value: 0.7, detail: '12 Prognosen' }));
     assertCard(leaderboardCard(b, { entries, period: 'KW 44', generatedAt: '2026-10-29T00:00:00Z' }, env), `${b.type} voll`);
   }
   for (const status of ['open', 'accepted', 'rejected']) {
@@ -90,11 +90,11 @@ test('Karten für Märkte, Ranglisten, Vorschläge, Ankündigungen, Statistik un
   assertCard(statsCard({ members: 10, membersIntent: false }), 'Statistik');
   assertCard(welcomePayload({ guildId: '1', guildName: 'HugoPredict', ids: { docs: '2', support: '3' }, websiteUrl: 'https://x.de' }), 'Begrüßung');
   const markets = Array.from({ length: 12 }, (_, i) => ({ id: String(i), title: 'Markt '.repeat(15), yesPrice: 0.5 }));
-  assertCard(listPayload(markets, 'paused', 'HC'), '/markets');
+  assertCard(listPayload(markets, 'paused', 'HC'), '/prognosen');
 });
 
 test('Slash-Commands sind gültig und vollständig', () => {
   const names = [...loadCommands().keys()].sort();
-  assert.deepEqual(names, ['ankündigung', 'aufräumen', 'balance', 'daily', 'help', 'history', 'leaderboard', 'markets', 'mod', 'ping', 'portfolio', 'setup-panels', 'verify', 'vorschlag']);
+  assert.deepEqual(names, ['ankündigung', 'aufräumen', 'balance', 'daily', 'help', 'history', 'leaderboard', 'mod', 'ping', 'portfolio', 'prognosen', 'setup-panels', 'verify', 'vorschlag']);
   for (const c of loadCommands().values()) assert.equal(c.data.toJSON().contexts[0], 0);
 });

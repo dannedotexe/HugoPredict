@@ -120,7 +120,7 @@ for (const withStore of [true, false]) {
     const plan = planSetup(guild, store);
     assert.equal(plan.channelsNew.length, brandNew, 'nur Channels ohne Vorgänger werden neu angelegt');
     assert.equal(plan.channelsMigrated.length, migratable);
-    const newRoles = L.ROLES.filter((r) => !r.legacyNames?.length).length;
+    const newRoles = L.ROLES.filter((r) => !r.legacyNames?.some((n) => guild.roles.cache.some((x) => x.name === n))).length;
     assert.equal(plan.rolesNew, newRoles, 'nur Rollen ohne Vorgänger sind neu');
     assert.equal(plan.rolesRenamed.length, L.ROLES.length - newRoles);
 
@@ -322,7 +322,7 @@ test('ensureMissingRoles legt nur neue Rollen an', async () => {
   guild.roles.cache.delete(g.roles.notifyMarkets);
   delete g.roles.notifyMarkets;
   const res = await ensureMissingRoles(guild, store);
-  assert.deepEqual(res.created, ['Neue Märkte']);
+  assert.deepEqual(res.created, ['Neue Prognosen']);
   assert.ok(guild.roles.cache.has(keep.id));
   assert.equal((await ensureMissingRoles(guild, store)).created.length, 0, 'idempotent');
 });

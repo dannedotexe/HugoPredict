@@ -9,9 +9,9 @@ const theme = require('../config/theme');
 const { emojis, withEmoji } = require('../lib/emojis');
 
 /*
- * Ablauf: /vorschlag (Modal) → Prüfung durch die Marktverwaltung in #betrieb →
+ * Ablauf: /vorschlag (Modal) → Prüfung durch die Prognoseverwaltung in #betrieb →
  * Annahme oder Ablehnung mit Begründung → Benachrichtigung per Direktnachricht.
- * Eine Annahme legt den Markt nur an, wenn die Website-API konfiguriert UND
+ * Eine Annahme legt die Prognose nur an, wenn die Website-API konfiguriert UND
  * MARKET_CREATION_ENABLED=true ist; sonst wird die manuelle Anlage vermerkt.
  */
 
@@ -27,7 +27,7 @@ function suggestionModal() {
     if (placeholder) t.setPlaceholder(placeholder);
     return new ActionRowBuilder().addComponents(t);
   };
-  return new ModalBuilder().setCustomId('hm:suggest:submit').setTitle('Markt vorschlagen').addComponents(
+  return new ModalBuilder().setCustomId('hm:suggest:submit').setTitle('Prognose vorschlagen').addComponents(
     input('title', 'Fragestellung', TextInputStyle.Short, { max: 120, min: 10, placeholder: 'Gewinnt Team Nord das Turnier am 14.11.?' }),
     input('description', 'Beschreibung und Regeln', TextInputStyle.Paragraph, { max: 1000, min: 20 }),
     input('outcomes', 'Mögliche Ergebnisse', TextInputStyle.Short, { max: 200, placeholder: 'Ja / Nein' }),
@@ -49,7 +49,7 @@ function suggestionCard(s) {
     blocks.push({ heading: 'Entscheidung', icon, body: [`${st.label} von <@${s.decision.by}>`, s.decision.reason, s.decision.websiteNote].filter(Boolean).join('\n') });
   }
   return card({
-    eyebrow: `${emojis.icon(icon)}Marktvorschlag #${s.number} · ${st.label}`,
+    eyebrow: `${emojis.icon(icon)}Prognosevorschlag #${s.number} · ${st.label}`,
     title: truncate(s.title, 200),
     accent: st.color,
     logo: false,
@@ -81,7 +81,7 @@ async function submit(interaction, deps) {
   const g = deps.store.guild(interaction.guild.id);
   const review = await deps.ctx.channel(interaction.guild, 'operations');
   if (!review?.isTextBased()) {
-    return replyPrivate(interaction, { embeds: [embeds.error('Derzeit nicht möglich', 'Marktvorschläge sind noch nicht eingerichtet.')] });
+    return replyPrivate(interaction, { embeds: [embeds.error('Derzeit nicht möglich', 'Prognosevorschläge sind noch nicht eingerichtet.')] });
   }
   const f = (id) => interaction.fields.getTextInputValue(id).trim();
   const number = ++g.suggestionCounter;
@@ -102,7 +102,7 @@ async function submit(interaction, deps) {
   g.suggestions[s.id] = s;
   deps.store.save();
   return replyPrivate(interaction, {
-    embeds: [embeds.success('Vorschlag eingereicht', `Vielen Dank. Die Marktverwaltung prüft deinen Vorschlag #${number}. Über die Entscheidung informieren wir dich per Direktnachricht.`)],
+    embeds: [embeds.success('Vorschlag eingereicht', `Vielen Dank. Die Prognoseverwaltung prüft deinen Vorschlag #${number}. Über die Entscheidung informieren wir dich per Direktnachricht.`)],
   });
 }
 
@@ -120,7 +120,7 @@ async function notifyAuthor(client, s) {
   if (!user) return;
   const accepted = s.status === 'accepted';
   const payload = card({
-    eyebrow: `${emojis.icon(accepted ? 'resolved' : 'error')}Marktvorschlag #${s.number}`,
+    eyebrow: `${emojis.icon(accepted ? 'resolved' : 'error')}Prognosevorschlag #${s.number}`,
     title: accepted ? 'Dein Vorschlag wurde angenommen' : 'Dein Vorschlag wurde abgelehnt',
     accent: STATUS[s.status].color,
     intro: `**${truncate(s.title, 300)}**`,
@@ -172,7 +172,7 @@ async function decide(interaction, deps, s, kind) {
   if (locked) return replyPrivate(interaction, { embeds: [embeds.info('Bitte warten', 'Dieser Vorschlag wird gerade bearbeitet.')] });
   if (value.already) return replyPrivate(interaction, { embeds: [embeds.info('Bereits entschieden', 'Über diesen Vorschlag wurde bereits entschieden.')] });
   if (value.apiError) {
-    await replyApiError(interaction, value.apiError, { ...deps, action: 'Marktanlage' });
+    await replyApiError(interaction, value.apiError, { ...deps, action: 'Prognose anlegen' });
     return interaction.followUp({ content: `Der Vorschlag bleibt offen. Grund: ${userMessage(value.apiError)}`, flags: EPHEMERAL });
   }
   return replyPrivate(interaction, {
@@ -189,14 +189,14 @@ async function handle(interaction, deps, [action, id]) {
   if (action === 'submit' && interaction.isModalSubmit()) return submit(interaction, deps);
   // Abstimmungs-Buttons der früheren Struktur
   if (action === 'vote') {
-    return replyPrivate(interaction, { embeds: [embeds.info('Abstimmung beendet', 'Öffentliche Abstimmungen über Marktvorschläge finden nicht mehr statt.')] });
+    return replyPrivate(interaction, { embeds: [embeds.info('Abstimmung beendet', 'Öffentliche Abstimmungen über Prognosevorschläge finden nicht mehr statt.')] });
   }
 
   const s = deps.store.guild(interaction.guild.id).suggestions[id];
   if (!s) return replyPrivate(interaction, { embeds: [embeds.error('Nicht gefunden', 'Dieser Vorschlag existiert nicht mehr.')] });
 
-  // Ab hier nur Marktverwaltung und Leitung
-  if (!deps.ctx.can(interaction.member, 'marketDecision')) return deps.deny(interaction, 'Marktentscheidung');
+  // Ab hier nur Prognoseverwaltung und Leitung
+  if (!deps.ctx.can(interaction.member, 'marketDecision')) return deps.deny(interaction, 'Prognoseentscheidung');
   if ((action === 'accept' || action === 'reject') && interaction.isButton()) {
     if (s.status !== 'open') return replyPrivate(interaction, { embeds: [embeds.info('Bereits entschieden', STATUS[s.status].label)] });
     return interaction.showModal(reasonModal(s, action));

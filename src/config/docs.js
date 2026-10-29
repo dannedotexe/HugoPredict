@@ -18,9 +18,9 @@ function sections({ currency, websiteUrl }) {
       title: 'Die Plattform',
       icon: 'platform',
       body: [
-        `HugoPredict ist ein Prognosemarkt für Ereignisse rund um den Minecraft-Server HugoSMP. Jeder Markt stellt eine klar formulierte Frage mit festgelegten Ergebnissen.`,
+        `HugoPredict ist eine Prognose-Plattform für Ereignisse rund um den Minecraft-Server HugoSMP. Jede Prognose stellt eine klar formulierte Frage mit festgelegten Ergebnissen.`,
         '',
-        'Der Preis eines Ergebnisses liegt zwischen 0 und 100 % und spiegelt die aktuelle Einschätzung aller Teilnehmenden wider. Wird ein Markt entschieden, erhalten Anteile am eingetretenen Ergebnis den vollen Wert, alle übrigen verfallen.',
+        'Der Preis eines Ergebnisses liegt zwischen 0 und 100 % und spiegelt die aktuelle Einschätzung aller Teilnehmenden wider. Wird eine Prognose entschieden, erhalten Anteile am eingetretenen Ergebnis den vollen Wert, alle übrigen verfallen.',
         '',
         `Gehandelt wird ausschließlich auf der ${site}. Dieser Discord dient Information, Austausch und Support.`,
       ].join('\n'),
@@ -42,14 +42,14 @@ function sections({ currency, websiteUrl }) {
         : `Die jeweils gültigen Gebühren werden auf der ${site} vor jeder Order angezeigt und sind dort verbindlich. Änderungen werden in #ankündigungen bekannt gegeben.`,
     },
     {
-      title: 'Marktregeln',
+      title: 'Prognoseregeln',
       icon: 'rules',
       body: [
-        '1. Jeder Markt nennt seine Ergebnisse, seinen Handelsschluss und eine Entscheidungsquelle.',
-        '2. Entschieden wird ausschließlich anhand dieser Quelle durch die Marktverwaltung.',
-        '3. Ist ein Ergebnis nicht eindeutig feststellbar, kann ein Markt pausiert oder annulliert werden.',
-        '4. Marktmanipulation, Absprachen, Mehrfachkonten und das Ausnutzen von Fehlern sind untersagt.',
-        '5. Wer an einem Ereignis selbst beteiligt ist oder über nicht öffentliche Informationen verfügt, handelt in diesem Markt nicht.',
+        '1. Jede Prognose nennt ihre Ergebnisse, ihren Handelsschluss und eine Entscheidungsquelle.',
+        '2. Entschieden wird ausschließlich anhand dieser Quelle durch die Prognoseverwaltung.',
+        '3. Ist ein Ergebnis nicht eindeutig feststellbar, kann eine Prognose pausiert oder annulliert werden.',
+        '4. Manipulation, Absprachen, Mehrfachkonten und das Ausnutzen von Fehlern sind untersagt.',
+        '5. Wer an einem Ereignis selbst beteiligt ist oder über nicht öffentliche Informationen verfügt, handelt in dieser Prognose nicht.',
       ].join('\n'),
     },
     {

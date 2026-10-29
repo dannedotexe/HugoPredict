@@ -8,7 +8,7 @@ const crypto = require('node:crypto');
  * Das Repository enthält (noch) keine Website-API. Dieser Client definiert daher
  * eine klar abgegrenzte Schnittstelle, die die Website implementieren muss
  * (siehe docs/API.md). Der Bot führt selbst KEINE Wirtschaft: Guthaben,
- * Positionen, Transaktionen, Daily-Rewards, Märkte und Ranglisten kommen
+ * Positionen, Transaktionen, Daily-Rewards, Prognosen und Ranglisten kommen
  * ausschließlich von der Website. Ist die API nicht konfiguriert oder antwortet
  * fehlerhaft, wird das klar gemeldet – es werden nie Werte erfunden oder
  * Transaktionen als erfolgreich gemeldet.
@@ -159,10 +159,10 @@ class HugoApi {
     return { ok: body?.status === 'ok', body };
   }
 
-  // --- Märkte -------------------------------------------------------------
+  // --- Prognosen -------------------------------------------------------------
 
   async listMarkets({ status = 'open', limit = 50 } = {}) {
-    if (!MARKET_STATUSES.includes(status)) throw new TypeError(`Unbekannter Marktstatus: ${status}`);
+    if (!MARKET_STATUSES.includes(status)) throw new TypeError(`Unbekannter Prognosestatus: ${status}`);
     const body = await this.request('GET', '/markets', { query: { status, limit } });
     return requireArray(body, 'markets').map(normalizeMarket).filter(Boolean);
   }
@@ -170,7 +170,7 @@ class HugoApi {
   async createMarketProposal(proposal, idempotencyKey) {
     const body = await this.request('POST', '/markets/proposals', { body: proposal, idempotencyKey });
     if (!isObj(body) || (typeof body.id !== 'string' && !isNum(body.id))) {
-      throw new ApiError('invalid_response', 'Antwort auf Marktanlage enthält keine ID.', { body });
+      throw new ApiError('invalid_response', 'Antwort beim Anlegen der Prognose enthält keine ID.', { body });
     }
     return { id: String(body.id), url: typeof body.url === 'string' ? body.url : null, status: body.status ?? null };
   }

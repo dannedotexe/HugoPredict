@@ -47,14 +47,14 @@ const ROLES = [
   },
   {
     key: 'marketMod',
-    name: 'Marktverwaltung',
-    description: 'Märkte prüfen, verwalten und Ergebnisse bearbeiten',
+    name: 'Prognoseverwaltung',
+    description: 'Prognosen prüfen, verwalten und Ergebnisse bearbeiten',
     icon: 'marketmod',
-    legacyNames: ['⚖️ Market Moderator'],
+    legacyNames: ['⚖️ Market Moderator', 'Marktverwaltung'],
     color: 0x34d399,
     hoist: true,
     mentionable: true,
-    // Verwaltung der Marktübersicht über Channel-Rechte, keine Guthaben-Funktionen.
+    // Verwaltung der Prognosen über Channel-Rechte, keine Guthaben-Funktionen.
     permissions: [],
   },
   {
@@ -72,7 +72,7 @@ const ROLES = [
   { key: 'verified', name: 'Verifiziert', description: 'Minecraft-Konto erfolgreich verknüpft', icon: 'verified', legacyNames: ['⛏️ Verified'], color: 0xa7b4c2, hoist: false, mentionable: false, permissions: [] },
   { key: 'member', name: 'Mitglied', description: 'Standardrolle für Community-Mitglieder', icon: 'member', legacyNames: ['👤 Member'], color: 0x6b7280, hoist: false, mentionable: false, permissions: [] },
   // Benachrichtigungs-Rollen: freiwillig per Button in #regeln, nur der Bot pingt sie.
-  { key: 'notifyMarkets', name: 'Neue Märkte', description: 'Benachrichtigung bei neuen Märkten', icon: 'open', notify: true, color: 0x4b5563, hoist: false, mentionable: false, permissions: [] },
+  { key: 'notifyMarkets', name: 'Neue Prognosen', legacyNames: ['Neue Märkte'], description: 'Benachrichtigung bei neuen Prognosen', icon: 'open', notify: true, color: 0x4b5563, hoist: false, mentionable: false, permissions: [] },
   { key: 'notifyNews', name: 'Ankündigungen', description: 'Benachrichtigung bei Ankündigungen', icon: 'announce', notify: true, color: 0x4b5563, hoist: false, mentionable: false, permissions: [] },
   {
     key: 'bots',
@@ -159,7 +159,7 @@ const T = ChannelType.GuildText;
 const SEPARATOR = '┃';
 const ICONS = {
   willkommen: '👋', ankündigungen: '📢', prognosen: '📈', regeln: '📜', pings: '🔔',
-  diskussionen: '💬', marktanalysen: '📊', medien: '📸', support: '🎫',
+  diskussionen: '💬', analysen: '📊', medien: '📸', support: '🎫',
   betrieb: '🔧', prüfprotokoll: '🧾', systemmeldungen: '📡', moderation: '🔨', team: '👥',
 };
 const named = (plain, ...older) => ({
@@ -186,12 +186,12 @@ const CATEGORIES = [
       },
       {
         key: 'marketOverview', ...named('prognosen', '📈┃marktübersicht', '┃marktübersicht', 'marktübersicht'), type: T, legacy: ['liveMarkets'],
-        topic: 'Neue, pausierte und entschiedene Märkte. Wird automatisch aktualisiert.',
+        topic: 'Neue, pausierte und entschiedene Prognosen. Wird automatisch aktualisiert.',
         permissions: profiles.publicRead({ managers: ['marketMod'] }),
       },
       {
         key: 'docs', ...named('regeln', 'dokumentation'), type: T, legacy: ['welcome'],
-        topic: 'Plattform, HugoCoins, Gebühren und Marktregeln.',
+        topic: 'Plattform, HugoCoins, Gebühren und Prognoseregeln.',
         permissions: profiles.publicRead(),
       },
       {
@@ -207,9 +207,9 @@ const CATEGORIES = [
     legacy: ['community'],
     permissions: profiles.memberChat(),
     channels: [
-      { key: 'discussions', ...named('diskussionen'), type: T, legacy: ['general'], topic: 'Sachlicher Austausch rund um Plattform und Märkte.', permissions: profiles.memberChat() },
-      { key: 'analyses', ...named('marktanalysen'), type: T, legacy: ['analyses'], topic: 'Fundierte Analysen zu einzelnen Märkten. Keine Anlageberatung.', permissions: profiles.memberChat(), rateLimitPerUser: 30 },
-      { key: 'media', ...named('medien'), type: T, topic: 'Bilder, Screenshots und Clips rund um HugoSMP und die Märkte. Bitte nur eigene Inhalte.', permissions: profiles.memberChat(), rateLimitPerUser: 30 },
+      { key: 'discussions', ...named('diskussionen'), type: T, legacy: ['general'], topic: 'Sachlicher Austausch rund um Plattform und Prognosen.', permissions: profiles.memberChat() },
+      { key: 'analyses', ...named('analysen', '📊┃marktanalysen', '┃marktanalysen', 'marktanalysen'), type: T, legacy: ['analyses'], topic: 'Fundierte Analysen zu einzelnen Prognosen. Keine Anlageberatung.', permissions: profiles.memberChat(), rateLimitPerUser: 30 },
+      { key: 'media', ...named('medien'), type: T, topic: 'Bilder, Screenshots und Clips rund um HugoSMP und die Prognosen. Bitte nur eigene Inhalte.', permissions: profiles.memberChat(), rateLimitPerUser: 30 },
     ],
   },
   {
@@ -227,7 +227,7 @@ const CATEGORIES = [
     legacy: ['team'],
     permissions: profiles.staff(STAFF),
     channels: [
-      { key: 'operations', ...named('betrieb'), type: T, legacy: ['marketDecisions'], topic: 'Marktbetrieb: Vorschläge prüfen und Entscheidungen vorbereiten.', permissions: profiles.staff(['marketMod', ...LEADERSHIP]) },
+      { key: 'operations', ...named('betrieb'), type: T, legacy: ['marketDecisions'], topic: 'Prognosebetrieb: Vorschläge prüfen und Entscheidungen vorbereiten.', permissions: profiles.staff(['marketMod', ...LEADERSHIP]) },
       { key: 'audit', ...named('prüfprotokoll'), type: T, legacy: ['modLogs'], topic: 'Administrative Eingriffe, Transaktionen und Sicherheitsereignisse.', permissions: profiles.staff(LEADERSHIP, { readOnly: true }) },
       { key: 'system', ...named('systemmeldungen'), type: T, legacy: ['botLogs'], topic: 'Systemstatus und technische Meldungen.', permissions: profiles.staff(['developer', ...LEADERSHIP], { readOnly: true }) },
       { key: 'moderation', ...named('moderation'), type: T, legacy: ['ticketLogs'], topic: 'Moderation und Ticket-Protokolle.', permissions: profiles.staff(['moderator', 'support', ...LEADERSHIP]) },
@@ -244,7 +244,7 @@ const LOG_ROUTES = {
   system: 'system', // Fehler, API-Störungen
   audit: 'audit', // Setup, Panels, Ankündigungen, Daily, Verifizierung, verweigerte Zugriffe
   tickets: 'moderation', // Ticket-Eröffnung, -Übernahme, -Abschluss mit Transkript
-  operations: 'operations', // Marktvorschläge und Entscheidungen
+  operations: 'operations', // Prognosevorschläge und Entscheidungen
   moderation: 'moderation', // Moderationsfälle (Verwarnung, Timeout, Kick, Bann)
 };
 

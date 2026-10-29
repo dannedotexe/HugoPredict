@@ -22,17 +22,17 @@ function listPayload(markets, status, currency) {
       `Volumen ${formatAmount(m.volume, currency)} · Schluss ${discordTime(m.closesAt, 'R')}`,
     ].join('\n'),
   }));
-  if (!shown.length) blocks.push({ text: 'Aktuell gibt es keine Märkte in dieser Ansicht.' });
+  if (!shown.length) blocks.push({ text: 'Aktuell gibt es keine Prognosen in dieser Ansicht.' });
   const actions = shown.length ? [new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(`hm:markets:view:${status}`)
-      .setPlaceholder('Markt für Details auswählen …')
+      .setPlaceholder('Prognose für Details auswählen …')
       .addOptions(shown.map((m) => ({ label: truncate(m.title, 100), value: truncate(m.id, 100), description: `Ja ${formatPrice(m.yesPrice)}` }))),
   )] : [];
   return card({
     icon: status,
-    title: `Märkte · ${STATUS_LABELS[status]}`,
-    intro: markets.length > shown.length ? `${shown.length} von ${markets.length} Märkten. Alle findest du auf der Website.` : null,
+    title: `Prognosen · ${STATUS_LABELS[status]}`,
+    intro: markets.length > shown.length ? `${shown.length} von ${markets.length} Prognosen. Alle findest du auf der Website.` : null,
     logo: false,
     blocks,
     actions,
@@ -42,9 +42,9 @@ function listPayload(markets, status, currency) {
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('markets')
-    .setDescription('Listet verfügbare Märkte auf')
-    .addStringOption((o) => o.setName('status').setDescription('Welche Märkte?').addChoices(...STATUS_CHOICES)),
+    .setName('prognosen')
+    .setDescription('Listet verfügbare Prognosen auf')
+    .addStringOption((o) => o.setName('status').setDescription('Welche Prognosen?').addChoices(...STATUS_CHOICES)),
   async execute(interaction, deps) {
     await interaction.deferReply({ flags: EPHEMERAL });
     const status = interaction.options.getString('status') ?? 'open';
@@ -52,7 +52,7 @@ module.exports = {
       const markets = await deps.api.listMarkets({ status, limit: 25 });
       return replyPrivate(interaction, listPayload(markets, status, deps.env.currency));
     } catch (err) {
-      return replyApiError(interaction, err, { ...deps, action: '/markets' });
+      return replyApiError(interaction, err, { ...deps, action: '/prognosen' });
     }
   },
   listPayload,

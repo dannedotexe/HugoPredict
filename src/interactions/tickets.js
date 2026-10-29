@@ -43,7 +43,7 @@ function ticketModal(type) {
     ),
     new ActionRowBuilder().addComponents(
       new TextInputBuilder().setCustomId('details').setLabel('Beschreibung').setStyle(TextInputStyle.Paragraph)
-        .setPlaceholder('Was ist passiert? Bei Transaktionen bitte Zeitpunkt und Markt angeben – niemals Passwörter.')
+        .setPlaceholder('Was ist passiert? Bei Transaktionen bitte Zeitpunkt und Prognose angeben – niemals Passwörter.')
         .setMinLength(10).setMaxLength(1500).setRequired(true),
     ),
   );

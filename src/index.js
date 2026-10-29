@@ -50,7 +50,7 @@ const deps = {
     status,
     marketFeed,
     runFeedsNow: () => {
-      marketFeed.tick(client).catch((err) => logger.error('Marktübersicht:', err));
+      marketFeed.tick(client).catch((err) => logger.error('Prognosen:', err));
       status.tick(client).catch((err) => logger.error('Status:', err));
     },
   },
@@ -141,7 +141,7 @@ function wire({ stats, welcome, membersIntent }) {
   client.once(Events.ClientReady, async (c) => {
     if (!membersIntent) logger.warn('„Server Members Intent“ nicht freigegeben – Begrüßung und Teile der Statistik sind deaktiviert.');
     logger.info(`Eingeloggt als ${c.user.tag} auf ${c.guilds.cache.size} Server(n).`);
-    if (!api.configured) logger.warn('Website-API nicht konfiguriert (HUGO_API_URL/HUGO_API_KEY) – Konto- und Marktfunktionen sind deaktiviert.');
+    if (!api.configured) logger.warn('Website-API nicht konfiguriert (HUGO_API_URL/HUGO_API_KEY) – Konto- und Prognosefunktionen sind deaktiviert.');
     if (env.guildId && !c.guilds.cache.has(env.guildId)) logger.warn(`Bot ist nicht auf dem Server DISCORD_GUILD_ID=${env.guildId}.`);
 
     // Custom-Emojis zuerst bereitstellen, damit Panels und Embeds sie nutzen können.
@@ -153,7 +153,7 @@ function wire({ stats, welcome, membersIntent }) {
       intervals.push(setInterval(run, ms));
     };
     every(5 * 60_000, status.tick, 'Status');
-    every(env.marketFeedIntervalSeconds * 1000, marketFeed.tick, 'Marktübersicht');
+    every(env.marketFeedIntervalSeconds * 1000, marketFeed.tick, 'Prognosen');
     every(60 * 60_000, stats.tick, 'Statistik');
     // Wird der „Server Members Intent“ später freigeschaltet, startet der Bot neu, um ihn zu nutzen.
     // pm2 bzw. systemd starten den Prozess automatisch wieder.

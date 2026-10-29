@@ -97,7 +97,7 @@ Antwort: `{ "code": "A1B2C3", "instructions": "Gib auf HugoSMP /link A1B2C3 ein.
 Die Rolle **Verified** vergibt der Bot erst bei `verified === true`.
 
 ### `POST /markets/proposals`
-Nur aktiv bei `MARKET_CREATION_ENABLED=true`. Wird erst aufgerufen, wenn die Marktverwaltung einen Vorschlag annimmt.
+Nur aktiv bei `MARKET_CREATION_ENABLED=true`. Wird erst aufgerufen, wenn die Prognoseverwaltung einen Vorschlag annimmt.
 Header `Idempotency-Key: discord-suggestion:<id>`.
 ```json
 { "title": "…", "description": "…", "outcomes": ["Ja", "Nein"], "resolutionSource": "…",
