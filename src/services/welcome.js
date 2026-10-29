@@ -22,9 +22,7 @@ function welcomePayload({ guildId, guildName, ids = {}, websiteUrl, userId, avat
     icon: 'logo',
     title: 'Willkommen',
     intro: `${userId ? `<@${userId}>, schön` : 'Schön'}, dass du bei **${guildName}** dabei bist.${memberCount ? `\n-# Mitglied Nr. ${nf.format(memberCount)}` : ''}`,
-    // Profilbild groß unter der Überschrift
-    logo: false,
-    media: avatarUrl ? [{ url: avatarUrl, description: 'Profilbild' }] : [],
+    thumbnailUrl: avatarUrl,
     blocks: [
       { heading: '1. Dokumentation lesen', icon: 'rules', body: `In ${ref('docs', '#dokumentation')} findest du Plattform, Marktregeln und Verhaltensregeln.\nMit „Regeln akzeptieren“ erhältst du Zugang zur Community.` },
       { heading: '2. Konto verknüpfen', icon: 'link', body: 'Mit `/verify` oder „Konto verknüpfen“ rufst du Guthaben und Portfolio privat ab.' },
@@ -49,7 +47,7 @@ function createWelcomeService({ store, env, logger, ctx }) {
       ids: g.channels,
       websiteUrl: env.websiteUrl,
       userId: member.id,
-      avatarUrl: member.displayAvatarURL({ extension: 'png', size: 512 }),
+      avatarUrl: member.displayAvatarURL({ extension: 'png', size: 256 }),
       memberCount: member.guild.memberCount,
     });
     const channel = await ctx.channel(member.guild, 'greeting');
