@@ -95,8 +95,12 @@ gespeicherte IDs oder die alten Namen. Die Vorschau listet alle Änderungen auf,
 - **Veraltet** sind alle übrigen Channels und Kategorien sowie die Rollen *Diamond Trader* und
   *Trader*. Sie werden **nie automatisch gelöscht**. Standardmäßig werden sie nur aufgelistet.
   Mit `/setup-server veraltete_archivieren:true` verschiebt der Bot veraltete Channels in eine
-  versteckte Kategorie **ARCHIV** (nur Inhaber/Administrator, nur lesen). Leere Kategorien und
-  veraltete Rollen kannst du danach selbst löschen.
+  versteckte Kategorie **ARCHIV** (nur Inhaber/Administrator, nur lesen).
+- **Endgültig aufräumen:** `/aufräumen` löscht nach einer Vorschau und Bestätigung alle Channels im
+  ARCHIV, die Kategorie ARCHIV und leere Kategorien der früheren Struktur. Mit
+  `veraltete_rollen:true` entfernt er auch Diamond Trader und Trader. Kategorien, in denen noch
+  Channels liegen, sowie alles aus der aktuellen Struktur bleiben unangetastet. Der Vorgang wird
+  im `prüfprotokoll` festgehalten.
 
 ## Installation
 

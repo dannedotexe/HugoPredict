@@ -7,6 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { Collection, ChannelType, PermissionsBitField, PermissionFlagsBits: P } = require('discord.js');
 const { runSetup, planSetup } = require('../src/setup/setupServer');
+const { planCleanup, runCleanup } = require('../src/setup/cleanup');
 const { Store } = require('../src/lib/store');
 const L = require('../src/config/serverLayout');
 const { LEGACY_CATEGORIES, LEGACY_ROLES } = require('../src/config/legacyLayout');
@@ -37,7 +38,7 @@ function fakeGuild(botPerms) {
         if (x.topic !== undefined) c.topic = x.topic;
         return c;
       },
-      delete: async () => deleted.push(c.id),
+      delete: async () => { deleted.push(c.id); channels.delete(c.id); },
     };
     channels.set(c.id, c);
     return c;
@@ -50,6 +51,7 @@ function fakeGuild(botPerms) {
         for (const r of roles.values()) if (r.id !== 'G') r.position += 1;
         const r = { id: String(seq++), position: 1, managed: false, ...o };
         r.edit = async (x) => Object.assign(r, x);
+        r.delete = async () => { deleted.push(r.id); roles.delete(r.id); };
         roles.set(r.id, r);
         return r;
       },
@@ -208,6 +210,40 @@ test('Rollen-Icons nur mit Boost-Funktion und ohne vorhandenes Icon', async () =
     const again = await runSetup(guild, store);
     assert.equal(again.updated.filter((u) => u.startsWith('Rollen-Icon')).length, 0, 'vorhandene Icons bleiben');
   }
+});
+
+test('Aufräumen löscht nur Archiv, leere Alt-Kategorien und optional alte Rollen', async () => {
+  const { guild, store } = await legacyGuild({ withStore: true });
+  await runSetup(guild, store, { archiveObsolete: true });
+  const g = store.guild('G');
+  const activeIds = [...L.allChannels().map((c) => g.channels[c.key]), ...L.CATEGORIES.map((c) => g.categories[c.key])];
+  const activeRoles = L.ROLES.map((r) => g.roles[r.key]);
+
+  // Eine alte Kategorie mit einem verbliebenen Channel darf nicht gelöscht werden
+  const keepCat = guild.channels.cache.find((c) => c.name === '🔊 VOICE');
+  const stray = await guild.channels.create({ name: 'eigener-channel', type: ChannelType.GuildText, parent: keepCat.id });
+
+  const withoutRoles = planCleanup(guild, store);
+  assert.equal(withoutRoles.roles.length, 0);
+  const plan = planCleanup(guild, store, { includeRoles: true });
+  assert.equal(plan.channels.length, legacyChannelCount - L.allChannels().length);
+  assert.ok(plan.categories.some((c) => c.name === 'ARCHIV'));
+  assert.ok(plan.categories.some((c) => c.name === '📊 MARKETS'));
+  assert.ok(!plan.categories.some((c) => c.id === keepCat.id), 'nicht leere Kategorie bleibt');
+  assert.deepEqual(plan.roles.map((r) => r.name).sort(), ['💎 Diamond Trader', '📈 Trader']);
+
+  const res = await runCleanup(guild, store, plan);
+  assert.deepEqual(res.errors, []);
+  for (const id of activeIds) assert.ok(guild.channels.cache.has(id), `aktiver Channel ${id} erhalten`);
+  for (const id of activeRoles) assert.ok(guild.roles.cache.has(id), `aktive Rolle ${id} erhalten`);
+  assert.ok(guild.channels.cache.has(stray.id) && guild.channels.cache.has(keepCat.id));
+  assert.ok(!guild.channels.cache.some((c) => c.name === 'ARCHIV'));
+  assert.equal(g.categories.archive, undefined, 'Store bereinigt');
+
+  // Danach ist die Struktur weiterhin vollständig und idempotent
+  const again = await runSetup(guild, store);
+  assert.equal(again.created.length, 0);
+  assert.equal(planCleanup(guild, store, { includeRoles: true }).channels.length, 0);
 });
 
 test('Fehlende Bot-Rechte brechen verständlich ab', async () => {
