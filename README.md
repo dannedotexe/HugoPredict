@@ -16,7 +16,7 @@ API an.
 | Kategorie | Channels | Sichtbar für |
 |---|---|---|
 | **INFORMATIONEN** | `👋┃willkommen`, `📢┃ankündigungen`, `📈┃prognosen`, `📜┃regeln`, `🔔┃pings` | alle (nur lesen) |
-| **COMMUNITY** | `💬┃diskussionen`, `📊┃analysen`, `📸┃medien` | ab *Mitglied* |
+| **COMMUNITY** | `💬┃diskussionen`, `📊┃analysen`, `📸┃medien`, `💡┃vorschläge`, `🔊┃talk` (Sprachkanal) | ab *Mitglied* |
 | **KUNDENSERVICE** | `🎫┃support` (+ private Anfrage-Channels) | alle (nur lesen); Anfragen nur für Ersteller und Team |
 | **INTERN · PRIVAT** | `🔧┃betrieb`, `🧾┃prüfprotokoll`, `📡┃systemmeldungen`, `🔨┃moderation`, `👥┃team` | nur zuständige Teamrollen |
 

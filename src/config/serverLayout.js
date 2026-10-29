@@ -140,6 +140,15 @@ const profiles = {
     ...each(STAFF, [...READ, ...WRITE]),
     ow('bot', BOT_TEXT),
   ],
+  /**
+   * Sprachkanal ab „Mitglied“. Verbinden und Sprechen kommen aus den
+   * Grundrechten von @everyone, hier wird nur die Sichtbarkeit gesteuert.
+   */
+  memberVoice: () => [
+    ow('everyone', [], [P.ViewChannel]),
+    ...each([...MEMBER_TIER, ...STAFF], READ),
+    ow('bot', BOT_TEXT),
+  ],
   /** Interner Channel: nur die angegebenen Rollen. */
   staff: (roles, { readOnly = false } = {}) => [
     ow('everyone', [], [P.ViewChannel]),
@@ -159,12 +168,13 @@ const profiles = {
 // ---------------------------------------------------------------------------
 
 const T = ChannelType.GuildText;
+const V = ChannelType.GuildVoice;
 // Channel-Namen: Emoji + Strich + Name, z. B. „📜┃regeln“. Frühere Schreibweisen
 // (mit Strich ohne Emoji bzw. ganz ohne) werden von /setup-panels umbenannt.
 const SEPARATOR = '┃';
 const ICONS = {
   willkommen: '👋', ankündigungen: '📢', prognosen: '📈', regeln: '📜', pings: '🔔',
-  diskussionen: '💬', analysen: '📊', medien: '📸', support: '🎫',
+  diskussionen: '💬', analysen: '📊', medien: '📸', vorschläge: '💡', talk: '🔊', support: '🎫',
   betrieb: '🔧', prüfprotokoll: '🧾', systemmeldungen: '📡', moderation: '🔨', team: '👥',
 };
 const named = (plain, ...older) => ({
@@ -215,6 +225,8 @@ const CATEGORIES = [
       { key: 'discussions', ...named('diskussionen'), type: T, legacy: ['general'], topic: 'Sachlicher Austausch rund um Plattform und Prognosen.', permissions: profiles.memberChat() },
       { key: 'analyses', ...named('analysen', '📊┃marktanalysen', '┃marktanalysen', 'marktanalysen'), type: T, legacy: ['analyses'], topic: 'Fundierte Analysen zu einzelnen Prognosen. Keine Anlageberatung.', permissions: profiles.memberChat(), rateLimitPerUser: 30 },
       { key: 'media', ...named('medien'), type: T, topic: 'Bilder, Screenshots und Clips rund um HugoSMP und die Prognosen. Bitte nur eigene Inhalte.', permissions: profiles.memberChat(), rateLimitPerUser: 30 },
+      { key: 'ideas', ...named('vorschläge'), type: T, topic: 'Ideen für Server, Bot und Website. Neue Prognosen bitte über „Prognose vorschlagen“ in #prognosen.', permissions: profiles.memberChat(), rateLimitPerUser: 60 },
+      { key: 'voice', ...named('talk'), type: V, permissions: profiles.memberVoice() },
     ],
   },
   {

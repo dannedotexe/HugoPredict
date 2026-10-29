@@ -41,7 +41,7 @@ test('Rollen: deutsche Namen mit Präfix, geforderte Reihenfolge, ohne Emojis', 
 test('Struktur entspricht exakt der Vorgabe', () => {
   assert.deepEqual(L.CATEGORIES.map((c) => [c.name, c.channels.map((ch) => ch.name)]), [
     ['INFORMATIONEN', ['👋┃willkommen', '📢┃ankündigungen', '📈┃prognosen', '📜┃regeln', '🔔┃pings']],
-    ['COMMUNITY', ['💬┃diskussionen', '📊┃analysen', '📸┃medien']],
+    ['COMMUNITY', ['💬┃diskussionen', '📊┃analysen', '📸┃medien', '💡┃vorschläge', '🔊┃talk']],
     ['KUNDENSERVICE', ['🎫┃support']],
     ['INTERN · PRIVAT', ['🔧┃betrieb', '🧾┃prüfprotokoll', '📡┃systemmeldungen', '🔨┃moderation', '👥┃team']],
   ]);
@@ -145,4 +145,13 @@ test('Medien-Channel: Mitglieder dürfen Bilder hochladen, Gäste sehen ihn nich
   assert.ok(can(ch, ['member'], P.EmbedLinks));
   assert.ok(!can(ch, [], P.ViewChannel));
   assert.equal(ch.rateLimitPerUser, 30);
+});
+
+test('Vorschläge und Sprachkanal: erst ab Mitglied sichtbar', () => {
+  for (const key of ['ideas', 'voice']) {
+    assert.ok(!can(channel(key), [], P.ViewChannel), key);
+    assert.ok(can(channel(key), ['member'], P.ViewChannel), key);
+  }
+  assert.ok(can(channel('ideas'), ['member'], P.SendMessages));
+  assert.equal(channel('voice').type, 2, 'Sprachkanal');
 });
