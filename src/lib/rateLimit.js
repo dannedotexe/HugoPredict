@@ -59,6 +59,7 @@ const LIMITS = {
   verify: { limit: 4, windowMs: 10 * 60_000 },
   verifyCheck: { limit: 10, windowMs: 10 * 60_000 },
   suggest: { limit: 2, windowMs: 10 * 60_000 },
+  apply: { limit: 3, windowMs: 10 * 60_000 },
   ticket: { limit: 2, windowMs: 5 * 60_000 },
   vote: { limit: 20, windowMs: 60_000 },
   setup: { limit: 2, windowMs: 60_000 },

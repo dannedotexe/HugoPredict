@@ -103,7 +103,14 @@ const PRIVILEGES = {
   ticketStaff: ['owner', 'admin', 'moderator', 'support'],
   moderate: ['owner', 'admin', 'moderator'],
   ban: ['owner', 'admin'],
+  applications: ['owner', 'admin'],
 };
+
+// Stellen für Team-Bewerbungen (#bewerben). `role` wird bei Annahme vergeben.
+const APPLICATION_POSITIONS = [
+  { key: 'support', label: 'Supporter', role: 'support', icon: 'support', description: 'Tickets bearbeiten und im Sprach-Support helfen' },
+  { key: 'marketMod', label: 'Prognoseverwaltung', role: 'marketMod', icon: 'marketmod', description: 'Prognosen prüfen, anlegen und entscheiden' },
+];
 
 // Rollen, die der Bot selbst vergeben darf (alle anderen vergeben nur Menschen)
 const SELF_ASSIGNABLE_VIA_BOT = ['member', 'verified', 'notifyMarkets', 'notifyNews'];
@@ -189,7 +196,7 @@ const F = ChannelType.GuildForum;
 // (mit Strich ohne Emoji bzw. ganz ohne) werden von /setup-panels umbenannt.
 const SEPARATOR = '┃';
 const ICONS = {
-  willkommen: '👋', ankündigungen: '📢', prognosen: '📈', regeln: '📜', pings: '🔔',
+  willkommen: '👋', bewerben: '📝', bewerbungen: '📨', ankündigungen: '📢', prognosen: '📈', regeln: '📜', pings: '🔔',
   diskussionen: '💬', analysen: '📊', medien: '📸', vorschläge: '💡', 'Voice 1': '🔊', 'Voice 2': '🔊', 'Voice 3': '🔊', support: '🎫', 'support-steuerung': '📋', 'support-warteraum': '⏳', 'support-1': '🎧', 'support-2': '🎧',
   betrieb: '🔧', prüfprotokoll: '🧾', systemmeldungen: '📡', moderation: '🔨', team: '👥',
 };
@@ -228,6 +235,11 @@ const CATEGORIES = [
       {
         key: 'pings', ...named('pings'), type: T,
         topic: 'Wähle, worüber du per Ping informiert wirst.',
+        permissions: profiles.publicRead(),
+      },
+      {
+        key: 'apply', ...named('bewerben'), type: T,
+        topic: 'Bewirb dich für das HugoPredict-Team.',
         permissions: profiles.publicRead(),
       },
     ],
@@ -293,6 +305,7 @@ const CATEGORIES = [
       { key: 'audit', ...named('prüfprotokoll'), type: T, legacy: ['modLogs'], topic: 'Administrative Eingriffe, Transaktionen und Sicherheitsereignisse.', permissions: profiles.staff(LEADERSHIP, { readOnly: true }) },
       { key: 'system', ...named('systemmeldungen'), type: T, legacy: ['botLogs'], topic: 'Systemstatus und technische Meldungen.', permissions: profiles.staff(['developer', ...LEADERSHIP], { readOnly: true }) },
       { key: 'moderation', ...named('moderation'), type: T, legacy: ['ticketLogs'], topic: 'Moderation und Ticket-Protokolle.', permissions: profiles.staff(['moderator', 'support', ...LEADERSHIP]) },
+      { key: 'applications', ...named('bewerbungen'), type: T, topic: 'Eingegangene Team-Bewerbungen. Nur Inhaber und Administrator.', permissions: profiles.staff(LEADERSHIP) },
       { key: 'team', ...named('team'), type: T, legacy: ['teamChat'], topic: 'Internes Team.', permissions: profiles.staff(STAFF) },
     ],
   },
@@ -349,6 +362,7 @@ module.exports = {
   PRIVILEGES,
   SELF_ASSIGNABLE_VIA_BOT,
   NICKNAME_LOCKED_ROLES,
+  APPLICATION_POSITIONS,
   WAITING_ROOM_LIMIT,
   TICKET_TYPES,
   LOG_ROUTES,

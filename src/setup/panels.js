@@ -1,7 +1,7 @@
 'use strict';
 
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
-const { TICKET_TYPES } = require('../config/serverLayout');
+const { TICKET_TYPES, APPLICATION_POSITIONS } = require('../config/serverLayout');
 const { LEGACY_PANELS } = require('../config/legacyLayout');
 const { sections } = require('../config/docs');
 const { truncate } = require('../lib/embeds');
@@ -102,6 +102,29 @@ function panelDefinitions() {
             .addOptions(TICKET_TYPES.map((t) => withEmoji(
               new StringSelectMenuOptionBuilder().setLabel(t.label).setValue(t.key).setDescription(truncate(t.description, 100)),
               t.key,
+            ))),
+        )],
+      }),
+    },
+    {
+      key: 'apply',
+      channelKey: 'apply',
+      build: ({ channelIds = {} }) => card({
+        icon: 'member',
+        title: 'Team-Bewerbung',
+        intro: 'Du willst HugoPredict mit aufbauen? Wähle unten die Stelle, die zu dir passt, und füll das kurze Formular aus.',
+        blocks: [
+          { heading: 'Offene Stellen', icon: 'info', body: APPLICATION_POSITIONS.map((p) => `**${p.label}**\n${p.description}`).join('\n') },
+          { heading: 'Gut zu wissen', icon: 'lock', body: `Bewerben kannst du dich, nachdem du die Regeln${channelIds.docs ? ` in <#${channelIds.docs}>` : ''} akzeptiert hast.\nPro Person ist eine Bewerbung gleichzeitig möglich, die Antwort kommt per Direktnachricht.` },
+        ],
+        footer: 'Bewerbungen sieht nur die Serverleitung',
+        actions: [new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('hm:apply:select')
+            .setPlaceholder('Stelle auswählen …')
+            .addOptions(APPLICATION_POSITIONS.map((p) => withEmoji(
+              new StringSelectMenuOptionBuilder().setLabel(p.label).setValue(p.key).setDescription(truncate(p.description, 100)),
+              p.icon,
             ))),
         )],
       }),

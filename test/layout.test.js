@@ -40,10 +40,10 @@ test('Rollen: deutsche Namen mit Präfix, geforderte Reihenfolge, ohne Emojis', 
 
 test('Struktur entspricht exakt der Vorgabe', () => {
   assert.deepEqual(L.CATEGORIES.map((c) => [c.name, c.channels.map((ch) => ch.name)]), [
-    ['INFORMATIONEN', ['👋┃willkommen', '📢┃ankündigungen', '📈┃prognosen', '📜┃regeln', '🔔┃pings']],
+    ['INFORMATIONEN', ['👋┃willkommen', '📢┃ankündigungen', '📈┃prognosen', '📜┃regeln', '🔔┃pings', '📝┃bewerben']],
     ['COMMUNITY', ['💬┃diskussionen', '📊┃analysen', '📸┃medien', '💡┃vorschläge', '🔊┃Voice 1', '🔊┃Voice 2', '🔊┃Voice 3']],
     ['KUNDENSERVICE', ['🎫┃support', '📋┃support-steuerung', '⏳┃support-warteraum', '🎧┃support-1', '🎧┃support-2']],
-    ['INTERN · PRIVAT', ['🔧┃betrieb', '🧾┃prüfprotokoll', '📡┃systemmeldungen', '🔨┃moderation', '👥┃team']],
+    ['INTERN · PRIVAT', ['🔧┃betrieb', '🧾┃prüfprotokoll', '📡┃systemmeldungen', '🔨┃moderation', '📨┃bewerbungen', '👥┃team']],
   ]);
   // Genau ein Emoji, dann „┃“, dann Kleinbuchstaben
   // Sprachkanäle dürfen „Voice 1“ heißen (Großbuchstabe, Leerzeichen)
@@ -105,6 +105,7 @@ test('Interne Channels: für Mitglieder unsichtbar, Zugriff nur für zuständige
   assert.deepEqual(visible('system'), ['developer', 'owner']);
   assert.deepEqual(visible('operations'), ['marketMod', 'owner']);
   assert.deepEqual(visible('moderation'), ['moderator', 'owner', 'support']);
+  assert.deepEqual(visible('applications'), ['owner']);
   assert.deepEqual(visible('team'), ['developer', 'marketMod', 'moderator', 'owner', 'support']);
   assert.ok(!can(channel('audit'), ['owner'], P.SendMessages), 'Prüfprotokoll ist schreibgeschützt');
 });

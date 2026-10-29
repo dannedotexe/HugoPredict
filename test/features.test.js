@@ -63,8 +63,8 @@ test('Benachrichtigungs-Karte zieht nach #pings um; alte Nachricht wird entfernt
       messages: { fetch: async (mid) => msgs.get(mid) ?? null },
     };
   };
-  const channels = new Collection(['docs', 'pings', 'support', 'mo', 'sys', 'ctl'].map((id) => [id, makeChannel(id)]));
-  Object.assign(g.channels, { docs: 'docs', pings: 'pings', support: 'support', marketOverview: 'mo', system: 'sys', supportControl: 'ctl' });
+  const channels = new Collection(['docs', 'pings', 'support', 'mo', 'sys', 'ctl', 'apply'].map((id) => [id, makeChannel(id)]));
+  Object.assign(g.channels, { docs: 'docs', pings: 'pings', support: 'support', marketOverview: 'mo', system: 'sys', supportControl: 'ctl', apply: 'apply' });
   const oldMsg = await channels.get('docs').send();
   g.panels.notify = { channelId: 'docs', messageId: oldMsg.id };
   const guild = { id: 'G', client: { user: { id: BOT } }, channels: { cache: channels, fetch: async (id) => channels.get(id) } };
@@ -368,4 +368,55 @@ test('Forum-Vorschläge: neu → In Prüfung, neuer Status ersetzt den alten, Be
   const tpl = post('TPL', []);
   await svc.onThreadCreate(tpl, true);
   assert.deepEqual(tpl.appliedTags, [], 'Vorlage bekommt keinen Status');
+});
+
+test('Bewerbungen: nur nach Regeln, eine offene pro Person, Annahme vergibt die Rolle', async () => {
+  const apps = require('../src/interactions/applications');
+  const { panelDefinitions } = require('../src/setup/panels');
+  const { APPLICATION_POSITIONS } = require('../src/config/serverLayout');
+  const store = tmpStore();
+  const g = store.guild('G');
+  g.channels.applications = 'APPS';
+  const pos = APPLICATION_POSITIONS.find((p) => p.key === 'support');
+  const roles = new Set();
+  const member = { id: '5', joinedAt: new Date('2026-10-01'), roles: { add: async (id) => roles.add(id) } };
+  const has = { member: false };
+  const sent = [];
+  const review = { id: 'APPS', isTextBased: () => true, send: async (p) => { sent.push(p); return { id: 'm1', edit: async (e) => { sent.push(e); return { id: 'm1' }; } }; }, messages: { fetch: async () => ({ id: 'm1', edit: async (e) => { sent.push(e); return { id: 'm1' }; } }) } };
+  const audits = [];
+  const deps = {
+    store,
+    locks: { run: async (k, fn) => ({ locked: false, value: await fn() }) },
+    ctx: {
+      hasRoleKey: (m, key) => Boolean(has[key]), roleId: (gid, key) => (key === 'support' ? 'SUP' : null),
+      channel: async () => review, audit: async (...x) => audits.push(x), can: () => true,
+    },
+  };
+  assert.match(apps.blockReason(member, pos, g, deps)[0], /Regeln/);
+  has.member = true;
+  assert.equal(apps.blockReason(member, pos, g, deps), null);
+
+  const replies = [];
+  const fields = { age: '16', minecraft: 'Steve', why: 'Ich helfe gern anderen und bin jeden Tag online auf HugoSMP.', experience: '', time: '5 Stunden' };
+  const base = {
+    guild: { id: 'G', members: { fetch: async () => member }, channels: { cache: new Collection([['APPS', review]]) } },
+    user: { id: '5', username: 'steve' }, member, replied: false, deferred: false,
+    deferReply: async function () { this.deferred = true; }, editReply: async (p) => replies.push(p), followUp: async (p) => replies.push(p),
+    client: { users: { fetch: async () => ({ send: async (p) => replies.push(['dm', p]) }) } },
+  };
+  await apps.submit({ ...base, fields: { getTextInputValue: (id) => fields[id] } }, deps, pos);
+  const a = Object.values(g.applications)[0];
+  assert.equal(a.status, 'open');
+  assert.match(JSON.stringify(sent[0]), /Bewerbung #1/);
+  assert.match(apps.blockReason(member, pos, g, deps)[0], /läuft/, 'nur eine offene Bewerbung');
+
+  await apps.decide({ ...base, user: { id: '1', username: 'danne' }, fields: { getTextInputValue: () => 'Willkommen!' } }, deps, a, 'accept');
+  assert.equal(a.status, 'accepted');
+  assert.ok(roles.has('SUP'), 'Rolle vergeben');
+  assert.ok(replies.some((r) => Array.isArray(r) && r[0] === 'dm'), 'DM an die Person');
+  assert.equal(audits.length, 1);
+
+  const panel = JSON.stringify(panelDefinitions().find((d) => d.key === 'apply').build({ channelIds: {} }));
+  assert.match(panel, /Supporter/);
+  assert.match(panel, /Prognoseverwaltung/);
 });

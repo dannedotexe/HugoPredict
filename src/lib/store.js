@@ -49,6 +49,8 @@ class Store {
     g.suggestionCounter ??= 0;
     g.moderation ??= { counter: 0, cases: [] };
     g.supportVoice ??= { open: true };
+    g.applications ??= {};
+    g.applicationCounter ??= 0;
     return g;
   }
 
