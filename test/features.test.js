@@ -166,8 +166,9 @@ test('Warteschlange im Warteraum-Chat: Reihenfolge nach Ankunft, Team zählt nic
   await join('ben');
   let text = JSON.stringify(svc.buildQueueCard(guild));
   assert.ok(text.indexOf('<@anna>') < text.indexOf('<@ben>'), 'Anna zuerst');
-  assert.ok(!text.includes('<@staff>'), 'Team steht nicht in der Schlange');
+  assert.ok(!text.includes('<@staff> · wartet'), 'Team steht nicht in der Schlange');
   assert.match(text, /2 von 5 Plätzen belegt/);
+  assert.match(text, /Team im Warteraum.*<@staff>/, 'Team wird angezeigt');
 
   members.delete('anna');
   await svc.onVoiceStateUpdate({ channelId: 'W' }, { guild, member: { id: 'anna', user: {} }, channelId: null });
