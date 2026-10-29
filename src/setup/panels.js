@@ -118,8 +118,8 @@ function panelDefinitions() {
         accent: supportOpen ? theme.colors.success : theme.colors.neutral,
         logo: false,
         blocks: [
-          { heading: 'Betreuen', body: 'Setz dich in einen Support-Raum und wähle „Nächsten holen“: Platz 1 der Warteschlange landet bei dir. Mit „Gespräch beenden“ trennst du die Person wieder.' },
-          { heading: 'Warteraum', body: 'Öffne ihn, sobald jemand vom Team Zeit hat, und schließe ihn, wenn niemand mehr betreuen kann. „Warteraum leeren“ wirft alle Wartenden hinaus, das Team bleibt.' },
+          { heading: 'Support-Gespräche', body: 'Setz dich in einen Support-Raum und wähle „Nächsten holen“: Platz 1 der Warteschlange landet bei dir. Mit „Gespräch beenden“ trennst du die Person wieder.' },
+          { heading: 'Warteraum', body: 'Öffne ihn, sobald jemand vom Team Zeit hat, und schließe ihn, wenn niemand mehr Zeit hat. „Warteraum leeren“ wirft alle Wartenden hinaus, das Team bleibt.' },
         ],
         footer: null,
         actions: [new ActionRowBuilder().addComponents(
