@@ -26,6 +26,7 @@ const { createMarketFeed } = require('./services/marketFeed');
 const { createStatsService } = require('./services/stats');
 const { createWelcomeService } = require('./services/welcome');
 const { createSupportVoiceService } = require('./services/supportVoice');
+const { createIdeasForumService } = require('./services/ideasForum');
 const { resolveIntents, membersIntentAllowed } = require('./lib/intents');
 const { createMinecraftService } = require('./minecraft/service');
 
@@ -155,6 +156,11 @@ function wire({ stats, welcome, membersIntent }) {
   const supportVoice = createSupportVoiceService({ store, ctx, logger });
   deps.services.supportVoice = supportVoice;
   client.on(Events.VoiceStateUpdate, (oldState, newState) => supportVoice.onVoiceStateUpdate(oldState, newState).catch((err) => logger.warn('Warteraum:', err.message)));
+
+  // Forum #vorschläge: Status-Tags automatisch pflegen
+  const ideasForum = createIdeasForumService({ store, logger });
+  client.on(Events.ThreadCreate, (thread, newlyCreated) => ideasForum.onThreadCreate(thread, newlyCreated).catch((err) => logger.warn('Vorschläge:', err.message)));
+  client.on(Events.ThreadUpdate, (oldThread, newThread) => ideasForum.onThreadUpdate(oldThread, newThread).catch((err) => logger.warn('Vorschläge:', err.message)));
 
   // Begrüßung neuer Mitglieder per Direktnachricht (nur mit „Server Members Intent“)
   if (membersIntent) client.on(Events.GuildMemberAdd, (member) => welcome.onMemberAdd(member).catch((err) => logger.warn('Begrüßung:', err.message)));

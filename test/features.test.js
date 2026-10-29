@@ -340,3 +340,32 @@ test('Vorlage im Forum: einmal erstellen, angepinnt und gesperrt, danach nur bea
   assert.equal(created.length, 1, 'nicht doppelt');
   assert.equal(edits.length, 1);
 });
+
+test('Forum-Vorschläge: neu → In Prüfung, neuer Status ersetzt den alten, Bereich bleibt', async () => {
+  const { createIdeasForumService } = require('../src/services/ideasForum');
+  const store = tmpStore();
+  const g = store.guild('G');
+  g.channels.ideas = 'F';
+  g.panels.ideasTemplate = { channelId: 'F', threadId: 'TPL' };
+  const parent = { availableTags: [
+    { id: 'bot', name: 'Bot' }, { id: 'pruef', name: 'In Prüfung' }, { id: 'ok', name: 'Angenommen' }, { id: 'no', name: 'Abgelehnt' },
+  ] };
+  const post = (id, tags) => {
+    const t = { id, guild: { id: 'G' }, parentId: 'F', parent, appliedTags: tags };
+    t.setAppliedTags = async (next) => { t.appliedTags = next; };
+    return t;
+  };
+  const svc = createIdeasForumService({ store, logger: console });
+  const p = post('P1', ['bot']);
+  await svc.onThreadCreate(p, true);
+  assert.deepEqual(p.appliedTags, ['bot', 'pruef']);
+
+  const before = { appliedTags: [...p.appliedTags] };
+  p.appliedTags = ['bot', 'pruef', 'ok']; // Team setzt „Angenommen“
+  await svc.onThreadUpdate(before, p);
+  assert.deepEqual(p.appliedTags, ['bot', 'ok']);
+
+  const tpl = post('TPL', []);
+  await svc.onThreadCreate(tpl, true);
+  assert.deepEqual(tpl.appliedTags, [], 'Vorlage bekommt keinen Status');
+});
