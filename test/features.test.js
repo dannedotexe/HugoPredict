@@ -47,3 +47,30 @@ test('Marktkarte pingt nur, wenn eine Rolle übergeben wird', () => {
   assert.match(JSON.stringify(marketCard(m, env, { pingRoleId: 'R' }).components[0].toJSON()), /<@&R>/);
   assert.deepEqual(marketCard(m, env).allowedMentions, { parse: [] });
 });
+
+test('Benachrichtigungs-Karte zieht nach #pings um; alte Nachricht wird entfernt', async () => {
+  const { publishPanels } = require('../src/setup/panels');
+  const store = tmpStore();
+  const g = store.guild('G');
+  const BOT = 'BOT';
+  const deleted = [];
+  let seq = 1;
+  const makeChannel = (id) => {
+    const msgs = new Map();
+    return {
+      id, isTextBased: () => true, msgs,
+      send: async () => { const m = { id: `m${seq++}`, author: { id: BOT }, edit: async () => m, delete: async () => { deleted.push(m.id); msgs.delete(m.id); } }; msgs.set(m.id, m); return m; },
+      messages: { fetch: async (mid) => msgs.get(mid) ?? null },
+    };
+  };
+  const channels = new Collection(['docs', 'pings', 'support', 'mo', 'sys'].map((id) => [id, makeChannel(id)]));
+  Object.assign(g.channels, { docs: 'docs', pings: 'pings', support: 'support', marketOverview: 'mo', system: 'sys' });
+  const oldMsg = await channels.get('docs').send();
+  g.panels.notify = { channelId: 'docs', messageId: oldMsg.id };
+  const guild = { id: 'G', client: { user: { id: BOT } }, channels: { cache: channels, fetch: async (id) => channels.get(id) } };
+  const res = await publishPanels(guild, { store, env: { currency: 'HugoCoins', websiteUrl: '' }, statusService: { buildPayload: async () => ({ components: [] }) } });
+  assert.deepEqual(res.errors, []);
+  assert.ok(deleted.includes(oldMsg.id), 'alte Karte in #regeln entfernt');
+  assert.equal(g.panels.notify.channelId, 'pings');
+  assert.ok(channels.get('pings').msgs.has(g.panels.notify.messageId));
+});

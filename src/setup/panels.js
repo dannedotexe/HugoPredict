@@ -38,7 +38,7 @@ function panelDefinitions() {
     },
     {
       key: 'notify',
-      channelKey: 'docs',
+      channelKey: 'pings',
       build: () => card({
         icon: 'announce',
         title: 'Benachrichtigungen',
@@ -118,6 +118,13 @@ async function publishPanels(guild, { store, env, statusService, statsService })
       return;
     }
     const ref = [g.panels[key], g.panels[LEGACY_PANELS[key]]].find((p) => p?.channelId === channel.id);
+    // Ist ein Panel in einen anderen Channel umgezogen, wird die alte Bot-Nachricht entfernt.
+    const old = g.panels[key];
+    if (old && old.channelId !== channel.id) {
+      const oldChannel = guild.channels.cache.get(old.channelId);
+      const oldMsg = oldChannel?.isTextBased() ? await oldChannel.messages.fetch(old.messageId).catch(() => null) : null;
+      if (oldMsg && oldMsg.author?.id === guild.client?.user?.id) await oldMsg.delete().catch(() => {});
+    }
     const msg = await upsert(channel, ref, payload);
     (ref && msg.id === ref.messageId ? result.updated : result.created).push(key);
     g.panels[key] = { channelId: channel.id, messageId: msg.id };

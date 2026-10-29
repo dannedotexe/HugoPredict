@@ -15,7 +15,7 @@ API an.
 
 | Kategorie | Channels | Sichtbar für |
 |---|---|---|
-| **INFORMATIONEN** | `willkommen`, `ankündigungen`, `marktübersicht`, `regeln` | alle (nur lesen) |
+| **INFORMATIONEN** | `willkommen`, `ankündigungen`, `marktübersicht`, `regeln`, `pings` | alle (nur lesen) |
 | **COMMUNITY** | `diskussionen`, `marktanalysen` | ab *Mitglied* |
 | **KUNDENSERVICE** | `support` (+ private Anfrage-Channels) | alle (nur lesen); Anfragen nur für Ersteller und Team |
 | **INTERN · PRIVAT** | `betrieb`, `prüfprotokoll`, `systemmeldungen`, `moderation`, `team` | nur zuständige Teamrollen |
@@ -81,7 +81,7 @@ Standard-Emoji ersetzt.
 | Moderation | `/mod verwarnen`, `timeout`, `timeout-aufheben`, `kicken`, `bannen`, `entbannen`, `verlauf`. Pflichtbegründung, Hierarchieprüfung (nie gegen gleich- oder höhergestellte Rollen, Eigentümer oder Bot), nummerierte Fälle, Benachrichtigung per Direktnachricht, Protokoll in `moderation` (Kick/Bann zusätzlich in `prüfprotokoll`). Moderator darf verwarnen, Timeout vergeben und kicken; bannen und entbannen dürfen nur Inhaber und Administrator |
 | Begrüßung | In `willkommen` begrüßt der Bot jedes neue Mitglied mit einer Karte (Profilbild, Erwähnung, Mitgliedsnummer, erste drei Schritte). Ohne den Channel geht die Begrüßung als Direktnachricht raus. Benötigt den *Server Members Intent* |
 | Statistik | Ein Embed in `systemmeldungen` (stündlich aktualisiert): Mitglieder, online, neu in 7 Tagen, Rollen Mitglied/Verifiziert, offene Anfragen, Vorschläge in Prüfung, Moderationsfälle. Rollen- und Beitrittszahlen benötigen den *Server Members Intent* |
-| Benachrichtigungen | In `regeln` melden sich Mitglieder per Button für die Rollen **Neue Märkte** und **Ankündigungen** an und wieder ab. Der Bot pingt diese Rollen bei neuen Märkten bzw. Ankündigungen. Dafür braucht die Bot-Rolle das Recht *@everyone, @here und alle Rollen erwähnen*. Mitglieder selbst können die Rollen nicht pingen |
+| Benachrichtigungen | In `pings` melden sich Mitglieder per Button für die Rollen **Neue Märkte** und **Ankündigungen** an und wieder ab. Der Bot pingt diese Rollen bei neuen Märkten bzw. Ankündigungen. Dafür braucht die Bot-Rolle das Recht *@everyone, @here und alle Rollen erwähnen*. Mitglieder selbst können die Rollen nicht pingen |
 | Ankündigungen | `/ankündigung` veröffentlicht eine Ankündigungskarte in `ankündigungen` und pingt die Rolle **Ankündigungen**; `benachrichtigen:false` verzichtet auf den Ping |
 | Markt vorschlagen | Karte mit Button ganz oben in `marktübersicht` öffnet das Vorschlagsformular (wie `/vorschlag`) |
 | Sicherheit | Rechteprüfung bei jedem privilegierten Command, Button und Formular. Dazu kommen Rate-Limits, Sperren gegen Doppelklicks und Idempotency-Keys für Daily und Marktanlage |

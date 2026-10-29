@@ -182,6 +182,11 @@ const CATEGORIES = [
         topic: 'Plattform, HugoCoins, Gebühren und Marktregeln.',
         permissions: profiles.publicRead(),
       },
+      {
+        key: 'pings', name: 'pings', type: T,
+        topic: 'Wähle, worüber du per Ping informiert wirst.',
+        permissions: profiles.publicRead(),
+      },
     ],
   },
   {
