@@ -15,7 +15,7 @@ API an.
 
 | Kategorie | Channels | Sichtbar für |
 |---|---|---|
-| **INFORMATIONEN** | `👋┃willkommen`, `📢┃ankündigungen`, `📈┃marktübersicht`, `📜┃regeln`, `🔔┃pings` | alle (nur lesen) |
+| **INFORMATIONEN** | `👋┃willkommen`, `📢┃ankündigungen`, `📈┃prognosen`, `📜┃regeln`, `🔔┃pings` | alle (nur lesen) |
 | **COMMUNITY** | `💬┃diskussionen`, `📊┃marktanalysen`, `📸┃medien` | ab *Mitglied* |
 | **KUNDENSERVICE** | `🎫┃support` (+ private Anfrage-Channels) | alle (nur lesen); Anfragen nur für Ersteller und Team |
 | **INTERN · PRIVAT** | `🔧┃betrieb`, `🧾┃prüfprotokoll`, `📡┃systemmeldungen`, `🔨┃moderation`, `👥┃team` | nur zuständige Teamrollen |
@@ -46,7 +46,7 @@ API an.
 
 - **Administrator** ist die **einzige** Rolle mit dem Administrator-Recht. **Inhaber** hat
   umfassende Verwaltungsrechte, aber bewusst ohne Administrator-Flag.
-- **Marktverwaltung** moderiert `marktübersicht` und entscheidet über Vorschläge, hat aber keine
+- **Marktverwaltung** moderiert `prognosen` und entscheidet über Vorschläge, hat aber keine
   Guthaben-Funktionen und keinen Zugriff auf das Prüfprotokoll.
 - **Support** bearbeitet zugewiesene Anfragen. Kontostände lassen sich über den Bot
   grundsätzlich nicht ändern.
@@ -74,7 +74,7 @@ Standard-Emoji ersetzt.
 |---|---|
 | ~~`/setup-server`~~ | **Entfernt**, weil die Struktur eingerichtet ist. Die Einrichtungslogik (`src/setup/setupServer.js`) bleibt erhalten. Den Befehl stellst du bei Bedarf aus der Git-Historie wieder her (`git checkout 599f0f9 -- src/commands/setup-server.js`) |
 | `/setup-panels` | Regeln & Infos (mit „Regeln akzeptieren“ und „Konto verknüpfen“), Kundenservice-Panel mit Auswahlmenü, Systemstatus und Statistik in `systemmeldungen`. Ein erneuter Aufruf **bearbeitet** die Panels, statt neue zu posten. Außerdem legt der Befehl **fehlende** Channels des Layouts an (z. B. `willkommen`) und benennt Rollen mit früherem Namen um. Bestehende Channels und Rollenrechte bleiben dabei unverändert |
-| `marktübersicht` | Jeder Markt erhält **genau eine Nachricht**. Sie entsteht beim ersten Erscheinen und wird bei Statuswechseln (offen, pausiert, Handel beendet, entschieden) bearbeitet. Kleinstschwankungen lösen keine Bearbeitung aus, Folgenachrichten gibt es nicht |
+| `prognosen` | Jeder Markt erhält **genau eine Nachricht**. Sie entsteht beim ersten Erscheinen und wird bei Statuswechseln (offen, pausiert, Handel beendet, entschieden) bearbeitet. Kleinstschwankungen lösen keine Bearbeitung aus, Folgenachrichten gibt es nicht |
 | Konto (privat) | `/verify`, `/balance`, `/portfolio`, `/history`, `/daily`, `/leaderboard`. Alle Antworten sind nur für die anfragende Person sichtbar |
 | Kundenservice | Fünf Anliegen. Jede Anfrage wird ein privater Channel nur für Ersteller und zuständiges Team. Es gibt „Übernehmen“ und „Anfrage schließen“ (mit Bestätigung). Das Abschlussprotokoll mit `.txt`-Transkript landet in `moderation` |
 | Marktvorschläge | `/vorschlag` öffnet ein Formular. Der Vorschlag wird in `betrieb` geprüft, angenommen oder (mit Begründung) abgelehnt, und die einreichende Person erhält eine Direktnachricht. Eine Annahme legt den Markt nur bei aktivierter API an (`MARKET_CREATION_ENABLED`) |
@@ -83,7 +83,7 @@ Standard-Emoji ersetzt.
 | Statistik | Ein Embed in `systemmeldungen` (stündlich aktualisiert): Mitglieder, online, neu in 7 Tagen, Rollen Mitglied/Verifiziert, offene Anfragen, Vorschläge in Prüfung, Moderationsfälle. Rollen- und Beitrittszahlen benötigen den *Server Members Intent* |
 | Benachrichtigungen | In `pings` melden sich Mitglieder per Button für die Rollen **Neue Märkte** und **Ankündigungen** an und wieder ab. Der Bot pingt diese Rollen bei neuen Märkten bzw. Ankündigungen. Dafür braucht die Bot-Rolle das Recht *@everyone, @here und alle Rollen erwähnen*. Mitglieder selbst können die Rollen nicht pingen |
 | Ankündigungen | `/ankündigung` veröffentlicht eine Ankündigungskarte in `ankündigungen` und pingt die Rolle **Ankündigungen**; `benachrichtigen:false` verzichtet auf den Ping |
-| Markt vorschlagen | Karte mit Button ganz oben in `marktübersicht` öffnet das Vorschlagsformular (wie `/vorschlag`) |
+| Markt vorschlagen | Karte mit Button ganz oben in `prognosen` öffnet das Vorschlagsformular (wie `/vorschlag`) |
 | Sicherheit | Rechteprüfung bei jedem privilegierten Command, Button und Formular. Dazu kommen Rate-Limits, Sperren gegen Doppelklicks und Idempotency-Keys für Daily und Marktanlage |
 
 ## Migration von der früheren Struktur
@@ -95,7 +95,7 @@ Standard-Emoji ersetzt.
 gespeicherte IDs oder die alten Namen. Die Vorschau listet alle Änderungen auf, bevor etwas passiert.
 
 - **Umbenannt und verschoben** (Nachrichtenverlauf bleibt erhalten, neue Rechte werden gesetzt):
-  `📢・ankündigungen` → `ankündigungen`, `📈・live-markets` → `marktübersicht`,
+  `📢・ankündigungen` → `ankündigungen`, `📈・live-markets` → `prognosen`,
   `👋・willkommen` → `regeln`, `💬・allgemeiner-chat` → `diskussionen`,
   `🧠・analysen` → `marktanalysen`, `🎫・ticket-erstellen` → `support`,
   `⚖️・markt-entscheidungen` → `betrieb`, `📝・moderations-logs` → `prüfprotokoll`,
@@ -183,7 +183,7 @@ npm start        # startet den Bot
 | `MARKET_CREATION_ENABLED` | nein | `false` | Angenommene Vorschläge per API anlegen |
 | `BRAND_NAME` | nein | `HugoPredict` | Name in Embeds |
 | `CURRENCY_NAME` | nein | `HugoCoins` | Währungsname (der frühere Wert `HC` wird als HugoCoins angezeigt) |
-| `MARKET_FEED_INTERVAL_SECONDS` | nein | `60` | Abfrageintervall für `marktübersicht` |
+| `MARKET_FEED_INTERVAL_SECONDS` | nein | `60` | Abfrageintervall für `prognosen` |
 | `MARKET_FEED_MAX_MARKETS` | nein | `25` | Höchstzahl aktiver Märkte mit eigener Nachricht |
 | `TICKET_CLOSE_CONFIRMATION` | nein | `true` | Bestätigung vor dem Schließen einer Anfrage |
 | `MAX_OPEN_TICKETS_PER_USER` | nein | `2` | Offene Anfragen pro Person |
@@ -262,7 +262,7 @@ src/
     cleanup.js             /aufräumen
     panels.js              /setup-panels-Inhalte
   services/
-    marketFeed.js          #marktübersicht (eine Nachricht pro Markt)
+    marketFeed.js          #prognosen (eine Nachricht pro Markt)
     leaderboards.js        Ranglisten-Embed für /leaderboard
     status.js              Systemstatus in #systemmeldungen
   commands/                Slash-Commands

@@ -158,7 +158,7 @@ const T = ChannelType.GuildText;
 // (mit Strich ohne Emoji bzw. ganz ohne) werden von /setup-panels umbenannt.
 const SEPARATOR = '┃';
 const ICONS = {
-  willkommen: '👋', ankündigungen: '📢', marktübersicht: '📈', regeln: '📜', pings: '🔔',
+  willkommen: '👋', ankündigungen: '📢', prognosen: '📈', regeln: '📜', pings: '🔔',
   diskussionen: '💬', marktanalysen: '📊', medien: '📸', support: '🎫',
   betrieb: '🔧', prüfprotokoll: '🧾', systemmeldungen: '📡', moderation: '🔨', team: '👥',
 };
@@ -185,7 +185,7 @@ const CATEGORIES = [
         permissions: profiles.publicRead(),
       },
       {
-        key: 'marketOverview', ...named('marktübersicht'), type: T, legacy: ['liveMarkets'],
+        key: 'marketOverview', ...named('prognosen', '📈┃marktübersicht', '┃marktübersicht', 'marktübersicht'), type: T, legacy: ['liveMarkets'],
         topic: 'Neue, pausierte und entschiedene Märkte. Wird automatisch aktualisiert.',
         permissions: profiles.publicRead({ managers: ['marketMod'] }),
       },

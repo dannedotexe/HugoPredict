@@ -8,7 +8,7 @@ const theme = require('../config/theme');
 const { emojis, withEmoji } = require('../lib/emojis');
 
 /*
- * #marktübersicht: Jeder Markt erhält genau EINE Nachricht. Sie entsteht, wenn
+ * #prognosen: Jeder Markt erhält genau EINE Nachricht. Sie entsteht, wenn
  * der Markt erstmals auftaucht, und wird bei Statuswechseln (pausiert,
  * Handel beendet, entschieden) oder relevanten Änderungen bearbeitet –
  * es entstehen keine Folgenachrichten und keine Benachrichtigungsflut.
@@ -43,7 +43,7 @@ function marketActions(market) {
   return [new ActionRowBuilder().addComponents(withEmoji(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Zum Markt').setURL(market.url), 'external'))];
 }
 
-/** Karte für einen Markt (#marktübersicht und /markets). */
+/** Karte für einen Markt (#prognosen und /markets). */
 function marketCard(market, { currency }, { ephemeral = false, pingRoleId = null } = {}) {
   const label = STATUS_LABELS[market.status] ?? market.status;
   const blocks = [];

@@ -133,7 +133,7 @@ for (const withStore of [true, false]) {
 
     // Vorgänger behält ID und Nachrichten, bekommt neuen Namen, neue Kategorie und neue Rechte
     assert.equal(g.channels.marketOverview, oldLive.id);
-    assert.equal(oldLive.name, '📈┃marktübersicht');
+    assert.equal(oldLive.name, '📈┃prognosen');
     assert.equal(oldLive.parentId, g.categories.info);
     assert.deepEqual(oldLive.messages, ['bestehende Nachricht']);
     const audit = guild.channels.cache.get(g.channels.audit);

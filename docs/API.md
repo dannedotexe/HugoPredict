@@ -54,7 +54,7 @@ Pflichtfelder: `id`, `title`. Fehlende optionale Werte zeigt der Bot als „—�
 
 Status: `open` (Handel läuft), `paused` (Handel vorübergehend ausgesetzt), `closed` (Handel beendet,
 Entscheidung ausstehend), `resolved` (entschieden, `outcome` gesetzt, optional `resolvedAt`), `rejected`.
-#marktübersicht fragt `open`, `paused`, `closed` und die letzten 25 `resolved` ab.
+#prognosen fragt `open`, `paused`, `closed` und die letzten 25 `resolved` ab.
 
 ### `GET /users/discord/{discordId}/balance`
 `{ "balance": 1250, "available": 1000, "locked": 250, "username": "Steve" }`
