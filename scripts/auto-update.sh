@@ -11,22 +11,28 @@ cd "$DIR"
 exec 9>"$DIR/data/.update.lock"
 flock -n 9 || exit 0
 
+# Zuletzt erfolgreich gestartete Version (beim ersten Lauf: aktueller Stand)
+DEPLOYED_FILE="$DIR/data/.deployed"
+[ -f "$DEPLOYED_FILE" ] || git rev-parse HEAD > "$DEPLOYED_FILE"
+
 update_once() {
-  local branch
+  local branch target
   branch="$(git rev-parse --abbrev-ref HEAD)"
   git fetch -q origin "$branch" || return 1
-  [ "$(git rev-parse HEAD)" = "$(git rev-parse "origin/$branch")" ] && return 0
+  target="$(git rev-parse "origin/$branch")"
+  [ "$target" = "$(cat "$DEPLOYED_FILE")" ] && return 0
 
   echo "[$(date -Is)] Update auf $(git rev-parse --short "origin/$branch")"
   # Jeder Schritt muss klappen, sonst kein Neustart.
-  git pull -q --ff-only origin "$branch" || return 1
+  git merge -q --ff-only "$target" || return 1
   npm ci --omit=dev --no-audit --no-fund --loglevel=error || return 1
-  npm run -s deploy || return 1
+  npm run -s deploy || echo "[$(date -Is)] Warnung: Command-Registrierung fehlgeschlagen – Neustart trotzdem"
   if command -v pm2 >/dev/null && pm2 describe "$NAME" >/dev/null 2>&1; then
     pm2 restart "$NAME" || return 1
   else
     sudo -n systemctl restart "$NAME" || return 1
   fi
+  echo "$target" > "$DEPLOYED_FILE"
   echo "[$(date -Is)] Neustart erledigt"
 }
 
