@@ -392,7 +392,9 @@ async function ensureMissingRoles(guild, store) {
   const created = [];
   const errors = [];
   for (const { def, action } of buildPlan(guild, store).roles) {
-    if (action !== 'create') continue;
+    // Optionale Rollen (Entwickler, Moderator, Bot) werden nicht neu angelegt,
+    // wenn sie auf dem Server bewusst entfernt wurden.
+    if (action !== 'create' || def.optional) continue;
     try {
       const role = await guild.roles.create({
         name: def.name, color: def.color, hoist: def.hoist, mentionable: def.mentionable, permissions: [], reason: REASON,

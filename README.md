@@ -34,15 +34,19 @@ API an.
 
 | Rolle | Aufgabe |
 |---|---|
-| Inhaber | Vollzugriff auf Server, Bot und Plattform |
-| Administrator | Serververwaltung, Benutzer und Moderation |
-| Entwickler | Technik, Bot, Website und Systemwartung |
-| Prognoseverwaltung | Prognosen prüfen, verwalten und Ergebnisse bearbeiten |
-| Moderator | Regeln durchsetzen und Diskussionen moderieren |
-| Support | Tickets bearbeiten und Nutzern helfen |
-| Verifiziert | Minecraft-Konto erfolgreich verknüpft |
-| Mitglied | Standardrolle für Community-Mitglieder |
-| HugoPredict Bot | Technische Rolle für den Discord-Bot |
+| `\| Inhaber` | Vollzugriff auf Server, Bot und Plattform |
+| `\| Administrator` | Serververwaltung, Benutzer und Moderation |
+| `\| Entwickler` (optional) | Technik, Bot, Website und Systemwartung |
+| `\| Prognoseverwaltung` | Prognosen prüfen, verwalten und Ergebnisse bearbeiten |
+| `\| Moderator` (optional) | Regeln durchsetzen und Diskussionen moderieren |
+| `\| Supporter` | Tickets bearbeiten und Nutzern helfen |
+| `\| Verifiziert` | Minecraft-Konto erfolgreich verknüpft |
+| `\| Mitglied` | Standardrolle für Community-Mitglieder |
+| `ping:Neue Prognosen`, `ping:Ankündigungen` | Freiwillige Benachrichtigungen |
+| `\| Hugo Predict` (optional) | Technische Rolle für den Discord-Bot |
+
+Optionale Rollen legt `/setup-panels` nicht neu an, wenn sie auf dem Server gelöscht wurden.
+Fehlen sie, übernehmen Inhaber und Administrator ihre Aufgaben.
 
 - **Administrator** ist die **einzige** Rolle mit dem Administrator-Recht. **Inhaber** hat
   umfassende Verwaltungsrechte, aber bewusst ohne Administrator-Flag.

@@ -97,7 +97,7 @@ test('Neuer Server: alles wird erstellt, zweiter Lauf ist idempotent', async () 
   assert.deepEqual(first.errors, []);
   assert.equal(first.created.length, L.ROLES.length + L.CATEGORIES.length + L.allChannels().length);
   assert.equal(first.obsolete.length, 0);
-  assert.ok(first.warnings.some((w) => w.startsWith('Administrator:')), 'Hinweis zum Administrator-Recht');
+  assert.ok(first.warnings.some((w) => w.startsWith('| Administrator:')), 'Hinweis zum Administrator-Recht');
 
   const ids = L.ROLES.map((r) => store.guild('G').roles[r.key]);
   const pos = ids.map((id) => guild.roles.cache.get(id).position);
@@ -142,9 +142,9 @@ for (const withStore of [true, false]) {
     assert.ok(!audit.ow.some((o) => o.id === g.roles.member || o.id === g.roles.support), 'kein Zugriff für Mitglied/Kundenservice');
 
     // Rollen umbenannt
-    assert.equal(guild.roles.cache.get(g.roles.owner).name, 'Inhaber');
-    assert.equal(guild.roles.cache.get(g.roles.support).name, 'Support');
-    assert.equal(guild.roles.cache.get(g.roles.bots).name, 'HugoPredict Bot');
+    assert.equal(guild.roles.cache.get(g.roles.owner).name, '| Inhaber');
+    assert.equal(guild.roles.cache.get(g.roles.support).name, '| Supporter');
+    assert.equal(guild.roles.cache.get(g.roles.bots).name, '| Hugo Predict');
 
     // Veraltetes nur gemeldet
     const obsoleteChannels = legacyChannelCount - migratable;
@@ -183,7 +183,7 @@ test('Archivieren verschiebt veraltete Channels in eine versteckte Kategorie, oh
   assert.equal(guild.channels.cache.filter((c) => c.name === 'ARCHIV').size, 1);
 });
 
-test('Zwischenversion: Kundenservice und Bot werden zu Support und HugoPredict Bot', async () => {
+test('Zwischenversion: Kundenservice und Bot werden zu Supporter und Hugo Predict', async () => {
   const guild = fakeGuild(allBot);
   const store = tmpStore();
   await guild.roles.create({ name: 'Kundenservice' });
@@ -191,9 +191,9 @@ test('Zwischenversion: Kundenservice und Bot werden zu Support und HugoPredict B
   const res = await runSetup(guild, store);
   assert.deepEqual(res.errors, []);
   const g = store.guild('G');
-  assert.equal(guild.roles.cache.get(g.roles.support).name, 'Support');
-  assert.equal(guild.roles.cache.get(g.roles.bots).name, 'HugoPredict Bot');
-  assert.equal(guild.roles.cache.filter((r) => r.name === 'Support').size, 1, 'kein Duplikat');
+  assert.equal(guild.roles.cache.get(g.roles.support).name, '| Supporter');
+  assert.equal(guild.roles.cache.get(g.roles.bots).name, '| Hugo Predict');
+  assert.equal(guild.roles.cache.filter((r) => r.name === '| Supporter').size, 1, 'kein Duplikat');
 });
 
 test('Rollen-Icons nur mit Boost-Funktion und ohne vorhandenes Icon', async () => {
@@ -267,7 +267,7 @@ test('syncRoleNames benennt nur Rollen mit früherem Namen um', async () => {
   for (const r of [support, bot, owner]) r.setName = async (n) => { r.name = n; };
   Object.assign(g.roles, { support: support.id, bots: bot.id, owner: owner.id });
   const res = await syncRoleNames(guild, store);
-  assert.deepEqual(res.renamed.sort(), ['Bot → HugoPredict Bot', 'Kundenservice → Support']);
+  assert.deepEqual(res.renamed.sort(), ['Bot → | Hugo Predict', 'Kundenservice → | Supporter']);
   assert.equal(owner.name, 'Mein eigener Name', 'frei vergebene Namen bleiben');
   assert.equal((await syncRoleNames(guild, store)).renamed.length, 0, 'idempotent');
 });
@@ -322,8 +322,11 @@ test('ensureMissingRoles legt nur neue Rollen an', async () => {
   guild.roles.cache.delete(g.roles.notifyMarkets);
   delete g.roles.notifyMarkets;
   const res = await ensureMissingRoles(guild, store);
-  assert.deepEqual(res.created, ['Neue Prognosen']);
+  assert.deepEqual(res.created, ['ping:Neue Prognosen']);
   assert.ok(guild.roles.cache.has(keep.id));
+  // Bewusst gelöschte optionale Rollen kommen nicht zurück
+  for (const k of ['developer', 'moderator']) { guild.roles.cache.delete(g.roles[k]); delete g.roles[k]; }
+  assert.equal((await ensureMissingRoles(guild, store)).created.length, 0, 'optionale Rollen nicht neu');
   assert.equal((await ensureMissingRoles(guild, store)).created.length, 0, 'idempotent');
 });
 

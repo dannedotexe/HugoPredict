@@ -32,10 +32,10 @@ function effective(spec, roles) {
 }
 const can = (spec, roles, p) => (effective(spec, roles) & p) === p;
 
-test('Rollen: deutsche Namen, geforderte Reihenfolge, ohne Emojis', () => {
-  assert.deepEqual(L.ROLES.map((r) => r.name), ['Inhaber', 'Administrator', 'Entwickler', 'Prognoseverwaltung', 'Moderator', 'Support', 'Verifiziert', 'Mitglied', 'Neue Prognosen', 'Ankündigungen', 'HugoPredict Bot']);
+test('Rollen: deutsche Namen mit Präfix, geforderte Reihenfolge, ohne Emojis', () => {
+  assert.deepEqual(L.ROLES.map((r) => r.name), ['| Inhaber', '| Administrator', '| Entwickler', '| Prognoseverwaltung', '| Moderator', '| Supporter', '| Verifiziert', '| Mitglied', 'ping:Neue Prognosen', 'ping:Ankündigungen', '| Hugo Predict']);
   for (const r of L.ROLES) assert.ok(r.description && r.icon, `${r.name}: Beschreibung und Icon`);
-  for (const r of L.ROLES) assert.match(r.name, /^[A-Za-zÄÖÜäöüß ]+$/);
+  for (const r of L.ROLES) assert.match(r.name, /^(\| |ping:)[A-Za-zÄÖÜäöüß ]+$/);
 });
 
 test('Struktur entspricht exakt der Vorgabe', () => {
