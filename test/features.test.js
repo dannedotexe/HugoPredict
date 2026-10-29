@@ -309,3 +309,34 @@ test('Nächsten holen: Platz 1 in den eigenen Support-Raum, Gespräch beenden tr
   assert.equal(res.room.id, 'S1');
   assert.equal((await svc.endConversation(guild, staff)).error, 'not_in_room');
 });
+
+test('Vorlage im Forum: einmal erstellen, angepinnt und gesperrt, danach nur bearbeiten', async () => {
+  const { publishIdeasTemplate } = require('../src/setup/panels');
+  const { ChannelType } = require('discord.js');
+  const store = tmpStore();
+  const g = store.guild('G');
+  g.channels.ideas = 'F';
+  const created = [];
+  const edits = [];
+  const thread = {
+    id: 'T', archived: false, locked: false, pinned: false,
+    flags: { has: () => thread.pinned },
+    pin: async () => { thread.pinned = true; },
+    setLocked: async (v) => { thread.locked = v; },
+    fetchStarterMessage: async () => ({ edit: async (p) => edits.push(p) }),
+  };
+  const forum = {
+    id: 'F', type: ChannelType.GuildForum,
+    threads: { create: async (opts) => { created.push(opts); return thread; }, fetch: async (id) => (id === 'T' ? thread : null) },
+  };
+  const guild = { id: 'G', channels: { cache: new Collection([['F', forum]]) } };
+  const first = await publishIdeasTemplate(guild, g);
+  assert.equal(first.created, true);
+  assert.match(created[0].name, /Vorlage/);
+  assert.match(created[0].message.content, /Vorlage zum Kopieren/);
+  assert.ok(thread.pinned && thread.locked);
+  const second = await publishIdeasTemplate(guild, g);
+  assert.equal(second.created, false);
+  assert.equal(created.length, 1, 'nicht doppelt');
+  assert.equal(edits.length, 1);
+});

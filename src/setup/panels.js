@@ -1,6 +1,6 @@
 'use strict';
 
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
 const { TICKET_TYPES } = require('../config/serverLayout');
 const { LEGACY_PANELS } = require('../config/legacyLayout');
 const { sections } = require('../config/docs');
@@ -135,6 +135,64 @@ function panelDefinitions() {
   ];
 }
 
+// --- Vorlage im Forum #vorschläge ------------------------------------------
+
+const IDEAS_TEMPLATE_TITLE = '📌 Vorlage: So schreibst du einen guten Vorschlag';
+
+function ideasTemplateText(channelIds = {}) {
+  const prognosen = channelIds.marketOverview ? `<#${channelIds.marketOverview}>` : '#prognosen';
+  return [
+    '## So schreibst du einen guten Vorschlag',
+    'Erstelle für **jede Idee einen eigenen Beitrag**, gib ihm einen kurzen, klaren Titel und wähle einen Bereich: 🏠 Server, 🤖 Bot, 🌐 Website oder ⛏️ Minecraft.',
+    'Schau vorher kurz, ob es den Vorschlag schon gibt. Dann stimm dort lieber mit 👍 ab.',
+    '',
+    '**Vorlage zum Kopieren**',
+    '```',
+    'Was ist die Idee?',
+    '…',
+    '',
+    'Warum hilft das?',
+    '…',
+    '',
+    'Wie könnte es umgesetzt werden? (optional)',
+    '…',
+    '```',
+    '**Status** – setzt das Team: 🔍 In Prüfung · ✅ Angenommen · ❌ Abgelehnt · 🎉 Umgesetzt',
+    `-# Neue Prognosen bitte über „Prognose vorschlagen“ in ${prognosen}.`,
+  ].join('\n');
+}
+
+/**
+ * Angepinnter, gesperrter Vorlage-Beitrag im Forum. Wird bearbeitet statt neu
+ * erstellt. Anpinnen und Sperren brauchen „Threads verwalten“ – fehlt das, bleibt
+ * der Beitrag trotzdem stehen und es gibt einen Hinweis.
+ */
+async function publishIdeasTemplate(guild, g) {
+  const forum = g.channels.ideas && guild.channels.cache.get(g.channels.ideas);
+  if (!forum || forum.type !== ChannelType.GuildForum) return null;
+  const content = ideasTemplateText(g.channels);
+  const ref = g.panels.ideasTemplate;
+  let thread = ref?.channelId === forum.id ? await forum.threads.fetch(ref.threadId).catch(() => null) : null;
+  let created = false;
+  if (thread) {
+    if (thread.archived) await thread.setArchived(false).catch(() => {});
+    const starter = await thread.fetchStarterMessage().catch(() => null);
+    if (starter) await starter.edit({ content, allowedMentions: { parse: [] } });
+  } else {
+    thread = await forum.threads.create({ name: IDEAS_TEMPLATE_TITLE, message: { content, allowedMentions: { parse: [] } }, reason: 'HugoPredict: Vorlage für Vorschläge' });
+    g.panels.ideasTemplate = { channelId: forum.id, threadId: thread.id };
+    created = true;
+  }
+  let warning = null;
+  try {
+    if (!thread.flags?.has?.('Pinned')) await thread.pin('HugoPredict: Vorlage oben halten');
+    if (!thread.locked) await thread.setLocked(true, 'HugoPredict: Vorlage ohne Antworten');
+  } catch {
+    warning = 'Vorlage in #vorschläge: Zum Anpinnen braucht die Bot-Rolle „Threads verwalten“.';
+  }
+  return { created, warning };
+}
+
 const buildArgs = (guild, g, env) => ({ guild, env, roleIds: g.roles, channelIds: g.channels, supportOpen: g.supportVoice.open });
 
 /** Aktualisiert einzelne, bereits veröffentlichte Panels (z. B. nach Öffnen/Schließen des Warteraums). */
@@ -191,6 +249,13 @@ async function publishPanels(guild, { store, env, statusService, statsService })
   } catch (err) {
     result.errors.push(`status: ${err.message}`);
   }
+  try {
+    const template = await publishIdeasTemplate(guild, g);
+    if (template) (template.created ? result.created : result.updated).push('ideasTemplate');
+    if (template?.warning) result.errors.push(template.warning);
+  } catch (err) {
+    result.errors.push(`ideasTemplate: ${err.message}`);
+  }
   if (statsService) {
     try {
       await statsService.updateGuild(guild.client, guild);
@@ -204,4 +269,4 @@ async function publishPanels(guild, { store, env, statusService, statsService })
   return result;
 }
 
-module.exports = { publishPanels, panelDefinitions, refreshPanels };
+module.exports = { publishPanels, panelDefinitions, refreshPanels, publishIdeasTemplate, ideasTemplateText };
