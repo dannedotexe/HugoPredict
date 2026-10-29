@@ -31,13 +31,22 @@ npm ci --omit=dev --no-audit --no-fund
 
 if [ ! -f .env ]; then
   echo "==> Konfiguration (.env) anlegen"
-  read -rp "Application ID (DISCORD_CLIENT_ID): " CID
-  read -rp "Server-ID (DISCORD_GUILD_ID): " GID
-  read -rp "Bot-Token (DISCORD_TOKEN): " TOK
+  # Reste im Eingabepuffer verwerfen (z. B. ein mit eingefügter Zeilenumbruch).
+  while read -r -t 0.2 _; do :; done || true
+  ask() { # ask <Variable> <Frage> <Regex> <Hinweis>
+    local value
+    while true; do
+      read -rp "$2: " value
+      value="$(printf '%s' "$value" | tr -d '[:space:]')"
+      [[ "$value" =~ $3 ]] && break
+      [ -n "$value" ] && echo "  → $4 Bitte erneut eingeben."
+    done
+    printf -v "$1" '%s' "$value"
+  }
+  ask CID "Application ID (DISCORD_CLIENT_ID)" '^[0-9]{15,25}$' "Die Application ID besteht nur aus Ziffern."
+  ask GID "Server-ID (DISCORD_GUILD_ID)" '^[0-9]{15,25}$' "Die Server-ID besteht nur aus Ziffern."
+  ask TOK "Bot-Token (DISCORD_TOKEN)" '^[A-Za-z0-9._-]{50,}$' "Das sieht nicht nach einem Bot-Token aus."
   clear
-  [[ "$CID" =~ ^[0-9]{15,25}$ ]] || fail "Application ID muss eine Zahl sein."
-  [[ "$GID" =~ ^[0-9]{15,25}$ ]] || fail "Server-ID muss eine Zahl sein."
-  [[ "$TOK" =~ ^[A-Za-z0-9._-]{50,}$ ]] || fail "Das sieht nicht nach einem Bot-Token aus."
   cp .env.example .env
   chmod 600 .env
   sed -i -e "s#^DISCORD_CLIENT_ID=.*#DISCORD_CLIENT_ID=$CID#" \
