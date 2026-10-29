@@ -26,6 +26,7 @@ const { createMarketFeed } = require('./services/marketFeed');
 const { createStatsService } = require('./services/stats');
 const { createWelcomeService } = require('./services/welcome');
 const { resolveIntents, membersIntentAllowed } = require('./lib/intents');
+const { createMinecraftService } = require('./minecraft/service');
 
 const logger = createLogger(env.logLevel);
 const store = new Store(env.dataDir);
@@ -39,13 +40,27 @@ const handlers = loadInteractionHandlers();
 // Der Client wird in main() erstellt, sobald feststeht, welche Intents freigegeben sind.
 let client;
 
-const status = createStatusService({ api, store, env, logger });
+// Minecraft-Bot (optional): meldet sich in den internen Channels aller Server.
+const minecraft = env.minecraft.enabled
+  ? createMinecraftService({
+    config: env.minecraft,
+    api,
+    logger,
+    dataDir: env.dataDir,
+    createBot: (opts) => require('mineflayer').createBot(opts),
+    report: async (route, entry) => {
+      for (const guild of client?.guilds.cache.values() ?? []) await ctx.audit(guild, route, entry);
+    },
+  })
+  : null;
+
+const status = createStatusService({ api, store, env, logger, minecraft });
 const marketFeed = createMarketFeed({ api, store, env, ctx, logger, statusService: status });
 
 const denyLog = new Map();
 
 const deps = {
-  env, api, store, ctx, logger, limiter, locks,
+  env, api, store, ctx, logger, limiter, locks, minecraft,
   services: {
     status,
     marketFeed,
@@ -146,6 +161,7 @@ function wire({ stats, welcome, membersIntent }) {
 
     // Custom-Emojis zuerst bereitstellen, damit Panels und Embeds sie nutzen können.
     await emojis.sync(c, logger);
+    minecraft?.start();
 
     const every = (ms, fn, name) => {
       const run = () => fn(c).catch((err) => logger.error(`${name}:`, err));
@@ -177,6 +193,7 @@ process.on('unhandledRejection', (err) => logger.error('Unbehandelte Promise-Abl
 function shutdown(signal, code = 0) {
   logger.info(`${signal} empfangen – fahre herunter.`);
   intervals.forEach(clearInterval);
+  minecraft?.stop();
   try {
     store.flush();
   } catch (err) {

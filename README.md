@@ -193,8 +193,34 @@ npm start        # startet den Bot
 | `MAX_OPEN_TICKETS_PER_USER` | nein | `2` | Offene Anfragen pro Person |
 | `DATA_DIR` | nein | `./data` | Speicherort für IDs, Panels, Tickets |
 | `LOG_LEVEL` | nein | `info` | `debug`/`info`/`warn`/`error` |
+| `MC_ENABLED` | nein | `false` | Minecraft-Bot starten (siehe unten) |
+| `MC_HOST`, `MC_PORT`, `MC_VERSION` | mit Minecraft | `25565`, automatisch | Adresse und Version von HugoSMP |
+| `MC_ACCOUNT` | mit Minecraft | | Microsoft-Konto des Bot-Accounts |
+| `MC_JOIN_COMMANDS` | nein | | Befehle nach dem Betreten, durch `;` getrennt |
+| `MC_WHISPER_COMMAND`, `MC_PAY_COMMAND`, `MC_BALANCE_COMMAND` | nein | `/msg …`, `/pay …`, `/balance` | Befehle im Spiel |
+| `MC_PAY_CONFIRM_COMMAND` | nein | | Bestätigung nach `/pay`, falls der Server sie verlangt |
+| `MC_PAY_PATTERN`, `MC_BALANCE_PATTERN` | nein | eingebaut | Eigene Erkennung der Servernachrichten |
+| `MC_PAYOUTS_ENABLED` | nein | `false` | Auszahlungen ausführen |
+| `MC_PAYOUT_MAX` | mit Auszahlungen | | Höchstbetrag pro Auszahlung |
 
 `.env` und `data/` stehen in `.gitignore` und dürfen nie committet werden.
+
+## Minecraft-Bot
+
+Mit `MC_ENABLED=true` verbindet sich der Bot zusätzlich mit HugoSMP (Mineflayer, im selben
+Prozess). Er braucht einen eigenen, gekauften Minecraft-Java-Account.
+
+| Funktion | Ablauf |
+|---|---|
+| Kontoverknüpfung | „Konto verknüpfen“ oder `/verify` → Minecraft-Name → der Bot flüstert im Spiel einen 6-stelligen Code → „Code eingeben“ in Discord. Nur wer online ist, bekommt den Code. Danach: Rollen *Mitglied* und *Verifiziert*, Server-Name = Minecraft-Name. Code 10 Minuten gültig, 5 Versuche |
+| Einzahlung | Spieler zahlt `/pay HugoPredict 15k`. Gutgeschrieben wird nur, wenn der Kontostand des Bots (`/balance`) wirklich gestiegen ist; Spieler-Chat wird nie ausgewertet. Meldung an die Website mit Idempotency-Key, bei Störungen später erneut |
+| Auszahlung | Nur mit `MC_PAYOUTS_ENABLED=true`: vom Team freigegebene Auszahlungen der Website werden per `/pay` ausgeführt und am Kontostand geprüft. Limit `MC_PAYOUT_MAX`. Jede Auszahlung höchstens einmal, Unklares meldet der Bot dem Team statt zu wiederholen |
+
+Erster Start: In `systemmeldungen` erscheint „Minecraft: Anmeldung nötig“ mit Link und Code.
+Dort mit dem Microsoft-Konto des Bots anmelden; die Anmeldung wird in `data/minecraft-auth`
+gespeichert. Erkennt der Bot Zahlungs- oder Kontostandsnachrichten nicht, meldet er die
+unbekannte Nachricht in `systemmeldungen`. Dann `MC_PAY_PATTERN`/`MC_BALANCE_PATTERN`
+anpassen. Alle Geldbewegungen stehen in `prüfprotokoll`.
 
 ## Hosting auf Oracle Cloud (Always Free)
 

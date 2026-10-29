@@ -93,3 +93,30 @@ test('Kontoverknüpfung vergibt nur Mitglied und Verifiziert und setzt den Minec
   assert.deepEqual(added.sort(), ['M', 'V']);
   assert.equal(interaction.member.nickname, 'Steve', 'Server-Name = Minecraft-Name');
 });
+
+test('Minecraft-Code in Discord: falscher Code meldet Versuche, richtiger vergibt Rollen und Namen', async () => {
+  const { confirmMinecraftCode } = require('../src/interactions/verification');
+  const replies = [];
+  const added = [];
+  const makeInteraction = () => {
+    const i = {
+      guild: { id: 'G' }, user: { id: '1', username: 'steve' },
+      member: { nickname: null, roles: { cache: new Collection(), add: async (ids) => added.push(...ids) }, setNickname: async (n) => { i.member.nickname = n; } },
+      replied: false, deferred: false,
+      deferReply: async () => { i.deferred = true; }, editReply: async (p) => replies.push(p), followUp: async (p) => replies.push(p), reply: async (p) => replies.push(p),
+    };
+    return i;
+  };
+  const results = [{ error: 'wrong', attemptsLeft: 4 }, { player: { username: 'Steve', uuid: 'u' } }];
+  const deps = {
+    minecraft: { confirmLinkCode: () => results.shift(), saveLink: async () => ({ synced: false }), forgetLink: () => {} },
+    ctx: { roleId: (g, k) => ({ member: 'M', verified: 'V' })[k], audit: async () => {} }, logger: console,
+  };
+  await confirmMinecraftCode(makeInteraction(), 'XXXXXX', deps);
+  assert.match(JSON.stringify(replies.at(-1)), /Noch 4 Versuch/);
+  const ok = makeInteraction();
+  await confirmMinecraftCode(ok, 'ABCDEF', deps);
+  assert.deepEqual(added.sort(), ['M', 'V']);
+  assert.equal(ok.member.nickname, 'Steve');
+  assert.match(JSON.stringify(replies.at(-1)), /sobald sie verbunden ist/);
+});

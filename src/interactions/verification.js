@@ -1,11 +1,12 @@
 'use strict';
 
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
-const { embeds, discordTime } = require('../lib/embeds');
+const { embeds, discordTime, formatRetry } = require('../lib/embeds');
 const { replyPrivate, replyApiError, EPHEMERAL } = require('../lib/respond');
 const { ApiError } = require('../lib/hugoApi');
 const { withEmoji } = require('../lib/emojis');
 const { card } = require('../lib/ui');
+const { CODE_LENGTH } = require('../minecraft/linkCodes');
 
 const MC_NAME = /^[A-Za-z0-9_]{3,16}$/;
 
@@ -26,6 +27,7 @@ async function startVerification(interaction, rawName, deps) {
   if (deps.ctx.hasRoleKey(interaction.member, 'verified')) {
     return replyPrivate(interaction, { embeds: [embeds.info('Bereits verknüpft', 'Dein Konto ist bereits verknüpft.')] });
   }
+  if (deps.minecraft) return startMinecraftLink(interaction, name, deps);
   await interaction.deferReply({ flags: EPHEMERAL });
   try {
     const res = await deps.api.startVerification({
@@ -70,12 +72,17 @@ async function checkVerification(interaction, deps) {
   }
 
   // Rolle erst nach bestätigter Verifizierung durch die Website vergeben.
+  return grantVerified(interaction, status.minecraftName, deps);
+}
+
+/** Vergibt Mitglied + Verifiziert und setzt den Minecraft-Namen. Antwort muss bereits zurückgestellt sein. */
+async function grantVerified(interaction, minecraftName, deps, { note = '' } = {}) {
   const member = interaction.member;
   // Nur Mitglied und Verifiziert – Benachrichtigungen wählt jede Person selbst in #pings.
   const roleIds = ['member', 'verified'].map((k) => deps.ctx.roleId(interaction.guild.id, k)).filter(Boolean);
   const toAdd = roleIds.filter((id) => !member.roles.cache.has(id));
   try {
-    if (toAdd.length) await member.roles.add(toAdd, 'Konto über die Website verknüpft');
+    if (toAdd.length) await member.roles.add(toAdd, 'Konto verknüpft');
   } catch (err) {
     deps.logger.warn('Rolle Verifiziert konnte nicht vergeben werden:', err.message);
     await deps.ctx.audit(interaction.guild, 'system', { title: 'Rolle nicht vergeben', description: `Verifiziert für <@${interaction.user.id}>: ${err.message}` });
@@ -84,10 +91,10 @@ async function checkVerification(interaction, deps) {
   // Server-Name = Minecraft-Name. Klappt nicht bei Personen über der Bot-Rolle
   // (z. B. Server-Eigentümer) oder ohne das Recht „Nicknames verwalten“.
   let nickNote = '';
-  if (status.minecraftName && member.nickname !== status.minecraftName) {
+  if (minecraftName && member.nickname !== minecraftName) {
     try {
-      await member.setNickname(status.minecraftName, 'Minecraft-Name aus der Kontoverknüpfung');
-      nickNote = `\nDein Name auf diesem Server ist jetzt **${status.minecraftName}**.`;
+      await member.setNickname(minecraftName, 'Minecraft-Name aus der Kontoverknüpfung');
+      nickNote = `\nDein Name auf diesem Server ist jetzt **${minecraftName}**.`;
     } catch (err) {
       deps.logger.warn('Nickname nicht gesetzt:', err.message);
     }
@@ -96,18 +103,88 @@ async function checkVerification(interaction, deps) {
     title: 'Konto verknüpft',
     fields: [
       { name: 'Discord', value: `<@${interaction.user.id}> (${interaction.user.id})` },
-      { name: 'Minecraft', value: status.minecraftName ?? '—' },
+      { name: 'Minecraft', value: minecraftName ?? '—' },
     ],
   });
-  return replyPrivate(interaction, { embeds: [embeds.success('Konto verknüpft', `Dein Konto${status.minecraftName ? ` **${status.minecraftName}**` : ''} ist verknüpft. Kontoabfragen wie \`/balance\` stehen dir jetzt zur Verfügung.${nickNote}`)] });
+  return replyPrivate(interaction, { embeds: [embeds.success('Konto verknüpft', `Dein Konto${minecraftName ? ` **${minecraftName}**` : ''} ist verknüpft. Kontoabfragen wie \`/balance\` stehen dir jetzt zur Verfügung.${nickNote}${note}`)] });
+}
+
+// --- Verknüpfung über den Minecraft-Bot ---------------------------------
+
+const LINK_ERRORS = {
+  offline_bot: ['Gerade nicht möglich', 'Der HugoPredict-Bot ist gerade nicht auf HugoSMP. Bitte versuche es in ein paar Minuten erneut.'],
+  not_online: ['Nicht online', 'Du musst gerade auf **HugoSMP** online sein. Achte darauf, deinen Namen genau wie im Spiel zu schreiben.'],
+  taken: ['Bereits verknüpft', 'Dieses Minecraft-Konto ist schon mit einem anderen Discord-Konto verknüpft. Wende dich bitte an den Support.'],
+  missing: ['Kein Code aktiv', 'Starte die Verknüpfung erneut über „Konto verknüpfen“.'],
+  expired: ['Code abgelaufen', 'Der Code ist nicht mehr gültig. Starte die Verknüpfung erneut.'],
+  locked: ['Zu viele Fehlversuche', 'Der Code wurde gesperrt. Starte die Verknüpfung erneut.'],
+};
+const linkError = (key, extra = '') => ({ embeds: [embeds.error(LINK_ERRORS[key][0], LINK_ERRORS[key][1] + extra)] });
+
+function codeModal() {
+  return new ModalBuilder().setCustomId('hm:verify:codemodal').setTitle('Code eingeben').addComponents(
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder().setCustomId('code').setLabel('Code aus dem Spiel').setStyle(TextInputStyle.Short)
+        .setMinLength(CODE_LENGTH).setMaxLength(CODE_LENGTH).setRequired(true),
+    ),
+  );
+}
+
+async function startMinecraftLink(interaction, name, deps) {
+  await interaction.deferReply({ flags: EPHEMERAL });
+  const res = await deps.minecraft.sendLinkCode(interaction.user.id, name);
+  if (res.error === 'cooldown') {
+    return replyPrivate(interaction, { embeds: [embeds.warning('Code bereits unterwegs', `Ein neuer Code ist in ${formatRetry(res.retryAfterMs)} möglich. Gib den letzten Code über „Code eingeben“ ein.`)], components: [codeButtonRow()] });
+  }
+  if (res.error) return replyPrivate(interaction, linkError(res.error));
+  return replyPrivate(interaction, card({
+    icon: 'link',
+    title: 'Code im Spiel',
+    intro: `Der Bot hat dir auf **HugoSMP** eine private Nachricht mit einem Code geschickt, **${res.player.username}**. Gib ihn hier ein.`,
+    logo: false,
+    blocks: [
+      { heading: 'So geht es', body: 'Schau in deinen Minecraft-Chat,\nwähle „Code eingeben“,\ngib den 6-stelligen Code ein.' },
+      { heading: 'Sicherheit', icon: 'lock', body: 'Der Code ist 10 Minuten gültig. Gib ihn niemals an andere weiter.' },
+    ],
+    actions: [codeButtonRow()],
+    ephemeral: true,
+  }));
+}
+
+const codeButtonRow = () => new ActionRowBuilder().addComponents(
+  withEmoji(new ButtonBuilder().setCustomId('hm:verify:code').setStyle(ButtonStyle.Success).setLabel('Code eingeben'), 'verified'),
+);
+
+async function confirmMinecraftCode(interaction, code, deps) {
+  await interaction.deferReply({ flags: EPHEMERAL });
+  const res = deps.minecraft.confirmLinkCode(interaction.user.id, code);
+  if (res.error === 'wrong') return replyPrivate(interaction, { embeds: [embeds.error('Falscher Code', `Bitte prüfe den Code. Noch ${res.attemptsLeft} Versuch(e).`)], components: [codeButtonRow()] });
+  if (res.error) return replyPrivate(interaction, linkError(res.error));
+  let synced;
+  try {
+    ({ synced } = await deps.minecraft.saveLink({ discordId: interaction.user.id, discordUsername: interaction.user.username, player: res.player }));
+  } catch (err) {
+    deps.minecraft.forgetLink(interaction.user.id);
+    return replyApiError(interaction, err, { ...deps, action: 'Konto verknüpfen' });
+  }
+  return grantVerified(interaction, res.player.username, deps, {
+    note: synced ? '' : '\n-# Die Website wird automatisch informiert, sobald sie verbunden ist.',
+  });
 }
 
 async function handle(interaction, deps, [action]) {
   if (!interaction.inGuild()) return;
   if (action === 'start' && interaction.isButton()) {
     if (!deps.checkRate(interaction, 'verify')) return;
-    if (!deps.api.configured) return replyApiError(interaction, new ApiError('not_configured', 'API nicht konfiguriert'), deps);
+    if (!deps.minecraft && !deps.api.configured) return replyApiError(interaction, new ApiError('not_configured', 'API nicht konfiguriert'), deps);
     return interaction.showModal(nameModal());
+  }
+  if (action === 'code' && interaction.isButton() && deps.minecraft) {
+    if (!deps.checkRate(interaction, 'verifyCheck')) return;
+    return interaction.showModal(codeModal());
+  }
+  if (action === 'codemodal' && interaction.isModalSubmit() && deps.minecraft) {
+    return confirmMinecraftCode(interaction, interaction.fields.getTextInputValue('code'), deps);
   }
   if (action === 'modal' && interaction.isModalSubmit()) {
     return startVerification(interaction, interaction.fields.getTextInputValue('name'), deps);
@@ -118,4 +195,4 @@ async function handle(interaction, deps, [action]) {
   }
 }
 
-module.exports = { prefix: 'verify', handle, startVerification, checkVerification, MC_NAME };
+module.exports = { prefix: 'verify', handle, startVerification, checkVerification, confirmMinecraftCode, MC_NAME };

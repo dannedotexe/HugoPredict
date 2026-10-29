@@ -6,7 +6,7 @@ const { emojis } = require('../lib/emojis');
 const { card, upsert } = require('../lib/ui');
 const theme = require('../config/theme');
 
-function createStatusService({ api, store, env, logger }) {
+function createStatusService({ api, store, env, logger, minecraft = null }) {
   const startedAt = new Date();
   const state = { apiOk: null, apiCheckedAt: null, apiError: null, lastSyncOk: null, lastSyncAt: null };
 
@@ -41,6 +41,12 @@ function createStatusService({ api, store, env, logger }) {
       blocks: [
         { heading: 'Discord-Bot', body: line(true, `Betriebsbereit · gestartet ${discordTime(startedAt, 'R')}`) },
         { heading: 'Website-API', body: api.configured ? line(state.apiOk, state.apiOk ? 'Betriebsbereit' : `Gestört${state.apiError ? ` · ${state.apiError}` : ''}`) : line(null, 'Nicht verbunden') },
+        ...(minecraft ? [{
+          heading: 'Minecraft-Bot',
+          body: minecraft.state.online
+            ? line(true, `Auf HugoSMP · seit ${discordTime(minecraft.state.since, 'R')}`)
+            : line(false, `Nicht verbunden${minecraft.state.lastError ? ` · ${String(minecraft.state.lastError).slice(0, 120)}` : ''}`),
+        }] : []),
         { heading: 'Prognosen', body: state.lastSyncAt ? line(state.lastSyncOk, `${state.lastSyncOk ? 'Synchron' : 'Gestört'} · ${discordTime(state.lastSyncAt, 'R')}`) : line(null, 'Noch keine Synchronisierung') },
       ],
       footer: `Zuletzt geprüft ${discordTime(new Date(), 't')}`,

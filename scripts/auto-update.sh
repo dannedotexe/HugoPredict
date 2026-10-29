@@ -23,9 +23,14 @@ update_once() {
   [ "$target" = "$(cat "$DEPLOYED_FILE")" ] && return 0
 
   echo "[$(date -Is)] Update auf $(git rev-parse --short "origin/$branch")"
+  local previous
+  previous="$(cat "$DEPLOYED_FILE")"
   # Jeder Schritt muss klappen, sonst kein Neustart.
   git merge -q --ff-only "$target" || return 1
-  npm ci --omit=dev --no-audit --no-fund --loglevel=error || return 1
+  # Pakete nur neu installieren, wenn sie sich geändert haben (Minecraft-Daten sind groß).
+  if [ ! -d node_modules ] || ! git diff --quiet "$previous" "$target" -- package.json package-lock.json 2>/dev/null; then
+    npm ci --omit=dev --no-audit --no-fund --loglevel=error || return 1
+  fi
   npm run -s deploy || echo "[$(date -Is)] Warnung: Command-Registrierung fehlgeschlagen – Neustart trotzdem"
   if command -v pm2 >/dev/null && pm2 describe "$NAME" >/dev/null 2>&1; then
     pm2 restart "$NAME" || return 1

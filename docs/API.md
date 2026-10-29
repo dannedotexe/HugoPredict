@@ -106,3 +106,48 @@ Header `Idempotency-Key: discord-suggestion:<id>`.
 ```
 Antwort: `{ "id": "m_456", "url": "https://…", "status": "draft" }` (Pflicht: `id`).
 Die Website sollte selbst prüfen, ob `approvedByDiscordId` dazu berechtigt ist.
+
+## Minecraft-Bot
+
+Ist `MC_ENABLED=true`, verknüpft der Minecraft-Bot Konten selbst: Er flüstert dem Spieler
+auf HugoSMP einen Code zu, der in Discord eingegeben wird. `POST /verification/start` und
+`GET /verification/status` werden dann nicht genutzt. Beträge sind immer **Spielgeld**;
+wie viele HugoCoins dafür gutgeschrieben werden, entscheidet allein die Website.
+
+### `POST /minecraft/links`
+Header `Idempotency-Key: mc-link:<discordId>:<minecraftUuid>`.
+```json
+{ "discordId": "1234…", "discordUsername": "steve", "minecraftName": "Steve", "minecraftUuid": "069a79f4-…" }
+```
+Antwort: `{ "linked": true }`. Ist das Minecraft-Konto schon mit einem anderen Discord-Konto
+verknüpft: **409** mit optionalem `message`. Verknüpfungen, die ohne Website entstanden sind,
+überträgt der Bot automatisch nach (gleicher Idempotency-Key).
+
+### `POST /minecraft/deposits`
+Eine Einzahlung, die der Bot am **gestiegenen Kontostand** bestätigt hat.
+Header `Idempotency-Key: mc-deposit:<id>`. Nicht erreichbare Meldungen wiederholt der Bot.
+```json
+{ "id": "3f2c…", "minecraftName": "Steve", "minecraftUuid": "069a79f4-…", "amount": 15000, "receivedAt": "2026-10-29T18:00:00Z" }
+```
+`minecraftUuid` kann `null` sein, wenn der Spieler gerade nicht in der Spielerliste stand.
+Antwort: `{ "accepted": true, "linked": true, "credited": 1500 }`
+- `linked: false`: Konto noch nicht verknüpft. Die Website **muss** den Betrag trotzdem speichern
+  und gutschreiben, sobald die Verknüpfung kommt.
+- `credited`: gutgeschriebene HugoCoins (optional, wird dem Spieler im Spiel angezeigt).
+
+### `GET /minecraft/payouts?status=approved`
+Nur Auszahlungen, die das Team freigegeben hat und die noch nicht ausgeführt wurden.
+`{ "payouts": [{ "id": "p_1", "minecraftName": "Steve", "amount": 5000 }] }`
+Die Website zieht die HugoCoins beim Beantragen ab, nicht erst nach der Ausführung.
+
+### `POST /minecraft/payouts/{id}/complete`
+`{ "paidAt": "…" }`, Header `Idempotency-Key: mc-payout-complete:<id>`. Danach darf die
+Auszahlung nicht mehr in der Liste erscheinen.
+
+### `POST /minecraft/payouts/{id}/fail`
+`{ "reason": "…", "uncertain": false }`, Header `Idempotency-Key: mc-payout-fail:<id>`.
+- `uncertain: false`: Es wurde **nichts** gezahlt (Limit, Bot-Guthaben). HugoCoins zurückbuchen.
+- `uncertain: true`: Der Bot weiß nicht sicher, ob gezahlt wurde. **Nicht** automatisch
+  zurückbuchen, das Team prüft im Spiel.
+
+Der Bot führt jede Auszahlungs-ID höchstens einmal aus, auch nach einem Neustart.

@@ -51,6 +51,8 @@ function userMessage(err) {
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const SNOWFLAKE = /^\d{15,25}$/;
+const PAYOUT_ID = /^[\w-]{1,64}$/;
+const MC_NAME = /^[A-Za-z0-9_]{3,16}$/;
 const MARKET_STATUSES = ['open', 'paused', 'closed', 'resolved', 'rejected'];
 const LEADERBOARDS = ['weekly', 'all-time', 'accuracy', 'biggest-wins'];
 
@@ -291,6 +293,51 @@ class HugoApi {
       minecraftName: typeof body.minecraftName === 'string' ? body.minecraftName : null,
       pending: body.pending === true,
     };
+  }
+
+  // --- Minecraft-Bot ------------------------------------------------------
+
+  /** Verknüpfung, die der Minecraft-Bot per Code im Spiel bestätigt hat. */
+  async linkMinecraftAccount({ discordId, discordUsername, minecraftName, minecraftUuid }) {
+    if (!SNOWFLAKE.test(String(discordId))) throw new TypeError('Ungültige Discord-ID.');
+    const body = await this.request('POST', '/minecraft/links', {
+      body: { discordId, discordUsername, minecraftName, minecraftUuid },
+      idempotencyKey: `mc-link:${discordId}:${minecraftUuid}`,
+    });
+    if (!isObj(body) || body.linked !== true) throw new ApiError('invalid_response', 'Verknüpfung ohne linked === true.', { body });
+    return { linked: true };
+  }
+
+  /**
+   * Meldet eine bestätigte Einzahlung (Betrag in Spielwährung). Den Umrechnungskurs
+   * und die Gutschrift in HugoCoins bestimmt allein die Website.
+   */
+  async reportDeposit({ id, minecraftName, minecraftUuid, amount, receivedAt }) {
+    const body = await this.request('POST', '/minecraft/deposits', {
+      body: { id, minecraftName, minecraftUuid, amount, receivedAt },
+      idempotencyKey: `mc-deposit:${id}`,
+    });
+    if (!isObj(body) || body.accepted !== true) throw new ApiError('invalid_response', 'Einzahlung ohne accepted === true.', { body });
+    return { linked: body.linked === true, credited: isNum(body.credited) ? body.credited : null };
+  }
+
+  /** Vom Team freigegebene Auszahlungen, die der Bot im Spiel ausführen soll. */
+  async listPayouts() {
+    const body = await this.request('GET', '/minecraft/payouts', { query: { status: 'approved' } });
+    return requireArray(body, 'payouts')
+      .filter((p) => isObj(p) && PAYOUT_ID.test(String(p.id)) && MC_NAME.test(String(p.minecraftName)) && isNum(p.amount) && p.amount > 0)
+      .map((p) => ({ id: String(p.id), minecraftName: p.minecraftName, amount: p.amount }));
+  }
+
+  async completePayout(id, { paidAt }) {
+    if (!PAYOUT_ID.test(String(id))) throw new TypeError('Ungültige Auszahlungs-ID.');
+    await this.request('POST', `/minecraft/payouts/${id}/complete`, { body: { paidAt }, idempotencyKey: `mc-payout-complete:${id}` });
+  }
+
+  /** uncertain: Der Bot weiß nicht sicher, ob das Geld geflossen ist – das Team muss prüfen. */
+  async failPayout(id, { reason, uncertain = false }) {
+    if (!PAYOUT_ID.test(String(id))) throw new TypeError('Ungültige Auszahlungs-ID.');
+    await this.request('POST', `/minecraft/payouts/${id}/fail`, { body: { reason, uncertain }, idempotencyKey: `mc-payout-fail:${id}` });
   }
 }
 

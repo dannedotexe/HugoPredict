@@ -61,6 +61,25 @@ const env = {
   ticketCloseConfirmation: bool('TICKET_CLOSE_CONFIRMATION', true),
   maxOpenTicketsPerUser: int('MAX_OPEN_TICKETS_PER_USER', 2, { min: 1, max: 10 }),
 
+  // Minecraft-Bot auf HugoSMP: Kontoverknüpfung, Einzahlungen, Auszahlungen (siehe README).
+  minecraft: {
+    enabled: bool('MC_ENABLED', false),
+    host: str('MC_HOST'),
+    port: int('MC_PORT', 25565, { min: 1, max: 65535 }),
+    version: str('MC_VERSION'),
+    account: str('MC_ACCOUNT'),
+    joinCommands: str('MC_JOIN_COMMANDS').split(';').map((c) => c.trim()).filter(Boolean),
+    whisperCommand: str('MC_WHISPER_COMMAND', '/msg {name} {text}'),
+    payCommand: str('MC_PAY_COMMAND', '/pay {name} {amount}'),
+    payConfirmCommand: str('MC_PAY_CONFIRM_COMMAND'),
+    balanceCommand: str('MC_BALANCE_COMMAND', '/balance'),
+    payPattern: str('MC_PAY_PATTERN'),
+    balancePattern: str('MC_BALANCE_PATTERN'),
+    payoutsEnabled: bool('MC_PAYOUTS_ENABLED', false),
+    payoutMax: int('MC_PAYOUT_MAX', 0, { min: 0, max: 1_000_000_000 }),
+    payoutIntervalSeconds: int('MC_PAYOUT_INTERVAL_SECONDS', 30, { min: 10, max: 3600 }),
+  },
+
   dataDir: path.resolve(str('DATA_DIR', path.join(__dirname, '..', '..', 'data'))),
   logLevel: str('LOG_LEVEL', 'info'),
 };
@@ -73,6 +92,12 @@ function assertDiscordEnv({ needToken = true } = {}) {
   if (!env.clientId) missing.push('DISCORD_CLIENT_ID');
   if (missing.length) {
     throw new Error(`Fehlende Umgebungsvariablen: ${missing.join(', ')}. Siehe .env.example.`);
+  }
+  const mc = env.minecraft;
+  if (mc.enabled) {
+    const mcMissing = [!mc.host && 'MC_HOST', !mc.account && 'MC_ACCOUNT'].filter(Boolean);
+    if (mcMissing.length) throw new Error(`MC_ENABLED=true, aber es fehlen: ${mcMissing.join(', ')}.`);
+    if (mc.payoutsEnabled && !mc.payoutMax) throw new Error('MC_PAYOUTS_ENABLED=true braucht ein Limit pro Auszahlung (MC_PAYOUT_MAX).');
   }
   if (env.apiUrl && env.apiUrl.startsWith('http://') && !/^http:\/\/(localhost|127\.0\.0\.1)/.test(env.apiUrl)) {
     // Der API-Key würde unverschlüsselt übertragen.
