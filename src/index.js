@@ -25,7 +25,6 @@ const { createStatusService } = require('./services/status');
 const { createMarketFeed } = require('./services/marketFeed');
 const { createStatsService } = require('./services/stats');
 const { createWelcomeService } = require('./services/welcome');
-const { createScheduler } = require('./services/scheduler');
 const { resolveIntents, membersIntentAllowed } = require('./lib/intents');
 
 const logger = createLogger(env.logLevel);
@@ -103,7 +102,7 @@ async function handleComponent(interaction) {
 }
 
 /** Registriert alle Event-Handler am Client. */
-function wire({ stats, welcome, scheduler, membersIntent }) {
+function wire({ stats, welcome, membersIntent }) {
   client.on(Events.InteractionCreate, async (interaction) => {
     try {
       if (interaction.isChatInputCommand()) await handleCommand(interaction);
@@ -156,7 +155,6 @@ function wire({ stats, welcome, scheduler, membersIntent }) {
     every(5 * 60_000, status.tick, 'Status');
     every(env.marketFeedIntervalSeconds * 1000, marketFeed.tick, 'Marktübersicht');
     every(60 * 60_000, stats.tick, 'Statistik');
-    every(30_000, scheduler.tick, 'Geplante Ankündigungen');
     // Wird der „Server Members Intent“ später freigeschaltet, startet der Bot neu, um ihn zu nutzen.
     // pm2 bzw. systemd starten den Prozess automatisch wieder.
     if (!membersIntent) {
@@ -196,8 +194,7 @@ async function main() {
   const stats = createStatsService({ store, ctx, logger, membersIntent });
   const welcome = createWelcomeService({ store, env, logger, ctx });
   deps.services.stats = stats;
-  const scheduler = createScheduler({ store, logger, deps });
-  wire({ stats, welcome, scheduler, membersIntent });
+  wire({ stats, welcome, membersIntent });
   await client.login(env.discordToken);
 }
 

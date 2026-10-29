@@ -95,6 +95,6 @@ test('Karten für Märkte, Ranglisten, Vorschläge, Ankündigungen, Statistik un
 
 test('Slash-Commands sind gültig und vollständig', () => {
   const names = [...loadCommands().keys()].sort();
-  assert.deepEqual(names, ['ankündigung', 'aufräumen', 'balance', 'daily', 'geplant', 'help', 'history', 'leaderboard', 'markets', 'mod', 'ping', 'portfolio', 'setup-panels', 'verify', 'vorschlag']);
+  assert.deepEqual(names, ['ankündigung', 'aufräumen', 'balance', 'daily', 'help', 'history', 'leaderboard', 'markets', 'mod', 'ping', 'portfolio', 'setup-panels', 'verify', 'vorschlag']);
   for (const c of loadCommands().values()) assert.equal(c.data.toJSON().contexts[0], 0);
 });

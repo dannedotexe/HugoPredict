@@ -48,7 +48,6 @@ class Store {
     g.suggestions ??= {};
     g.suggestionCounter ??= 0;
     g.moderation ??= { counter: 0, cases: [] };
-    g.scheduled ??= [];
     return g;
   }
 

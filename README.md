@@ -82,7 +82,7 @@ Standard-Emoji ersetzt.
 | Begrüßung | In `willkommen` begrüßt der Bot jedes neue Mitglied mit einer Karte (Profilbild, Erwähnung, Mitgliedsnummer, erste drei Schritte). Ohne den Channel geht die Begrüßung als Direktnachricht raus. Benötigt den *Server Members Intent* |
 | Statistik | Ein Embed in `systemmeldungen` (stündlich aktualisiert): Mitglieder, online, neu in 7 Tagen, Rollen Mitglied/Verifiziert, offene Anfragen, Vorschläge in Prüfung, Moderationsfälle. Rollen- und Beitrittszahlen benötigen den *Server Members Intent* |
 | Benachrichtigungen | In `regeln` melden sich Mitglieder per Button für die Rollen **Neue Märkte** und **Ankündigungen** an und wieder ab. Der Bot pingt diese Rollen bei neuen Märkten bzw. Ankündigungen. Dafür braucht die Bot-Rolle das Recht *@everyone, @here und alle Rollen erwähnen*. Mitglieder selbst können die Rollen nicht pingen |
-| Geplante Ankündigungen | `/ankündigung zeitpunkt:20:00` (oder `morgen 18:30`, `14.11. 20:00`, deutsche Zeit) plant eine Ankündigung; `benachrichtigen:false` verzichtet auf den Ping. `/geplant` listet alles Geplante und bricht es auf Wunsch ab. Geplantes übersteht Neustarts |
+| Ankündigungen | `/ankündigung` veröffentlicht eine Ankündigungskarte in `ankündigungen` und pingt die Rolle **Ankündigungen**; `benachrichtigen:false` verzichtet auf den Ping |
 | Markt vorschlagen | Karte mit Button ganz oben in `marktübersicht` öffnet das Vorschlagsformular (wie `/vorschlag`) |
 | Sicherheit | Rechteprüfung bei jedem privilegierten Command, Button und Formular. Dazu kommen Rate-Limits, Sperren gegen Doppelklicks und Idempotency-Keys für Daily und Marktanlage |
 
