@@ -163,7 +163,43 @@ function createSupportVoiceService({ store, ctx, logger, now = Date.now, renderD
 
   const refresh = (guild) => render(guild);
 
-  return { onVoiceStateUpdate, init, refresh, buildQueueCard, syncQueue };
+  const supportRoomIds = (guild) => ['supportRoom1', 'supportRoom2'].map((k) => store.guild(guild.id).channels[k]).filter(Boolean);
+  const guests = (channel) => [...(channel?.members?.values() ?? [])].filter((m) => !m.user?.bot && !isStaff(m));
+
+  /**
+   * Zieht Platz 1 der Warteschlange in den Support-Raum, in dem das Teammitglied
+   * sitzt – sonst in den ersten freien. Ergebnis: { member, room } oder { error }.
+   */
+  async function takeNext(guild, staff) {
+    const rooms = supportRoomIds(guild).map((id) => guild.channels.cache.get(id)).filter(Boolean);
+    if (!rooms.length) return { error: 'not_setup' };
+    const own = rooms.find((r) => r.id === staff.voice?.channelId);
+    const room = own ?? rooms.find((r) => guests(r).length === 0);
+    if (!room) return { error: 'no_room' };
+    if (guests(room).length) return { error: 'room_busy', room };
+
+    const waiting = waitingChannel(guild);
+    const nextId = [...syncQueue(guild).keys()][0];
+    const member = nextId && waiting?.members.get(nextId);
+    if (!member) return { error: 'empty' };
+
+    await member.voice.setChannel(room, `Support: abgeholt von ${staff.user?.username ?? staff.id}`);
+    queueOf(guild.id).delete(member.id);
+    scheduleRender(guild);
+    member.send(`Du bist dran: **${staff.displayName ?? staff.user?.username ?? 'Das Team'}** hilft dir jetzt in ${room.name}.`).catch(() => {});
+    return { member, room };
+  }
+
+  /** Trennt alle Nicht-Teammitglieder aus dem Support-Raum des Teammitglieds. */
+  async function endConversation(guild, staff) {
+    const room = supportRoomIds(guild).includes(staff.voice?.channelId) ? guild.channels.cache.get(staff.voice.channelId) : null;
+    if (!room) return { error: 'not_in_room' };
+    const list = guests(room);
+    for (const m of list) await m.voice.disconnect('Support-Gespräch beendet');
+    return { removed: list.length, room };
+  }
+
+  return { onVoiceStateUpdate, init, refresh, buildQueueCard, syncQueue, takeNext, endConversation };
 }
 
 /**

@@ -253,3 +253,59 @@ test('Warteraum-Chat: Schreibsperre für alle, nur fehlende Rechte werden gesetz
   await syncWaitingRoom(guild, store);
   assert.equal(edits.length, 2, 'zweiter Lauf ändert nichts');
 });
+
+test('Nächsten holen: Platz 1 in den eigenen Support-Raum, Gespräch beenden trennt nur Gäste', async () => {
+  const { createSupportVoiceService } = require('../src/services/supportVoice');
+  const store = tmpStore();
+  Object.assign(store.guild('G').channels, { waitingRoom: 'W', supportRoom1: 'S1', supportRoom2: 'S2' });
+  let t = 1000;
+  const rooms = { W: new Collection(), S1: new Collection(), S2: new Collection() };
+  const dms = [];
+  const person = (id) => {
+    const m = {
+      id, user: { bot: false, username: id }, displayName: id,
+      voice: { channelId: null, setChannel: async (room) => { rooms[m.voice.channelId].delete(id); rooms[room.id].set(id, m); m.voice.channelId = room.id; }, disconnect: async () => { rooms[m.voice.channelId].delete(id); m.voice.channelId = null; } },
+      send: async (text) => dms.push([id, text]),
+    };
+    return m;
+  };
+  const place = (m, roomId) => { rooms[roomId].set(m.id, m); m.voice.channelId = roomId; };
+  const channel = (id) => ({ id, name: id, members: rooms[id], isTextBased: () => false });
+  const guild = { id: 'G', channels: { cache: new Collection(Object.keys(rooms).map((id) => [id, channel(id)])) } };
+  const ctx = { channel: async () => null, roleId: () => null, can: (m) => m.id === 'staff' };
+  const svc = createSupportVoiceService({ store, ctx, logger: console, now: () => t, renderDelayMs: 1e6 });
+
+  const staff = person('staff');
+  const anna = person('anna');
+  const ben = person('ben');
+  for (const m of [anna, ben]) {
+    place(m, 'W');
+    t += 1000;
+    await svc.onVoiceStateUpdate({ channelId: null }, { guild, member: m, channelId: 'W' });
+  }
+  place(staff, 'S2');
+
+  let res = await svc.takeNext(guild, staff);
+  assert.equal(res.member.id, 'anna', 'Platz 1 zuerst');
+  assert.equal(anna.voice.channelId, 'S2', 'in den Raum des Teammitglieds');
+  assert.match(dms[0][1], /Du bist dran/);
+  assert.equal((await svc.takeNext(guild, staff)).error, 'room_busy', 'erst Gespräch beenden');
+
+  res = await svc.endConversation(guild, staff);
+  assert.equal(res.removed, 1);
+  assert.equal(staff.voice.channelId, 'S2', 'Team bleibt');
+  assert.equal(anna.voice.channelId, null);
+
+  res = await svc.takeNext(guild, staff);
+  assert.equal(res.member.id, 'ben');
+  await svc.endConversation(guild, staff);
+  assert.equal((await svc.takeNext(guild, staff)).error, 'empty');
+
+  // Nicht in einem Support-Raum: nächster freier Raum, Beenden geht nicht
+  place(person('carl'), 'W');
+  staff.voice.channelId = null;
+  rooms.S2.delete('staff');
+  res = await svc.takeNext(guild, staff);
+  assert.equal(res.room.id, 'S1');
+  assert.equal((await svc.endConversation(guild, staff)).error, 'not_in_room');
+});
