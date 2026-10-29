@@ -1,7 +1,9 @@
 'use strict';
 
-const { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
-const { embeds, truncate } = require('../lib/embeds');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { embeds, truncate, discordTime } = require('../lib/embeds');
+const { emojis, withEmoji } = require('../lib/emojis');
+const { card } = require('../lib/ui');
 const { replyPrivate, EPHEMERAL } = require('../lib/respond');
 
 function announcementModal() {
@@ -19,11 +21,18 @@ function announcementModal() {
   );
 }
 
-function announcementEmbed({ title, body, link, authorName }) {
-  const e = embeds.brand().setAuthor({ name: 'Ankündigung' }).setTitle(truncate(title, 256)).setDescription(truncate(body, 4096));
-  if (link) e.setURL(link);
-  if (authorName) e.setFooter({ text: `${e.data.footer.text} · ${truncate(authorName, 60)}` });
-  return e;
+function announcementCard({ title, body, link, authorName }) {
+  const actions = link
+    ? [new ActionRowBuilder().addComponents(withEmoji(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Mehr erfahren').setURL(link), 'external'))]
+    : [];
+  return card({
+    size: 'lg',
+    eyebrow: `${emojis.icon('announce')}Ankündigung`,
+    title: truncate(title, 200),
+    blocks: [{ text: truncate(body, 3500) }],
+    actions,
+    footer: `${authorName ? `${truncate(authorName, 60)} · ` : ''}${discordTime(new Date(), 'D')}`,
+  });
 }
 
 const isHttpsUrl = (v) => {
@@ -50,10 +59,7 @@ async function handle(interaction, deps, [action]) {
   if (!channel?.isTextBased()) {
     return replyPrivate(interaction, { embeds: [embeds.error('Channel fehlt', 'Der Channel #ankündigungen ist nicht eingerichtet.')] });
   }
-  const msg = await channel.send({
-    embeds: [announcementEmbed({ title, body, link: link || null, authorName: interaction.member.displayName })],
-    allowedMentions: { parse: [] },
-  });
+  const msg = await channel.send(announcementCard({ title, body, link: link || null, authorName: interaction.member.displayName }));
   await deps.ctx.audit(interaction.guild, 'audit', {
     title: 'Ankündigung veröffentlicht',
     fields: [{ name: 'Von', value: `<@${interaction.user.id}>` }, { name: 'Nachricht', value: msg.url }],
@@ -61,4 +67,4 @@ async function handle(interaction, deps, [action]) {
   return replyPrivate(interaction, { embeds: [embeds.success('Ankündigung veröffentlicht', msg.url)] });
 }
 
-module.exports = { prefix: 'announce', handle, announcementModal, announcementEmbed };
+module.exports = { prefix: 'announce', handle, announcementModal, announcementCard };

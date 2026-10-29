@@ -86,8 +86,15 @@ async function main() {
     await page.setContent(`<html><body style="margin:0;background:transparent">${svg(def)}</body></html>`);
     await page.locator('svg').screenshot({ path: path.join(out, `${name}.png`), omitBackground: true });
   }
+  // Markenlogo für die Kopfzeile der Karten (Thumbnail), 256 × 256
+  const brandDir = path.join(__dirname, '..', 'assets', 'brand');
+  fs.mkdirSync(brandDir, { recursive: true });
+  await page.setViewportSize({ width: 256, height: 256 });
+  const logo = svg({ ...ICONS.logo, strokeWidth: 1.75 }).replace('width="128" height="128"', 'width="256" height="256"');
+  await page.setContent(`<html><body style="margin:0;background:transparent">${logo}</body></html>`);
+  await page.locator('svg').screenshot({ path: path.join(brandDir, 'logo.png'), omitBackground: true });
   await browser.close();
-  console.log(`${Object.keys(ICONS).length} Emojis erzeugt in ${out}`);
+  console.log(`${Object.keys(ICONS).length} Emojis und Logo erzeugt.`);
 }
 
 if (require.main === module) main().catch((err) => { console.error(err); process.exit(1); });

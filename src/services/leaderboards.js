@@ -1,7 +1,7 @@
 'use strict';
 
-const { embeds, truncate, formatAmount, formatPrice, discordTime } = require('../lib/embeds');
-const theme = require('../config/theme');
+const { truncate, formatAmount, formatPrice, discordTime } = require('../lib/embeds');
+const { card } = require('../lib/ui');
 
 /*
  * Ranglisten werden nicht mehr in öffentliche Channels gepostet, sondern nur
@@ -14,20 +14,22 @@ const BOARDS = [
   { type: 'biggest-wins', title: 'Rangliste · Größte Gewinne', unit: 'amount' },
 ];
 
-function leaderboardEmbed(board, data, { currency }) {
-  const e = embeds.brand().setTitle(board.title).setFooter({ text: `${theme.brand} · Daten der Website` });
-  if (!data.entries.length) return e.setDescription('Für diesen Zeitraum liegen noch keine Daten vor.');
+function leaderboardCard(board, data, { currency }, { ephemeral = true } = {}) {
   const fmt = (v) => (board.unit === 'percent' ? formatPrice(v) : formatAmount(v, currency));
+  const medal = (rank) => (rank <= 3 ? `**#${rank}**` : `\`#${rank}\``);
   const lines = data.entries.map((x) => {
     const who = x.discordId ? `<@${x.discordId}>` : `**${truncate(x.username, 32)}**`;
-    return `\`${String(x.rank).padStart(2)}\`  ${who} · ${fmt(x.value)}${x.detail ? ` · ${truncate(x.detail, 60)}` : ''}`;
+    return `${medal(x.rank)}  ${who} · **${fmt(x.value)}**${x.detail ? ` · ${truncate(x.detail, 60)}` : ''}`;
   });
-  e.setDescription(truncate(lines.join('\n'), 4000));
-  const meta = [];
-  if (data.period) meta.push(`Zeitraum: ${truncate(data.period, 100)}`);
-  if (data.generatedAt) meta.push(`Stand: ${discordTime(data.generatedAt)}`);
-  if (meta.length) e.addFields({ name: 'Details', value: meta.join('\n'), inline: false });
-  return e;
+  return card({
+    icon: board.unit === 'percent' ? 'fees' : 'logo',
+    title: board.title,
+    intro: [data.period ? `Zeitraum: ${truncate(data.period, 100)}` : null, data.generatedAt ? `Stand: ${discordTime(data.generatedAt)}` : null].filter(Boolean).join(' · ') || null,
+    logo: false,
+    blocks: [{ text: lines.length ? truncate(lines.join('\n'), 3500) : 'Für diesen Zeitraum liegen noch keine Daten vor.' }],
+    footer: 'Daten der Website',
+    ephemeral,
+  });
 }
 
-module.exports = { leaderboardEmbed, BOARDS };
+module.exports = { leaderboardCard, BOARDS };

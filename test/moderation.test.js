@@ -8,7 +8,7 @@ const path = require('node:path');
 const { PermissionsBitField, PermissionFlagsBits: P } = require('discord.js');
 const mod = require('../src/lib/moderation');
 const { Store } = require('../src/lib/store');
-const { statsEmbed, collectStats } = require('../src/services/stats');
+const { statsCard, collectStats } = require('../src/services/stats');
 const { welcomePayload } = require('../src/services/welcome');
 const { membersIntentAllowed, resolveIntents } = require('../src/lib/intents');
 
@@ -55,19 +55,20 @@ test('Statistik: Embed mit und ohne Members-Intent', async () => {
   const client = { guilds: { fetch: async () => ({ approximatePresenceCount: 7, approximateMemberCount: 43 }) } };
   const s = await collectStats(fakeGuild, { store, ctx: {}, membersIntent: false, client });
   assert.deepEqual([s.members, s.online, s.openTickets, s.openSuggestions, s.cases7d], [43, 7, 1, 1, 1]);
-  const json = statsEmbed(s).toJSON();
-  assert.ok(json.fields.some((f) => f.name === 'Hinweis'));
-  assert.equal(json.fields.find((f) => f.name === 'Verifiziert').value, '—');
+  const json = JSON.stringify(statsCard(s).components[0].toJSON());
+  assert.match(json, /Hinweis/);
+  assert.match(json, /\*\*—\*\* Verifiziert/);
 });
 
 test('Begrüßung: gültige Direktnachricht mit Verweisen', () => {
   const p = welcomePayload({ guildId: '1', guildName: 'HugoPredict', ids: { docs: '2', support: '3' }, websiteUrl: 'https://x.de' });
-  const e = p.embeds[0].toJSON();
-  assert.match(e.description, /<#2>/);
-  assert.match(e.description, /<#3>/);
-  const buttons = p.components[0].toJSON().components;
-  assert.equal(buttons[0].url, 'https://discord.com/channels/1/2');
-  assert.equal(welcomePayload({ guildId: '1', guildName: 'X' }).components.length, 0);
+  const json = p.components[0].toJSON();
+  const text = JSON.stringify(json);
+  assert.match(text, /<#2>/);
+  assert.match(text, /<#3>/);
+  const row = json.components.find((c) => c.type === 1);
+  assert.equal(row.components[0].url, 'https://discord.com/channels/1/2');
+  assert.ok(!JSON.stringify(welcomePayload({ guildId: '1', guildName: 'X' }).components[0].toJSON()).includes('"type":1,'), 'ohne IDs keine Buttons');
 });
 
 test('Intents: Members-Intent nur bei Freigabe, Fehler führen zum sicheren Verzicht', async () => {

@@ -1,23 +1,20 @@
 'use strict';
 
 const { embeds } = require('../lib/embeds');
-const { replyApiError, EPHEMERAL } = require('../lib/respond');
-const { marketEmbed, marketComponents } = require('../services/marketFeed');
+const { replyPrivate, replyApiError, EPHEMERAL } = require('../lib/respond');
+const { marketCard } = require('../services/marketFeed');
 const { MARKET_STATUSES } = require('../lib/hugoApi');
 
-/** Select-Menü aus /markets: zeigt Details eines Marktes (frisch von der Website). */
+/** Select-Menü aus /markets: zeigt die Karte eines Marktes (frisch von der Website). */
 async function handle(interaction, deps, [action, status]) {
   if (action !== 'view' || !interaction.isStringSelectMenu() || !MARKET_STATUSES.includes(status)) return;
   if (!deps.checkRate(interaction, 'default')) return;
-  await interaction.deferUpdate();
+  await interaction.deferReply({ flags: EPHEMERAL });
   try {
     const markets = await deps.api.listMarkets({ status, limit: 25 });
     const market = markets.find((m) => m.id === interaction.values[0]);
-    if (!market) {
-      return interaction.followUp({ embeds: [embeds.warning('Nicht gefunden', 'Dieser Markt ist in dieser Ansicht nicht mehr verfügbar.')], flags: EPHEMERAL });
-    }
-    // Auswahlmenü behalten, Link-Button zum Markt ergänzen.
-    return interaction.editReply({ embeds: [marketEmbed(market, deps.env)], components: [interaction.message.components[0], ...marketComponents(market)] });
+    if (!market) return replyPrivate(interaction, { embeds: [embeds.warning('Nicht gefunden', 'Dieser Markt ist in dieser Ansicht nicht mehr verfügbar.')] });
+    return replyPrivate(interaction, marketCard(market, deps.env, { ephemeral: true }));
   } catch (err) {
     return replyApiError(interaction, err, { ...deps, action: 'Marktdetails' });
   }

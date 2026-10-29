@@ -1,8 +1,9 @@
 'use strict';
 
 const { SlashCommandBuilder } = require('discord.js');
-const { embeds, formatAmount, discordTime, truncate } = require('../lib/embeds');
+const { formatAmount, discordTime, truncate } = require('../lib/embeds');
 const { replyPrivate, replyApiError, EPHEMERAL } = require('../lib/respond');
+const { card } = require('../lib/ui');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -14,14 +15,19 @@ module.exports = {
     await interaction.deferReply({ flags: EPHEMERAL });
     const limit = interaction.options.getInteger('anzahl') ?? 10;
     try {
-      const list = await deps.api.getTransactions(interaction.user.id, { limit });
-      const e = embeds.brand().setTitle('Deine Transaktionen');
-      if (!list.length) return replyPrivate(interaction, { embeds: [e.setDescription('Es sind noch keine Transaktionen vorhanden.')] });
-      const lines = list.slice(0, limit).map((t) => {
+      const list = (await deps.api.getTransactions(interaction.user.id, { limit })).slice(0, limit);
+      const lines = list.map((t) => {
         const sign = t.amount > 0 ? '+' : '';
-        return `${discordTime(t.createdAt, 'd')} · **${sign}${formatAmount(t.amount, deps.env.currency)}** · ${truncate(t.type, 30)}${t.description ? `\n${truncate(t.description, 90)}` : ''}`;
+        return `**${sign}${formatAmount(t.amount, deps.env.currency)}** · ${truncate(t.type, 30)} · ${discordTime(t.createdAt, 'd')}${t.description ? `\n-# ${truncate(t.description, 90)}` : ''}`;
       });
-      return replyPrivate(interaction, { embeds: [e.setDescription(truncate(lines.join('\n'), 4000))] });
+      return replyPrivate(interaction, card({
+        icon: 'balance',
+        title: 'Deine Transaktionen',
+        logo: false,
+        blocks: [lines.length ? { text: truncate(lines.join('\n'), 3500) } : { text: 'Es sind noch keine Transaktionen vorhanden.' }],
+        footer: 'Nur für dich sichtbar · Daten der Website',
+        ephemeral: true,
+      }));
     } catch (err) {
       return replyApiError(interaction, err, { ...deps, action: '/history' });
     }

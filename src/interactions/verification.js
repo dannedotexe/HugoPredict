@@ -6,6 +6,7 @@ const { replyPrivate, replyApiError, EPHEMERAL } = require('../lib/respond');
 const { SELF_ASSIGNABLE_VIA_BOT } = require('../config/serverLayout');
 const { ApiError } = require('../lib/hugoApi');
 const { withEmoji } = require('../lib/emojis');
+const { card } = require('../lib/ui');
 
 const MC_NAME = /^[A-Za-z0-9_]{3,16}$/;
 
@@ -33,17 +34,21 @@ async function startVerification(interaction, rawName, deps) {
       discordUsername: interaction.user.username,
       minecraftName: name,
     });
-    const e = embeds.brand().setTitle('Kontoverknüpfung gestartet').setDescription(
-      res.instructions ?? 'Bestätige den folgenden Code wie auf der Website beschrieben und wähle anschließend „Status prüfen“.',
-    ).addFields(
-      { name: 'Minecraft-Name', value: name, inline: true },
-      { name: 'Code', value: `\`${res.code.slice(0, 64)}\``, inline: true },
-    );
-    if (res.expiresAt) e.addFields({ name: 'Gültig bis', value: discordTime(res.expiresAt, 'R'), inline: true });
-    e.addFields({ name: 'Sicherheit', value: 'Gib diesen Code nicht an andere Personen weiter.', inline: false });
     const buttons = [withEmoji(new ButtonBuilder().setCustomId('hm:verify:check').setStyle(ButtonStyle.Success).setLabel('Status prüfen'), 'verified')];
     if (res.verifyUrl) buttons.push(withEmoji(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Auf der Website bestätigen').setURL(res.verifyUrl), 'external'));
-    return replyPrivate(interaction, { embeds: [e], components: [new ActionRowBuilder().addComponents(buttons)] });
+    const payload = card({
+      icon: 'link',
+      title: 'Konto verknüpfen',
+      intro: res.instructions ?? 'Bestätige den folgenden Code wie auf der Website beschrieben und wähle anschließend „Status prüfen“.',
+      logo: false,
+      blocks: [
+        { heading: 'Dein Code', body: `# \`${res.code.slice(0, 64)}\`\nMinecraft-Name: **${name}**${res.expiresAt ? `\nGültig bis ${discordTime(res.expiresAt, 'R')}` : ''}`, quote: false },
+        { heading: 'Sicherheit', icon: 'lock', body: 'Gib diesen Code nicht an andere Personen weiter.' },
+      ],
+      actions: [new ActionRowBuilder().addComponents(buttons)],
+      ephemeral: true,
+    });
+    return replyPrivate(interaction, payload);
   } catch (err) {
     return replyApiError(interaction, err, { ...deps, action: 'Verifizierung starten' });
   }

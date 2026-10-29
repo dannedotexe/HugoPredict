@@ -17,7 +17,7 @@ module.exports = {
       return replyPrivate(interaction, { embeds: [embeds.warning('Einrichtung fehlt', 'Die aktuelle Serverstruktur ist auf diesem Server nicht eingerichtet.')] });
     }
     await interaction.deferReply({ flags: EPHEMERAL });
-    const result = await publishPanels(interaction.guild, { store: deps.store, env: deps.env, statusService: deps.services.status });
+    const result = await publishPanels(interaction.guild, { store: deps.store, env: deps.env, statusService: deps.services.status, statsService: deps.services.stats });
     await deps.ctx.audit(interaction.guild, 'audit', {
       title: 'Panels veröffentlicht',
       fields: [

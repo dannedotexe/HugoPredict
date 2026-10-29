@@ -1,33 +1,27 @@
 'use strict';
 
-const { embeds } = require('../lib/embeds');
-const { emojis } = require('../lib/emojis');
-const theme = require('../config/theme');
+const { discordTime } = require('../lib/embeds');
+const { card, upsert } = require('../lib/ui');
 
 const DAY = 24 * 60 * 60_000;
 const nf = new Intl.NumberFormat('de-DE');
 const num = (v) => (Number.isFinite(v) ? nf.format(v) : '—');
 
-/** Reine Funktion: baut das Statistik-Embed aus bereits ermittelten Zahlen. */
-function statsEmbed(s) {
-  const e = embeds.brand()
-    .setDescription(`${emojis.icon('roles')}**Serverstatistik**`)
-    .addFields(
-      { name: 'Mitglieder', value: num(s.members), inline: true },
-      { name: 'Online (ca.)', value: num(s.online), inline: true },
-      { name: 'Neu (7 Tage)', value: num(s.joined7d), inline: true },
-      { name: 'Rolle Mitglied', value: num(s.memberRole), inline: true },
-      { name: 'Verifiziert', value: num(s.verified), inline: true },
-      { name: '​', value: '​', inline: true },
-      { name: 'Offene Anfragen', value: num(s.openTickets), inline: true },
-      { name: 'Vorschläge in Prüfung', value: num(s.openSuggestions), inline: true },
-      { name: 'Moderationsfälle (7 Tage)', value: num(s.cases7d), inline: true },
-    )
-    .setFooter({ text: `${theme.brand} · Wird stündlich aktualisiert` });
-  if (!s.membersIntent) {
-    e.addFields({ name: 'Hinweis', value: 'Für Rollen- und Beitrittszahlen im Developer Portal unter Bot den „Server Members Intent“ aktivieren.', inline: false });
-  }
-  return e;
+/** Reine Funktion: baut die Statistik-Karte aus bereits ermittelten Zahlen. */
+function statsCard(s) {
+  const row = (pairs) => pairs.map(([label, v]) => `**${num(v)}** ${label}`).join('  ·  ');
+  return card({
+    title: 'Serverstatistik',
+    icon: 'roles',
+    intro: 'Aktuelle Kennzahlen der Community.',
+    blocks: [
+      { heading: 'Community', body: `${row([['Mitglieder', s.members], ['online', s.online]])}\n${row([['neu in 7 Tagen', s.joined7d]])}` },
+      { heading: 'Rollen', body: row([['Mitglied', s.memberRole], ['Verifiziert', s.verified]]) },
+      { heading: 'Betrieb', body: `${row([['offene Anfragen', s.openTickets], ['Vorschläge in Prüfung', s.openSuggestions]])}\n${row([['Moderationsfälle (7 Tage)', s.cases7d]])}` },
+      s.membersIntent ? null : { heading: 'Hinweis', icon: 'info', body: 'Für Rollen- und Beitrittszahlen im Developer Portal unter Bot den „Server Members Intent“ aktivieren.' },
+    ],
+    footer: `Wird stündlich aktualisiert · Stand ${discordTime(new Date(), 't')}`,
+  });
 }
 
 async function collectStats(guild, { store, ctx, membersIntent, client, now = Date.now() }) {
@@ -65,13 +59,11 @@ function createStatsService({ store, ctx, logger, membersIntent }) {
     const g = store.guild(guild.id);
     const channel = await ctx.channel(guild, 'system');
     if (!channel?.isTextBased()) return;
-    const payload = { embeds: [statsEmbed(await collectStats(guild, { store, ctx, membersIntent, client }))] };
+    const payload = statsCard(await collectStats(guild, { store, ctx, membersIntent, client }));
     const ref = g.panels.stats;
-    const msg = ref?.channelId === channel.id ? await channel.messages.fetch(ref.messageId).catch(() => null) : null;
-    if (msg) await msg.edit(payload);
-    else {
-      const sent = await channel.send(payload);
-      g.panels.stats = { channelId: channel.id, messageId: sent.id };
+    const msg = await upsert(channel, ref, payload);
+    if (msg.id !== ref?.messageId) {
+      g.panels.stats = { channelId: channel.id, messageId: msg.id };
       store.save();
     }
   }
@@ -86,4 +78,4 @@ function createStatsService({ store, ctx, logger, membersIntent }) {
   return { tick, updateGuild };
 }
 
-module.exports = { createStatsService, statsEmbed, collectStats };
+module.exports = { createStatsService, statsCard, collectStats };

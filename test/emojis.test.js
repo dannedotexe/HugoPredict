@@ -9,6 +9,7 @@ const { ROLES, TICKET_TYPES } = require('../src/config/serverLayout');
 const { sections } = require('../src/config/docs');
 const { STATUS_LABELS } = require('../src/services/marketFeed');
 const { panelDefinitions } = require('../src/setup/panels');
+const { textLength, TEXT_LIMIT } = require('../src/lib/ui');
 
 const quiet = { info() {}, warn() {} };
 
@@ -71,17 +72,18 @@ test('Ohne Emojis: kein Ersatz durch Standard-Emojis', () => {
 test('Panels mit aktiven Emojis bleiben gültig und unter den Discord-Limits', async () => {
   await emojis.sync(fakeClient(), quiet);
   try {
+    // Längste realistische IDs, damit die Längenprüfung den ungünstigsten Fall abdeckt
+    const id = '1234567890123456789';
+    const roleIds = Object.fromEntries(ROLES.map((r) => [r.key, id]));
     for (const def of panelDefinitions()) {
-      const p = def.build({ env: { currency: 'HC', websiteUrl: 'https://x.de' }, roleIds: { owner: '123456789012345678' } });
-      const json = p.embeds.map((e) => e.toJSON());
-      const chars = json.reduce((a, e) => a + (e.description ?? '').length + (e.footer?.text ?? '').length, 0);
-      assert.ok(chars <= 6000, `${def.key}: ${chars}`);
-      p.components.forEach((c) => c.toJSON());
-      assert.match(JSON.stringify(json), /<:hp_/);
+      const p = def.build({ env: { currency: 'HC', websiteUrl: 'https://x.de' }, roleIds, channelIds: { support: id, announcements: id } });
+      assert.ok(textLength(p) <= TEXT_LIMIT, `${def.key}: ${textLength(p)} Zeichen`);
+      const json = JSON.stringify(p.components.map((c) => c.toJSON()));
+      assert.match(json, /<:hp_/);
     }
-    const docs = panelDefinitions()[0].build({ env: { currency: 'HC', websiteUrl: '' }, roleIds: { owner: '123456789012345678' } });
-    assert.match(docs.embeds.at(-1).toJSON().description, /<@&123456789012345678>\nVollzugriff auf Server, Bot und Plattform/);
-    const menu = panelDefinitions()[1].build({}).components[0].toJSON().components[0];
+    const docs = JSON.stringify(panelDefinitions()[0].build({ env: { currency: 'HC', websiteUrl: '' }, roleIds }).components[0].toJSON());
+    assert.ok(docs.includes(`<@&${id}>\\n> Vollzugriff auf Server, Bot und Plattform`), 'Rolle mit Beschreibung');
+    const menu = panelDefinitions()[1].build({}).components[0].toJSON().components.find((c) => c.type === 1).components[0];
     assert.ok(menu.options.every((o) => o.emoji?.id), 'Auswahlmenü mit Icons');
   } finally {
     emojis.map.clear();

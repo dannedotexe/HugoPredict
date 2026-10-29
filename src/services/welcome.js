@@ -1,8 +1,8 @@
 'use strict';
 
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { embeds } = require('../lib/embeds');
-const { emojis, withEmoji } = require('../lib/emojis');
+const { withEmoji } = require('../lib/emojis');
+const { card } = require('../lib/ui');
 const theme = require('../config/theme');
 
 const channelUrl = (guildId, channelId) => `https://discord.com/channels/${guildId}/${channelId}`;
@@ -10,22 +10,21 @@ const channelUrl = (guildId, channelId) => `https://discord.com/channels/${guild
 /** Begrüßung per Direktnachricht – kein Beitrag im öffentlichen Chat. */
 function welcomePayload({ guildId, guildName, ids = {}, websiteUrl }) {
   const ref = (key, fallback) => (ids[key] ? `<#${ids[key]}>` : fallback);
-  const e = embeds.brand()
-    .setDescription([
-      `${emojis.icon('logo')}**Willkommen bei ${theme.brand}**`,
-      '',
-      `Schön, dass du auf **${guildName}** dabei bist. In drei Schritten bist du startklar:`,
-      '',
-      `${emojis.icon('rules')}**1. Dokumentation lesen**\nIn ${ref('docs', '#dokumentation')} findest du Plattform, Marktregeln und Verhaltensregeln. Mit „Regeln akzeptieren“ erhältst du Zugang zur Community.`,
-      '',
-      `${emojis.icon('link')}**2. Konto verknüpfen**\nVerknüpfe dein Konto mit \`/verify\` oder über „Konto verknüpfen“, um Guthaben und Portfolio privat abzurufen.`,
-      '',
-      `${emojis.icon('support')}**3. Bei Fragen**\nDer Support hilft dir in ${ref('support', '#support')}.`,
-    ].join('\n'));
   const buttons = [];
   if (ids.docs) buttons.push(withEmoji(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Zur Dokumentation').setURL(channelUrl(guildId, ids.docs)), 'rules'));
   if (websiteUrl) buttons.push(withEmoji(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Zur Website').setURL(websiteUrl), 'external'));
-  return { embeds: [e], components: buttons.length ? [new ActionRowBuilder().addComponents(buttons)] : [] };
+  return card({
+    size: 'lg',
+    icon: 'logo',
+    title: `Willkommen bei ${theme.brand}`,
+    intro: `Schön, dass du auf **${guildName}** dabei bist. In drei Schritten bist du startklar.`,
+    blocks: [
+      { heading: '1. Dokumentation lesen', icon: 'rules', body: `In ${ref('docs', '#dokumentation')} findest du Plattform, Marktregeln und Verhaltensregeln.\nMit „Regeln akzeptieren“ erhältst du Zugang zur Community.` },
+      { heading: '2. Konto verknüpfen', icon: 'link', body: 'Mit `/verify` oder „Konto verknüpfen“ rufst du Guthaben und Portfolio privat ab.' },
+      { heading: '3. Bei Fragen', icon: 'support', body: `Der Support hilft dir in ${ref('support', '#support')}.` },
+    ],
+    actions: buttons.length ? [new ActionRowBuilder().addComponents(buttons)] : [],
+  });
 }
 
 function createWelcomeService({ store, env, logger }) {

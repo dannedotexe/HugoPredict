@@ -1,11 +1,12 @@
 'use strict';
 
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
-const { embeds, truncate } = require('../lib/embeds');
+const { embeds, truncate, discordTime } = require('../lib/embeds');
+const { card, quote, upsert } = require('../lib/ui');
 const { replyPrivate, replyApiError, EPHEMERAL } = require('../lib/respond');
 const { userMessage } = require('../lib/hugoApi');
 const theme = require('../config/theme');
-const { withEmoji } = require('../lib/emojis');
+const { emojis, withEmoji } = require('../lib/emojis');
 
 /*
  * Ablauf: /vorschlag (Modal) → Prüfung durch die Marktverwaltung in #betrieb →
@@ -35,22 +36,27 @@ function suggestionModal() {
   );
 }
 
-function suggestionEmbed(s) {
+function suggestionCard(s) {
   const st = STATUS[s.status];
-  const e = embeds.base(st.color)
-    .setAuthor({ name: `Marktvorschlag #${s.number} · ${st.label}` })
-    .setTitle(truncate(s.title, 256))
-    .setDescription(truncate(s.description, 4000))
-    .addFields(
-      { name: 'Ergebnisse', value: truncate(s.outcomes, 1024), inline: false },
-      { name: 'Entscheidungsquelle', value: truncate(s.source, 1024), inline: false },
-      { name: 'Handelsschluss', value: s.closes || '—', inline: true },
-      { name: 'Eingereicht von', value: `<@${s.authorId}>`, inline: true },
-    );
+  const icon = s.status === 'accepted' ? 'resolved' : s.status === 'rejected' ? 'error' : 'closed';
+  const blocks = [
+    { text: quote(truncate(s.description, 1200)) },
+    { heading: 'Ergebnisse', body: truncate(s.outcomes, 300) },
+    { heading: 'Entscheidungsquelle', body: truncate(s.source, 300) },
+    { heading: 'Details', body: `Eingereicht von <@${s.authorId}>\nGewünschter Handelsschluss: ${s.closes || '—'}` },
+  ];
   if (s.decision) {
-    e.addFields({ name: 'Entscheidung', value: truncate([`von <@${s.decision.by}>`, s.decision.reason, s.decision.websiteNote].filter(Boolean).join('\n'), 1024), inline: false });
+    blocks.push({ heading: 'Entscheidung', icon, body: [`${st.label} von <@${s.decision.by}>`, s.decision.reason, s.decision.websiteNote].filter(Boolean).join('\n') });
   }
-  return e;
+  return card({
+    eyebrow: `${emojis.icon(icon)}Marktvorschlag #${s.number} · ${st.label}`,
+    title: truncate(s.title, 200),
+    accent: st.color,
+    logo: false,
+    blocks,
+    actions: [decisionRow(s)],
+    footer: `Eingereicht ${discordTime(s.createdAt, 'f')}`,
+  });
 }
 
 function decisionRow(s) {
@@ -65,8 +71,9 @@ async function refreshReview(guild, s) {
   const ref = s.reviewMessage;
   if (!ref) return;
   const ch = guild.channels.cache.get(ref.channelId) ?? (await guild.channels.fetch(ref.channelId).catch(() => null));
-  const msg = ch?.isTextBased() ? await ch.messages.fetch(ref.messageId).catch(() => null) : null;
-  if (msg) await msg.edit({ embeds: [suggestionEmbed(s)], components: [decisionRow(s)], allowedMentions: { parse: [] } });
+  if (!ch?.isTextBased()) return;
+  const msg = await upsert(ch, ref, suggestionCard(s));
+  s.reviewMessage = { channelId: ch.id, messageId: msg.id };
 }
 
 async function submit(interaction, deps) {
@@ -90,7 +97,7 @@ async function submit(interaction, deps) {
     status: 'open',
     createdAt: new Date().toISOString(),
   };
-  const msg = await review.send({ embeds: [suggestionEmbed(s)], components: [decisionRow(s)], allowedMentions: { parse: [] } });
+  const msg = await review.send(suggestionCard(s));
   s.reviewMessage = { channelId: review.id, messageId: msg.id };
   g.suggestions[s.id] = s;
   deps.store.save();
@@ -112,11 +119,14 @@ async function notifyAuthor(client, s) {
   const user = await client.users.fetch(s.authorId).catch(() => null);
   if (!user) return;
   const accepted = s.status === 'accepted';
-  const e = embeds.base(STATUS[s.status].color)
-    .setTitle(`Dein Marktvorschlag #${s.number} wurde ${accepted ? 'angenommen' : 'abgelehnt'}`)
-    .setDescription(truncate(s.title, 4000));
-  if (s.decision.reason) e.addFields({ name: accepted ? 'Notiz' : 'Begründung', value: truncate(s.decision.reason, 1024), inline: false });
-  await user.send({ embeds: [e] }).catch(() => {}); // DMs können deaktiviert sein
+  const payload = card({
+    eyebrow: `${emojis.icon(accepted ? 'resolved' : 'error')}Marktvorschlag #${s.number}`,
+    title: accepted ? 'Dein Vorschlag wurde angenommen' : 'Dein Vorschlag wurde abgelehnt',
+    accent: STATUS[s.status].color,
+    intro: `**${truncate(s.title, 300)}**`,
+    blocks: [s.decision.reason && { heading: accepted ? 'Notiz' : 'Begründung', body: truncate(s.decision.reason, 1000) }],
+  });
+  await user.send(payload).catch(() => {}); // DMs können deaktiviert sein
 }
 
 async function decide(interaction, deps, s, kind) {
@@ -154,6 +164,7 @@ async function decide(interaction, deps, s, kind) {
     s.decision = { by: interaction.user.id, at: new Date().toISOString(), reason: reason || null, websiteNote, websiteId: website?.id ?? null };
     deps.store.save();
     await refreshReview(interaction.guild, s);
+    deps.store.save();
     await notifyAuthor(interaction.client, s);
     return { ok: true, websiteNote };
   });
@@ -194,4 +205,4 @@ async function handle(interaction, deps, [action, id]) {
   if (action === 'rejectmodal' && interaction.isModalSubmit()) return decide(interaction, deps, s, 'reject');
 }
 
-module.exports = { prefix: 'suggest', handle, suggestionModal, suggestionEmbed };
+module.exports = { prefix: 'suggest', handle, suggestionModal, suggestionCard };

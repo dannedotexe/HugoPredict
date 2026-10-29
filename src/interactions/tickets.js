@@ -9,6 +9,7 @@ const { embeds, truncate, discordTime } = require('../lib/embeds');
 const { replyPrivate, EPHEMERAL } = require('../lib/respond');
 const theme = require('../config/theme');
 const { emojis, withEmoji } = require('../lib/emojis');
+const { card } = require('../lib/ui');
 
 const USER_PERMS = [P.ViewChannel, P.ReadMessageHistory, P.SendMessages, P.AttachFiles, P.EmbedLinks, P.AddReactions];
 const STAFF_PERMS = [...USER_PERMS, P.ManageMessages];
@@ -93,17 +94,20 @@ async function createTicket(interaction, deps, type) {
     g.tickets[channel.id] = ticket;
     deps.store.save();
 
+    const team = roleIds.map((id) => `<@&${id}>`).join(' ') || 'Team';
     await channel.send({
-      content: [`<@${user.id}>`, ...roleIds.map((id) => `<@&${id}>`)].join(' '),
-      embeds: [
-        embeds.brand().setTitle(`Anfrage #${number} · ${type.label}`).setDescription(truncate(`${emojis.icon(type.key)}${details}`, 4000)).addFields(
-          { name: 'Betreff', value: truncate(subject, 1024), inline: false },
-          { name: 'Erstellt von', value: `<@${user.id}>`, inline: true },
-          { name: 'Zuständig', value: roleIds.map((id) => `<@&${id}>`).join(' ') || 'Team', inline: true },
-          { name: 'Hinweis', value: 'Das Team fragt niemals nach Passwörtern. Korrekturen von Guthaben erfolgen ausschließlich über die Website.', inline: false },
-        ),
-      ],
-      components: [ticketButtons()],
+      ...card({
+        eyebrow: `${emojis.icon(type.key)}Anfrage #${number} · ${type.label}`,
+        title: truncate(subject, 200),
+        intro: `Hallo <@${user.id}>, danke für deine Anfrage. ${team} meldet sich hier bei dir.`,
+        blocks: [
+          { heading: 'Beschreibung', body: truncate(details, 1500) },
+          { heading: 'Hinweis', icon: 'lock', body: 'Das Team fragt niemals nach Passwörtern.\nKorrekturen von Guthaben erfolgen ausschließlich über die Website.' },
+        ],
+        actions: [ticketButtons()],
+        footer: `Eröffnet ${discordTime(new Date(), 'f')}`,
+      }),
+      // Ersteller und zuständige Rollen werden einmalig benachrichtigt.
       allowedMentions: { users: [user.id], roles: roleIds },
     });
 
@@ -140,6 +144,11 @@ async function buildTranscript(channel) {
   const lines = all.map((m) => {
     const parts = [m.content];
     for (const e of m.embeds) parts.push(`[Embed] ${e.title ?? ''} ${e.description ?? ''}`.trim());
+    // Karten (Components V2): Textbausteine mitschreiben
+    const texts = [];
+    const walk = (c) => { const j = c?.toJSON ? c.toJSON() : c; if (j?.type === 10) texts.push(j.content); (j?.components ?? []).forEach(walk); };
+    (m.components ?? []).forEach(walk);
+    if (texts.length) parts.push(`[Karte] ${texts.join(' | ').replace(/\n/g, ' ')}`);
     for (const a of m.attachments.values()) parts.push(`[Anhang] ${a.url}`);
     return `[${m.createdAt.toISOString()}] ${m.author.tag} (${m.author.id}): ${parts.filter(Boolean).join(' | ')}`;
   });

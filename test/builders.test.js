@@ -2,66 +2,92 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { MessageFlags } = require('discord.js');
 const { panelDefinitions } = require('../src/setup/panels');
-const { suggestionModal, suggestionEmbed } = require('../src/interactions/suggestions');
+const { suggestionModal, suggestionCard } = require('../src/interactions/suggestions');
 const { ticketModal } = require('../src/interactions/tickets');
-const { announcementModal, announcementEmbed } = require('../src/interactions/announcements');
+const { announcementModal, announcementCard } = require('../src/interactions/announcements');
 const { TICKET_TYPES } = require('../src/config/serverLayout');
-const { marketEmbed, marketComponents } = require('../src/services/marketFeed');
-const { leaderboardEmbed, BOARDS } = require('../src/services/leaderboards');
+const { marketCard, priceBar } = require('../src/services/marketFeed');
+const { leaderboardCard, BOARDS } = require('../src/services/leaderboards');
+const { statsCard } = require('../src/services/stats');
+const { welcomePayload } = require('../src/services/welcome');
 const { listPayload } = require('../src/commands/markets');
+const { textLength, TEXT_LIMIT } = require('../src/lib/ui');
 const { loadCommands } = require('../src/registry');
 
-const json = (x) => (typeof x?.toJSON === 'function' ? x.toJSON() : x);
 const env = { websiteUrl: 'https://market.example', currency: 'HC' };
 const EMOJI = /\p{Extended_Pictographic}/u;
 
-function embedChars(list) {
-  return list.map(json).reduce((a, e) => a + (e.title ?? '').length + (e.description ?? '').length + (e.footer?.text ?? '').length
-    + (e.author?.name ?? '').length + (e.fields ?? []).reduce((b, f) => b + f.name.length + f.value.length, 0), 0);
+function countComponents(payload) {
+  let n = 0;
+  const walk = (c) => {
+    n++;
+    (c.components ?? []).forEach(walk);
+    if (c.accessory) n++;
+  };
+  payload.components.map((c) => c.toJSON()).forEach(walk);
+  return n;
 }
 
-test('Panels sind gültig, unter dem 6000-Zeichen-Limit und ohne Emojis', () => {
+/** Prüft eine Karte gegen die Discord-Grenzen für Components V2. */
+function assertCard(payload, label) {
+  assert.ok(payload.flags & MessageFlags.IsComponentsV2, `${label}: Components-V2-Flag`);
+  assert.equal(payload.embeds, undefined, `${label}: keine Embeds`);
+  assert.equal(payload.content, undefined, `${label}: kein Content`);
+  const json = JSON.stringify(payload.components.map((c) => c.toJSON()));
+  assert.ok(textLength(payload) <= TEXT_LIMIT, `${label}: Text ${textLength(payload)} > ${TEXT_LIMIT}`);
+  assert.ok(countComponents(payload) <= 40, `${label}: ${countComponents(payload)} Komponenten`);
+  assert.ok(!EMOJI.test(json), `${label}: Standard-Emojis gefunden`);
+  if (json.includes('attachment://')) assert.equal(payload.files.length, 1, `${label}: Logo-Anhang`);
+  return json;
+}
+
+test('Panels sind gültige Karten (mit und ohne Website-URL)', () => {
   for (const e of [env, { ...env, websiteUrl: '' }]) {
     for (const def of panelDefinitions()) {
-      const p = def.build({ guild: { id: '1' }, env: e, ids: {} });
-      p.embeds.forEach(json);
-      p.components.forEach(json);
-      assert.ok(p.embeds.length <= 10 && embedChars(p.embeds) <= 6000, def.key);
-      assert.ok(!EMOJI.test(JSON.stringify(p.embeds.map(json))), `${def.key} enthält Emojis`);
+      const json = assertCard(def.build({ guild: { id: '1' }, env: e, roleIds: {}, channelIds: {} }), def.key);
+      assert.match(json, /"content":"# /, `${def.key}: große Überschrift`);
+      assert.match(json, /attachment:\/\/hugopredict\.png/, `${def.key}: Logo oben rechts`);
     }
   }
 });
 
 test('Ticket-Panel nutzt ein Auswahlmenü mit allen Anliegen', () => {
   const p = panelDefinitions().find((d) => d.key === 'tickets').build({ env });
-  const menu = json(p.components[0]).components[0];
+  const menu = p.components[0].toJSON().components.find((c) => c.type === 1).components[0];
   assert.equal(menu.custom_id, 'hm:ticket:select');
   assert.deepEqual(menu.options.map((o) => o.value), TICKET_TYPES.map((t) => t.key));
 });
 
 test('Modals sind gültig', () => {
-  json(suggestionModal());
-  json(announcementModal());
-  for (const t of TICKET_TYPES) json(ticketModal(t));
+  suggestionModal().toJSON();
+  announcementModal().toJSON();
+  for (const t of TICKET_TYPES) ticketModal(t).toJSON();
 });
 
-test('Embeds für Märkte, Ranglisten, Vorschläge, Ankündigungen und Setup', () => {
+test('Karten für Märkte, Ranglisten, Vorschläge, Ankündigungen, Statistik und Begrüßung', () => {
   for (const status of ['open', 'paused', 'closed', 'resolved']) {
     const m = { id: '1', title: 'T'.repeat(300), description: 'D'.repeat(1000), yesPrice: 0.4, noPrice: 0.6, volume: 10, status, outcome: 'Ja', url: 'https://x.test/m/1', closesAt: '2026-11-01T00:00:00Z' };
-    const e = json(marketEmbed(m, env));
-    assert.match(e.author.name, /^Markt · /);
-    marketComponents(m).forEach(json);
+    const json = assertCard(marketCard(m, env), `Markt ${status}`);
+    assert.match(json, /Markt · /);
+    assertCard(marketCard({ ...m, url: null }, env, { ephemeral: true }), 'Markt ohne Link');
   }
+  assert.equal(priceBar(0.5, 10), '`▰▰▰▰▰▱▱▱▱▱`');
+  assert.equal(priceBar(null), null);
   for (const b of BOARDS) {
-    json(leaderboardEmbed(b, { entries: [], period: null, generatedAt: null }, env));
-    json(leaderboardEmbed(b, { entries: [{ rank: 1, username: 'a', discordId: null, value: 0.7, detail: '12 Märkte' }], period: 'KW 44', generatedAt: '2026-10-29T00:00:00Z' }, env));
+    assertCard(leaderboardCard(b, { entries: [], period: null, generatedAt: null }, env), b.type);
+    const entries = Array.from({ length: 10 }, (_, i) => ({ rank: i + 1, username: `u${i}`, discordId: null, value: 0.7, detail: '12 Märkte' }));
+    assertCard(leaderboardCard(b, { entries, period: 'KW 44', generatedAt: '2026-10-29T00:00:00Z' }, env), `${b.type} voll`);
   }
-  json(suggestionEmbed({ number: 1, title: 't', description: 'd', outcomes: 'Ja / Nein', source: 's', closes: '', authorId: '1', status: 'open' }));
-  json(announcementEmbed({ title: 'Wartung', body: 'Text', link: 'https://x.de', authorName: 'Team' }));
-  const lp = listPayload([{ id: '1', title: 'A', yesPrice: 0.5 }, { id: '2', title: 'B' }], 'paused', 'HC');
-  lp.embeds.forEach(json);
-  lp.components.forEach(json);
+  for (const status of ['open', 'accepted', 'rejected']) {
+    assertCard(suggestionCard({ number: 1, title: 't', description: 'd', outcomes: 'Ja / Nein', source: 's', closes: '', authorId: '1', status, createdAt: '2026-10-29T00:00:00Z', decision: status === 'open' ? null : { by: '2', reason: 'r' } }), `Vorschlag ${status}`);
+  }
+  assertCard(announcementCard({ title: 'Wartung', body: 'Text'.repeat(800), link: 'https://x.de', authorName: 'Team' }), 'Ankündigung');
+  assertCard(statsCard({ members: 10, membersIntent: false }), 'Statistik');
+  assertCard(welcomePayload({ guildId: '1', guildName: 'HugoPredict', ids: { docs: '2', support: '3' }, websiteUrl: 'https://x.de' }), 'Begrüßung');
+  const markets = Array.from({ length: 12 }, (_, i) => ({ id: String(i), title: 'Markt '.repeat(15), yesPrice: 0.5 }));
+  assertCard(listPayload(markets, 'paused', 'HC'), '/markets');
 });
 
 test('Slash-Commands sind gültig und vollständig', () => {

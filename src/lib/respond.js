@@ -11,12 +11,18 @@ async function reply(interaction, payload) {
   const data = { allowedMentions: { parse: [] }, ...payload };
   if (interaction.deferred || interaction.replied) {
     const { flags, ...rest } = data;
-    return interaction.deferred && !interaction.replied ? interaction.editReply(rest) : interaction.followUp({ ...rest, flags });
+    if (interaction.deferred && !interaction.replied) {
+      // Sichtbarkeit steht seit dem Defer fest; das Karten-Flag (Components V2) muss erhalten bleiben.
+      const v2 = (flags ?? 0) & MessageFlags.IsComponentsV2;
+      return interaction.editReply(v2 ? { ...rest, flags: v2 } : rest);
+    }
+    return interaction.followUp({ ...rest, flags });
   }
   return interaction.reply(data);
 }
 
-const replyPrivate = (interaction, payload) => reply(interaction, { flags: EPHEMERAL, ...payload });
+/** Private Antwort; Flags der Nutzlast (z. B. Karten) werden ergänzt, nicht ersetzt. */
+const replyPrivate = (interaction, payload) => reply(interaction, { ...payload, flags: EPHEMERAL | (payload.flags ?? 0) });
 
 function apiErrorEmbed(err) {
   const title = err instanceof ApiError && err.code === 'not_linked' ? 'Konto nicht verknüpft' : 'Aktion nicht möglich';

@@ -2,7 +2,7 @@
 
 const { SlashCommandBuilder } = require('discord.js');
 const { replyPrivate, replyApiError, EPHEMERAL } = require('../lib/respond');
-const { BOARDS, leaderboardEmbed } = require('../services/leaderboards');
+const { BOARDS, leaderboardCard } = require('../services/leaderboards');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -14,7 +14,7 @@ module.exports = {
     const board = BOARDS.find((b) => b.type === (interaction.options.getString('typ') ?? 'all-time'));
     try {
       const data = await deps.api.getLeaderboard(board.type, { limit: 10 });
-      return replyPrivate(interaction, { embeds: [leaderboardEmbed(board, data, deps.env)] });
+      return replyPrivate(interaction, leaderboardCard(board, data, deps.env));
     } catch (err) {
       return replyApiError(interaction, err, { ...deps, action: '/leaderboard' });
     }

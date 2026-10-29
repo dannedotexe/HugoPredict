@@ -1,23 +1,30 @@
 'use strict';
 
 const { SlashCommandBuilder } = require('discord.js');
-const { embeds } = require('../lib/embeds');
 const { replyPrivate } = require('../lib/respond');
+const { card } = require('../lib/ui');
 
 module.exports = {
   data: new SlashCommandBuilder().setName('help').setDescription('Zeigt alle verfügbaren Befehle'),
   async execute(interaction, { ctx }) {
-    const e = embeds.brand().setTitle('Befehlsübersicht').setDescription('Alle Antworten zu deinem Konto sind privat und nur für dich sichtbar.').addFields(
-      { name: 'Konto', value: '`/verify` Konto verknüpfen\n`/balance` Guthaben\n`/portfolio` Offene Positionen\n`/history` Transaktionen\n`/daily` Täglicher Bonus', inline: true },
-      { name: 'Märkte', value: '`/markets` Märkte anzeigen\n`/leaderboard` Ranglisten\n`/vorschlag` Markt vorschlagen', inline: true },
-      { name: 'Hilfe', value: 'Anfragen an den Kundenservice stellst du in #support.\n`/ping` Systemstatus', inline: false },
-    );
-    if (interaction.member && ctx.can(interaction.member, 'moderate')) {
-      e.addFields({ name: 'Moderation', value: '`/mod verwarnen` · `/mod timeout` · `/mod timeout-aufheben` · `/mod kicken`\n`/mod bannen` · `/mod entbannen` (nur Inhaber/Administrator)\n`/mod verlauf` Verlauf einer Person', inline: false });
+    const can = (p) => interaction.member && ctx.can(interaction.member, p);
+    const blocks = [
+      { heading: 'Konto', icon: 'balance', body: '`/verify` Konto verknüpfen\n`/balance` Guthaben\n`/portfolio` Offene Positionen\n`/history` Transaktionen\n`/daily` Täglicher Bonus' },
+      { heading: 'Märkte', icon: 'open', body: '`/markets` Märkte anzeigen\n`/leaderboard` Ranglisten\n`/vorschlag` Markt vorschlagen' },
+      { heading: 'Hilfe', icon: 'support', body: 'Anfragen an den Support stellst du in #support.\n`/ping` Systemstatus' },
+    ];
+    if (can('moderate')) {
+      blocks.push({ heading: 'Moderation', icon: 'moderator', body: '`/mod verwarnen` · `/mod timeout` · `/mod timeout-aufheben`\n`/mod kicken` · `/mod verlauf`\n`/mod bannen` · `/mod entbannen` (Inhaber/Administrator)' });
     }
-    if (interaction.member && ctx.can(interaction.member, 'setup')) {
-      e.addFields({ name: 'Verwaltung', value: '`/setup-panels` Panels veröffentlichen\n`/ankündigung` Ankündigung veröffentlichen\n`/aufräumen` Archiv und alte Kategorien löschen', inline: false });
+    if (can('setup')) {
+      blocks.push({ heading: 'Verwaltung', icon: 'admin', body: '`/setup-panels` Panels veröffentlichen\n`/ankündigung` Ankündigung veröffentlichen\n`/aufräumen` Archiv und alte Kategorien löschen' });
     }
-    return replyPrivate(interaction, { embeds: [e] });
+    return replyPrivate(interaction, card({
+      icon: 'logo',
+      title: 'Befehlsübersicht',
+      intro: 'Antworten zu deinem Konto sind privat und nur für dich sichtbar.',
+      blocks,
+      ephemeral: true,
+    }));
   },
 };

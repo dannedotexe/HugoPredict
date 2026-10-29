@@ -3,6 +3,7 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { embeds, formatAmount, discordTime } = require('../lib/embeds');
 const { replyPrivate, replyApiError, EPHEMERAL } = require('../lib/respond');
+const { card } = require('../lib/ui');
 
 /** Ein Idempotenz-Schlüssel pro Nutzer und UTC-Tag: Wiederholungen lösen keine zweite Gutschrift aus. */
 function dailyKey(userId, date = new Date()) {
@@ -34,7 +35,7 @@ module.exports = {
 
     if (interaction.guild) {
       await deps.ctx.audit(interaction.guild, 'audit', {
-        title: 'Daily-Reward (von Website bestätigt)',
+        title: 'Daily-Bonus (von der Website bestätigt)',
         fields: [
           { name: 'Nutzer', value: `<@${interaction.user.id}> (${interaction.user.id})` },
           { name: 'Betrag', value: formatAmount(res.amount, deps.env.currency) },
@@ -42,9 +43,18 @@ module.exports = {
         ],
       });
     }
-    const e = embeds.success('Bonus gutgeschrieben', `Die Website hat dir **${formatAmount(res.amount, deps.env.currency)}** gutgeschrieben.`);
-    if (res.balance !== null) e.addFields({ name: 'Neues Guthaben', value: formatAmount(res.balance, deps.env.currency), inline: true });
-    if (res.nextClaimAt) e.addFields({ name: 'Nächster Bonus', value: discordTime(res.nextClaimAt, 'R'), inline: true });
-    return replyPrivate(interaction, { embeds: [e] });
+    const c = deps.env.currency;
+    return replyPrivate(interaction, card({
+      icon: 'coin',
+      title: 'Bonus gutgeschrieben',
+      intro: `# +${formatAmount(res.amount, c)}\n-# Von der Website bestätigt`,
+      logo: false,
+      blocks: [(res.balance !== null || res.nextClaimAt) && {
+        heading: 'Details',
+        body: [res.balance !== null ? `Neues Guthaben **${formatAmount(res.balance, c)}**` : null, res.nextClaimAt ? `Nächster Bonus ${discordTime(res.nextClaimAt, 'R')}` : null].filter(Boolean).join('\n'),
+      }],
+      footer: 'Nur für dich sichtbar',
+      ephemeral: true,
+    }));
   },
 };

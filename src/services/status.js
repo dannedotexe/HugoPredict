@@ -1,9 +1,10 @@
 'use strict';
 
-const { embeds, discordTime } = require('../lib/embeds');
+const { discordTime } = require('../lib/embeds');
 const { userMessage } = require('../lib/hugoApi');
-const theme = require('../config/theme');
 const { emojis } = require('../lib/emojis');
+const { card, upsert } = require('../lib/ui');
+const theme = require('../config/theme');
 
 function createStatusService({ api, store, env, logger }) {
   const startedAt = new Date();
@@ -28,41 +29,46 @@ function createStatusService({ api, store, env, logger }) {
     if (!ok && err) logger.debug('Sync fehlgeschlagen:', err.message);
   }
 
-  async function buildEmbed() {
-    const dot = (ok) => (ok === null ? `${emojis.icon('closed')}Unbekannt` : ok ? `${emojis.icon('resolved')}Betriebsbereit` : `${emojis.icon('warning')}Gestört`);
-    const allOk = state.apiOk === true;
-    return embeds.base(allOk ? theme.colors.success : api.configured ? theme.colors.warning : theme.colors.neutral)
-      .setTitle('Systemstatus')
-      .addFields(
-        { name: 'Discord-Bot', value: `${emojis.icon('resolved')}Betriebsbereit · gestartet ${discordTime(startedAt, 'R')}`, inline: false },
-        {
-          name: 'Website-API',
-          value: api.configured ? `${dot(state.apiOk)}${state.apiError ? `\n${state.apiError}` : ''}` : `${emojis.icon('closed')}Nicht verbunden`,
-          inline: false,
-        },
-        { name: 'Marktübersicht', value: state.lastSyncAt ? `${dot(state.lastSyncOk)} · ${discordTime(state.lastSyncAt, 'R')}` : `${emojis.icon('closed')}Noch keine Synchronisierung`, inline: false },
-        { name: 'Website', value: env.websiteUrl || '—', inline: false },
-      )
-      .setFooter({ text: `${theme.brand} · Zuletzt geprüft` });
+  const line = (ok, text) => `${emojis.icon(ok === null ? 'closed' : ok ? 'resolved' : 'warning')}${text}`;
+
+  async function buildPayload() {
+    const healthy = state.apiOk === true;
+    return card({
+      title: 'Systemstatus',
+      icon: 'open',
+      intro: healthy ? 'Alle Systeme sind betriebsbereit.' : api.configured ? 'Mindestens ein System meldet eine Störung.' : 'Die Website ist noch nicht angebunden.',
+      accent: healthy ? theme.colors.success : api.configured ? theme.colors.warning : theme.colors.neutral,
+      blocks: [
+        { heading: 'Discord-Bot', body: line(true, `Betriebsbereit · gestartet ${discordTime(startedAt, 'R')}`) },
+        { heading: 'Website-API', body: api.configured ? line(state.apiOk, state.apiOk ? 'Betriebsbereit' : `Gestört${state.apiError ? ` · ${state.apiError}` : ''}`) : line(null, 'Nicht verbunden') },
+        { heading: 'Marktübersicht', body: state.lastSyncAt ? line(state.lastSyncOk, `${state.lastSyncOk ? 'Synchron' : 'Gestört'} · ${discordTime(state.lastSyncAt, 'R')}`) : line(null, 'Noch keine Synchronisierung') },
+      ],
+      footer: `Zuletzt geprüft ${discordTime(new Date(), 't')}`,
+    });
   }
 
   async function tick(client) {
     await checkApi();
-    const embed = await buildEmbed();
+    const payload = await buildPayload();
     for (const guild of client.guilds.cache.values()) {
-      const ref = store.guild(guild.id).panels.status;
+      const g = store.guild(guild.id);
+      const ref = g.panels.status;
       if (!ref) continue;
       try {
         const channel = guild.channels.cache.get(ref.channelId) ?? (await guild.channels.fetch(ref.channelId).catch(() => null));
-        const msg = channel?.isTextBased() ? await channel.messages.fetch(ref.messageId).catch(() => null) : null;
-        if (msg) await msg.edit({ embeds: [embed] });
+        if (!channel?.isTextBased()) continue;
+        const msg = await upsert(channel, ref, payload);
+        if (msg.id !== ref.messageId) {
+          g.panels.status = { channelId: channel.id, messageId: msg.id };
+          store.save();
+        }
       } catch (err) {
         logger.warn('Status-Panel:', err.message);
       }
     }
   }
 
-  return { tick, buildEmbed, recordSync, checkApi, state };
+  return { tick, buildPayload, recordSync, checkApi, state, env };
 }
 
 module.exports = { createStatusService };
