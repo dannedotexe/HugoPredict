@@ -42,12 +42,12 @@ test('Struktur entspricht exakt der Vorgabe', () => {
   assert.deepEqual(L.CATEGORIES.map((c) => [c.name, c.channels.map((ch) => ch.name)]), [
     ['INFORMATIONEN', ['👋┃willkommen', '📢┃ankündigungen', '📈┃prognosen', '📜┃regeln', '🔔┃pings', '📝┃bewerben']],
     ['COMMUNITY', ['💬┃diskussionen', '📊┃analysen', '📸┃medien', '💡┃vorschläge', '🔊┃Voice 1', '🔊┃Voice 2', '🔊┃Voice 3']],
-    ['KUNDENSERVICE', ['🎫┃support', '📋┃support-steuerung', '⏳┃support-warteraum', '🎧┃support-1', '🎧┃support-2']],
+    ['KUNDENSERVICE', ['🎫┃support', '📋┃support-steuerung', '⏳┃support-warteraum', '🛠️┃Support Raum 1', '🛠️┃Support Raum 2']],
     ['INTERN · PRIVAT', ['🔧┃betrieb', '🧾┃prüfprotokoll', '📡┃systemmeldungen', '🔨┃moderation', '📨┃bewerbungen', '👥┃team']],
   ]);
   // Genau ein Emoji, dann „┃“, dann Kleinbuchstaben
   // Sprachkanäle dürfen „Voice 1“ heißen (Großbuchstabe, Leerzeichen)
-  for (const ch of L.allChannels()) assert.match(ch.name, ch.type === 2 && ch.key.startsWith('voice') ? /^\p{Extended_Pictographic}┃Voice \d$/u : /^\p{Extended_Pictographic}┃[a-zäöüß0-9-]+$/u, ch.name);
+  for (const ch of L.allChannels()) assert.match(ch.name, ch.type === 2 && /^(voice|supportRoom)/.test(ch.key) ? /^\p{Extended_Pictographic}\uFE0F?┃(Voice|Support Raum) \d$/u : /^\p{Extended_Pictographic}┃[a-zäöüß0-9-]+$/u, ch.name);
 });
 
 test('Administrator-Recht nur bei der Rolle Administrator', () => {
