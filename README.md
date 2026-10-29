@@ -156,7 +156,7 @@ journalctl -u hugosmp-market-bot -f    # Logs ansehen
 ```
 
 **Einfacher:** `bash scripts/install-server.sh` erledigt Installation, Start (pm2 oder systemd) und richtet
-**automatische Updates** ein. Ein cron-Job prüft dann alle 10 Minuten, ob es auf dem Branch neue Commits
+**automatische Updates** ein. Ein cron-Job prüft dann alle 2 Minuten, ob es auf dem Branch neue Commits
 gibt, und startet den Bot gegebenenfalls neu (Protokoll: `data/update.log`). Ohne direkten SSH-Schlüssel
 geht es auch aus der Oracle Cloud Shell über eine Bastion-Sitzung: `scripts/bastion-connect.sh`.
 

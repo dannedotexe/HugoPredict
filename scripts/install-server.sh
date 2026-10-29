@@ -93,7 +93,7 @@ EOF
   echo "Fertig. Logs: journalctl -u $NAME -f"
 fi
 
-echo "==> Automatische Updates einrichten (alle 10 Minuten)"
-CRON="*/10 * * * * PATH=$PATH bash $DIR/scripts/auto-update.sh >> $DIR/data/update.log 2>&1"
+echo "==> Automatische Updates einrichten (alle 2 Minuten)"
+CRON="*/2 * * * * PATH=$PATH bash $DIR/scripts/auto-update.sh >> $DIR/data/update.log 2>&1"
 ( crontab -l 2>/dev/null | grep -v 'scripts/auto-update.sh' || true; echo "$CRON" ) | crontab -
 echo "Auto-Update aktiv. Protokoll: $DIR/data/update.log"

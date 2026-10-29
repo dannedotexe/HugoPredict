@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Wird per cron alle 10 Minuten ausgeführt (eingerichtet von install-server.sh).
+# Wird per cron alle 2 Minuten ausgeführt (eingerichtet von install-server.sh).
 # Holt neue Commits des aktuellen Branches, installiert Abhängigkeiten,
 # registriert Commands und startet den Bot neu – nur wenn sich etwas geändert hat.
 set -euo pipefail
