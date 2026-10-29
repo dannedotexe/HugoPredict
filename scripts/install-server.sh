@@ -35,7 +35,8 @@ if [ ! -f .env ]; then
   chmod 600 .env
   read -rp "Application ID (DISCORD_CLIENT_ID): " CID
   read -rp "Server-ID (DISCORD_GUILD_ID): " GID
-  read -rsp "Bot-Token (DISCORD_TOKEN, Eingabe unsichtbar): " TOK; echo
+  read -rp "Bot-Token (DISCORD_TOKEN): " TOK
+  clear
   [[ "$CID" =~ ^[0-9]{15,25}$ ]] || fail "Application ID muss eine Zahl sein."
   [[ "$GID" =~ ^[0-9]{15,25}$ ]] || fail "Server-ID muss eine Zahl sein."
   [[ "$TOK" =~ ^[A-Za-z0-9._-]{50,}$ ]] || fail "Das sieht nicht nach einem Bot-Token aus."
