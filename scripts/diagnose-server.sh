@@ -40,9 +40,29 @@ else
 fi
 ls -1 "$HOME"/.ssh/ 2>/dev/null
 
-line "Letzte abgelehnte SSH-Anmeldungen"
-(sudo -n journalctl -u ssh -u sshd --since "-3 days" --no-pager -o short 2>/dev/null || sudo -n cat /var/log/auth.log 2>/dev/null) \
-  | grep -E "Failed publickey|Invalid user|Connection closed by authenticating" | tail -8 || echo "(keine oder kein Zugriff)"
+line "Schlüssel nur in authorized_keys_backup (fehlen aktuell)"
+if [ -f "$HOME/.ssh/authorized_keys_backup" ]; then
+  echo "Sicherung zuletzt geändert: $(date -r "$HOME/.ssh/authorized_keys_backup" '+%Y-%m-%d %H:%M')"
+  awk 'NR==FNR { if (NF && $1 !~ /^#/) have[$2]=1; next }
+       NF && $1 !~ /^#/ { printf "%s %s %s\n", (($2 in have) ? "vorhanden:" : "FEHLT:    "), $1, ($3 == "" ? "(ohne Namen)" : $3) }' \
+    "$HOME/.ssh/authorized_keys" "$HOME/.ssh/authorized_keys_backup"
+else
+  echo "(keine Sicherung)"
+fi
+
+line "Anmeldungen von ubuntu (erfolgreich/abgelehnt, letzte 3 Tage)"
+LOGS="$(sudo -n journalctl -u ssh -u sshd --since "-3 days" --no-pager -o short 2>/dev/null || sudo -n cat /var/log/auth.log 2>/dev/null)"
+echo "$LOGS" | grep -E "Accepted publickey for ubuntu|authenticating user ubuntu|Failed publickey for ubuntu" \
+  | sed -E 's/^([A-Za-z]+ +[0-9]+ [0-9:]+).*(Accepted publickey|Connection closed by authenticating user|Failed publickey for)( for)? ?(ubuntu)? ?(from )?([0-9.]+).*/\1 \2 \6/' | tail -12 || echo "(keine oder kein Zugriff)"
+
+line "Git-Zugang der Bots (ohne Tokens)"
+for d in "$HOME"/*/; do
+  [ -d "$d/.git" ] || continue
+  url="$(git -C "$d" remote get-url origin 2>/dev/null | sed -E 's#//[^@/]+@#//***@#')"
+  printf '%s\n  Remote: %s\n  Stand:  %s\n' "$(basename "$d")" "${url:-?}" "$(git -C "$d" log -1 --format='%cd %h' --date=format:'%Y-%m-%d %H:%M' 2>/dev/null)"
+done
+echo "credential.helper (global): $(git config --global --get credential.helper || echo '-')"
+[ -f "$HOME/.git-credentials" ] && echo ".git-credentials: $(wc -l < "$HOME/.git-credentials") Eintrag/Einträge, geändert $(date -r "$HOME/.git-credentials" '+%Y-%m-%d %H:%M')" || echo ".git-credentials: nicht vorhanden"
 
 line "Oracle Cloud Agent (Bastion)"
 systemctl is-active oracle-cloud-agent 2>/dev/null || systemctl is-active snap.oracle-cloud-agent.oracle-cloud-agent 2>/dev/null || echo "(nicht gefunden)"
