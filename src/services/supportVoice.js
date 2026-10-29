@@ -54,7 +54,7 @@ function createSupportVoiceService({ store, ctx, logger, now = Date.now, renderD
       title: 'Warteschlange',
       intro: g.supportVoice.open
         ? 'Bitte warte, bis dich jemand vom Team in einen Support-Raum holt. Wer zuerst da war, ist zuerst dran.'
-        : '**Der Support ist gerade geschlossen.** Erstelle gern eine Anfrage in #support.',
+        : `**Der Support ist gerade geschlossen.** Erstelle gern eine Anfrage in ${g.channels.support ? `<#${g.channels.support}>` : '#support'}.`,
       logo: false,
       blocks: [{
         heading: `${queue.length} von ${WAITING_ROOM_LIMIT} Plätzen belegt`,
