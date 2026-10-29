@@ -1,0 +1,21 @@
+{
+  "name": "hugopredict",
+  "version": "0.1.0",
+  "description": "Prediction Market für Hugo SMP – wetten mit Ingame-Geld über einen Mineflayer-Bot",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "seed": "node src/seed.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.2",
+    "mineflayer": "^4.33.0"
+  }
+}
