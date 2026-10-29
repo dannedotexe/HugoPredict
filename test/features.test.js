@@ -74,3 +74,21 @@ test('Benachrichtigungs-Karte zieht nach #pings um; alte Nachricht wird entfernt
   assert.equal(g.panels.notify.channelId, 'pings');
   assert.ok(channels.get('pings').msgs.has(g.panels.notify.messageId));
 });
+
+test('Kontoverknüpfung vergibt nur Mitglied und Verifiziert, keine Ping-Rollen', async () => {
+  const { checkVerification } = require('../src/interactions/verification');
+  const added = [];
+  const interaction = {
+    guild: { id: 'G' }, user: { id: '1' },
+    member: { roles: { cache: new Collection(), add: async (ids) => added.push(...ids) } },
+    replied: false, deferred: false,
+    deferReply: async () => { interaction.deferred = true; }, editReply: async () => {}, followUp: async () => {}, reply: async () => {},
+  };
+  const ids = { member: 'M', verified: 'V', notifyMarkets: 'N1', notifyNews: 'N2' };
+  const deps = {
+    api: { getVerificationStatus: async () => ({ verified: true, minecraftName: 'Steve' }) },
+    ctx: { roleId: (g, k) => ids[k], audit: async () => {} }, logger: console,
+  };
+  await checkVerification(interaction, deps);
+  assert.deepEqual(added.sort(), ['M', 'V']);
+});

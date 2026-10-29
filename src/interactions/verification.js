@@ -3,7 +3,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const { embeds, discordTime } = require('../lib/embeds');
 const { replyPrivate, replyApiError, EPHEMERAL } = require('../lib/respond');
-const { SELF_ASSIGNABLE_VIA_BOT } = require('../config/serverLayout');
 const { ApiError } = require('../lib/hugoApi');
 const { withEmoji } = require('../lib/emojis');
 const { card } = require('../lib/ui');
@@ -72,7 +71,8 @@ async function checkVerification(interaction, deps) {
 
   // Rolle erst nach bestätigter Verifizierung durch die Website vergeben.
   const member = interaction.member;
-  const roleIds = SELF_ASSIGNABLE_VIA_BOT.map((k) => deps.ctx.roleId(interaction.guild.id, k)).filter(Boolean);
+  // Nur Mitglied und Verifiziert – Benachrichtigungen wählt jede Person selbst in #pings.
+  const roleIds = ['member', 'verified'].map((k) => deps.ctx.roleId(interaction.guild.id, k)).filter(Boolean);
   const toAdd = roleIds.filter((id) => !member.roles.cache.has(id));
   try {
     if (toAdd.length) await member.roles.add(toAdd, 'Konto über die Website verknüpft');
