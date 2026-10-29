@@ -42,11 +42,11 @@ test('Struktur entspricht exakt der Vorgabe', () => {
   assert.deepEqual(L.CATEGORIES.map((c) => [c.name, c.channels.map((ch) => ch.name)]), [
     ['INFORMATIONEN', ['👋┃willkommen', '📢┃ankündigungen', '📈┃prognosen', '📜┃regeln', '🔔┃pings']],
     ['COMMUNITY', ['💬┃diskussionen', '📊┃analysen', '📸┃medien', '💡┃vorschläge', '🔊┃talk']],
-    ['KUNDENSERVICE', ['🎫┃support']],
+    ['KUNDENSERVICE', ['🎫┃support', '⏳┃warteraum', '🎧┃support-1', '🎧┃support-2']],
     ['INTERN · PRIVAT', ['🔧┃betrieb', '🧾┃prüfprotokoll', '📡┃systemmeldungen', '🔨┃moderation', '👥┃team']],
   ]);
   // Genau ein Emoji, dann „┃“, dann Kleinbuchstaben
-  for (const ch of L.allChannels()) assert.match(ch.name, /^\p{Extended_Pictographic}┃[a-zäöüß-]+$/u, ch.name);
+  for (const ch of L.allChannels()) assert.match(ch.name, /^\p{Extended_Pictographic}┃[a-zäöüß0-9-]+$/u, ch.name);
 });
 
 test('Administrator-Recht nur bei der Rolle Administrator', () => {
@@ -154,4 +154,16 @@ test('Vorschläge und Sprachkanal: erst ab Mitglied sichtbar', () => {
   }
   assert.ok(can(channel('ideas'), ['member'], P.SendMessages));
   assert.equal(channel('voice').type, 2, 'Sprachkanal');
+});
+
+test('Support-Sprachkanäle: Warteraum für alle, Support-Räume nur per Verschieben', () => {
+  const wait = channel('waitingRoom');
+  assert.ok(can(wait, [], P.Connect) && !can(wait, [], P.Speak), 'warten ohne zu sprechen');
+  for (const key of ['supportRoom1', 'supportRoom2']) {
+    const room = channel(key);
+    assert.ok(can(room, [], P.ViewChannel) && !can(room, [], P.Connect), `${key}: nicht selbst betreten`);
+    assert.ok(can(room, ['support'], P.MoveMembers) && can(room, ['support'], P.Speak), `${key}: Supporter verschiebt`);
+    assert.ok(!can(room, ['member', 'verified'], P.Connect), key);
+  }
+  assert.ok(can(wait, ['support'], P.MoveMembers));
 });

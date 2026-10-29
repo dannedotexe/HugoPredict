@@ -77,5 +77,5 @@ test('Intents: Members-Intent nur bei Freigabe, Fehler führen zum sicheren Verz
   assert.equal(await membersIntentAllowed('t', { get: async () => ({ flags: 0 }) }), false);
   assert.equal(await membersIntentAllowed('t', { get: async () => { throw new Error('401'); } }), false);
   const r = await resolveIntents('t', { get: async () => ({ flags: 0 }) });
-  assert.deepEqual([r.intents.length, r.members], [1, false]);
+  assert.deepEqual([r.intents.length, r.members], [2, false], 'Guilds + GuildVoiceStates');
 });

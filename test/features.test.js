@@ -120,3 +120,21 @@ test('Minecraft-Code in Discord: falscher Code meldet Versuche, richtiger vergib
   assert.equal(ok.member.nickname, 'Steve');
   assert.match(JSON.stringify(replies.at(-1)), /sobald sie verbunden ist/);
 });
+
+test('Warteraum meldet wartende Person einmal mit Supporter-Ping', async () => {
+  const { createSupportVoiceService } = require('../src/services/supportVoice');
+  const store = tmpStore();
+  Object.assign(store.guild('G').channels, { waitingRoom: 'W', supportRoom1: 'S1' });
+  const sent = [];
+  const channel = { isTextBased: () => true, send: async (p) => sent.push(p) };
+  const ctx = { channel: async () => channel, roleId: (g, k) => (k === 'support' ? 'R' : null) };
+  const svc = createSupportVoiceService({ store, ctx, logger: console });
+  const guild = { id: 'G' };
+  const member = { id: '7', user: { bot: false } };
+  await svc.onVoiceStateUpdate({ channelId: null }, { guild, member, channelId: 'W' });
+  await svc.onVoiceStateUpdate({ channelId: 'W' }, { guild, member, channelId: 'S1' }); // verschoben
+  await svc.onVoiceStateUpdate({ channelId: null }, { guild, member, channelId: 'W' }); // innerhalb 5 min erneut
+  assert.equal(sent.length, 1);
+  assert.deepEqual(sent[0].allowedMentions, { roles: ['R'] });
+  assert.match(JSON.stringify(sent[0]), /<#S1>/);
+});

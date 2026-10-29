@@ -22,7 +22,8 @@ async function membersIntentAllowed(token, { get } = {}) {
 
 async function resolveIntents(token, opts) {
   const members = await membersIntentAllowed(token, opts);
-  const intents = [GatewayIntentBits.Guilds];
+  // GuildVoiceStates ist nicht privilegiert (Support-Warteraum).
+  const intents = [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates];
   if (members) intents.push(GatewayIntentBits.GuildMembers);
   return { intents, members };
 }

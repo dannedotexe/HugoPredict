@@ -53,6 +53,10 @@ module.exports = {
     if (!interaction.guild.members.me.permissions.has(PermissionFlagsBits.ManageNicknames)) {
       e.addFields({ name: 'Hinweis zu Namen', value: 'Damit der Bot nach der Kontoverknüpfung den Minecraft-Namen als Server-Namen setzt, aktiviere bei der Bot-Rolle das Recht „Nicknames verwalten“.', inline: false });
     }
+    const voicePerms = [PermissionFlagsBits.MoveMembers, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak, PermissionFlagsBits.Stream];
+    if (!interaction.guild.members.me.permissions.has(voicePerms)) {
+      e.addFields({ name: 'Hinweis zu Support-Sprachkanälen', value: 'Damit der Bot Warteraum und Support-Räume anlegen kann, braucht die Bot-Rolle: „Mitglieder verschieben“, „Verbinden“, „Sprechen“ und „Video“.', inline: false });
+    }
     if (renamedChannels.renamed.length) e.addFields({ name: 'Channels umbenannt', value: renamedChannels.renamed.join('\n').slice(0, 1024), inline: false });
     if (renamedChannels.warnings.length) e.addFields({ name: 'Hinweise (Channels)', value: renamedChannels.warnings.join('\n').slice(0, 1024), inline: false });
     if (channels.created.length) e.addFields({ name: 'Channels angelegt', value: channels.created.join('\n').slice(0, 1024), inline: false });

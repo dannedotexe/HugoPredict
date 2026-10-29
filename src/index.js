@@ -25,6 +25,7 @@ const { createStatusService } = require('./services/status');
 const { createMarketFeed } = require('./services/marketFeed');
 const { createStatsService } = require('./services/stats');
 const { createWelcomeService } = require('./services/welcome');
+const { createSupportVoiceService } = require('./services/supportVoice');
 const { resolveIntents, membersIntentAllowed } = require('./lib/intents');
 const { createMinecraftService } = require('./minecraft/service');
 
@@ -149,6 +150,10 @@ function wire({ stats, welcome, membersIntent }) {
       ctx.audit(channel.guild, 'tickets', { title: `Anfrage #${ticket.number} manuell entfernt`, description: 'Der Channel wurde ohne Abschluss über den Bot gelöscht. Es liegt kein Transkript vor.' });
     }
   });
+
+  // Support-Warteraum: Team in #moderation informieren
+  const supportVoice = createSupportVoiceService({ store, ctx, logger });
+  client.on(Events.VoiceStateUpdate, (oldState, newState) => supportVoice.onVoiceStateUpdate(oldState, newState).catch((err) => logger.warn('Warteraum:', err.message)));
 
   // Begrüßung neuer Mitglieder per Direktnachricht (nur mit „Server Members Intent“)
   if (membersIntent) client.on(Events.GuildMemberAdd, (member) => welcome.onMemberAdd(member).catch((err) => logger.warn('Begrüßung:', err.message)));

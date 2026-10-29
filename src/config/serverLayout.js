@@ -149,6 +149,18 @@ const profiles = {
     ...each([...MEMBER_TIER, ...STAFF], READ),
     ow('bot', BOT_TEXT),
   ],
+  /** Support-Warteraum: alle dürfen rein und warten (ohne zu sprechen), das Team verschiebt sie. */
+  waitingRoom: () => [
+    ow('everyone', [P.ViewChannel, P.Connect], [P.Speak, P.Stream]),
+    ...each(PRIVILEGES.ticketStaff, [P.ViewChannel, P.Connect, P.Speak, P.Stream, P.MoveMembers]),
+    ow('bot', BOT_TEXT),
+  ],
+  /** Support-Raum: selbst betreten kann nur das Team, Nutzer werden hineingezogen. */
+  supportRoom: () => [
+    ow('everyone', [P.ViewChannel], [P.Connect]),
+    ...each(PRIVILEGES.ticketStaff, [P.ViewChannel, P.Connect, P.Speak, P.Stream, P.MoveMembers]),
+    ow('bot', BOT_TEXT),
+  ],
   /** Interner Channel: nur die angegebenen Rollen. */
   staff: (roles, { readOnly = false } = {}) => [
     ow('everyone', [], [P.ViewChannel]),
@@ -174,7 +186,7 @@ const V = ChannelType.GuildVoice;
 const SEPARATOR = '┃';
 const ICONS = {
   willkommen: '👋', ankündigungen: '📢', prognosen: '📈', regeln: '📜', pings: '🔔',
-  diskussionen: '💬', analysen: '📊', medien: '📸', vorschläge: '💡', talk: '🔊', support: '🎫',
+  diskussionen: '💬', analysen: '📊', medien: '📸', vorschläge: '💡', talk: '🔊', support: '🎫', warteraum: '⏳', 'support-1': '🎧', 'support-2': '🎧',
   betrieb: '🔧', prüfprotokoll: '🧾', systemmeldungen: '📡', moderation: '🔨', team: '👥',
 };
 const named = (plain, ...older) => ({
@@ -236,6 +248,9 @@ const CATEGORIES = [
     permissions: profiles.publicRead({ writers: [...LEADERSHIP, 'support'] }),
     channels: [
       { key: 'support', ...named('support'), type: T, legacy: ['ticketCreate'], topic: 'Private Anfragen an den Kundenservice. Tickets sind nur für dich und das Team sichtbar.', permissions: profiles.publicRead() },
+      { key: 'waitingRoom', ...named('warteraum'), type: V, permissions: profiles.waitingRoom() },
+      { key: 'supportRoom1', ...named('support-1'), type: V, permissions: profiles.supportRoom() },
+      { key: 'supportRoom2', ...named('support-2'), type: V, permissions: profiles.supportRoom() },
     ],
   },
   {
@@ -283,6 +298,8 @@ const REQUIRED_BOT_PERMISSIONS = [
   P.ManageRoles, P.ManageChannels, P.ViewChannel, P.SendMessages, P.EmbedLinks, P.AttachFiles,
   P.ReadMessageHistory, P.ManageMessages, P.AddReactions, P.UseExternalEmojis, P.SendMessagesInThreads,
   P.CreatePublicThreads, P.CreatePrivateThreads,
+  // Support-Sprachkanäle (Warteraum und Support-Räume)
+  P.Connect, P.Speak, P.Stream, P.MoveMembers,
 ];
 
 // Damit der Bot die (nicht frei erwähnbaren) Benachrichtigungs-Rollen pingen darf.
