@@ -384,6 +384,28 @@ async function ensureMissingChannels(guild, store) {
 }
 
 /**
+ * Benennt Layout-Channels mit einem früheren Namen (previousNames) um.
+ * Ändert ausschließlich den Namen – keine Rechte, Kategorien oder Nachrichten.
+ */
+async function syncChannelNames(guild, store) {
+  const g = store.guild(guild.id);
+  const renamed = [];
+  const warnings = [];
+  for (const def of CATEGORIES.flatMap((c) => c.channels)) {
+    const ch = guild.channels.cache.get(g.channels[def.key]);
+    if (!ch || ch.name === def.name || !(def.previousNames ?? []).includes(ch.name)) continue;
+    const from = ch.name;
+    try {
+      await ch.setName(def.name, REASON);
+      renamed.push(`#${from} → #${def.name}`);
+    } catch (err) {
+      warnings.push(`#${from}: ${err.message}`);
+    }
+  }
+  return { renamed, warnings };
+}
+
+/**
  * Benennt Rollen mit einem früheren Namen (legacyNames) in den aktuellen Namen um.
  * Ändert ausschließlich den Namen – keine Rechte, Farben oder Mitglieder.
  */
@@ -410,4 +432,4 @@ async function syncRoleNames(guild, store) {
   return { renamed, warnings };
 }
 
-module.exports = { planSetup, runSetup, buildPlan, resolveOverwrites, missingBotPermissions, syncRoleNames, ensureMissingChannels };
+module.exports = { planSetup, runSetup, buildPlan, resolveOverwrites, missingBotPermissions, syncRoleNames, syncChannelNames, ensureMissingChannels };

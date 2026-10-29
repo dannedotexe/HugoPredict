@@ -15,7 +15,7 @@ API an.
 
 | Kategorie | Channels | Sichtbar für |
 |---|---|---|
-| **INFORMATIONEN** | `willkommen`, `ankündigungen`, `marktübersicht`, `dokumentation` | alle (nur lesen) |
+| **INFORMATIONEN** | `willkommen`, `ankündigungen`, `marktübersicht`, `regeln` | alle (nur lesen) |
 | **COMMUNITY** | `diskussionen`, `marktanalysen` | ab *Mitglied* |
 | **KUNDENSERVICE** | `support` (+ private Anfrage-Channels) | alle (nur lesen); Anfragen nur für Ersteller und Team |
 | **INTERN · PRIVAT** | `betrieb`, `prüfprotokoll`, `systemmeldungen`, `moderation`, `team` | nur zuständige Teamrollen |
@@ -55,7 +55,7 @@ API an.
 - Ankündigungen veröffentlichen nur Inhaber und Administrator, auf Wunsch über `/ankündigung`.
 
 Die komplette Struktur steht deklarativ in [`src/config/serverLayout.js`](src/config/serverLayout.js),
-die Texte von `dokumentation` in [`src/config/docs.js`](src/config/docs.js).
+die Texte von `regeln` in [`src/config/docs.js`](src/config/docs.js).
 
 ### Custom-Emojis
 
@@ -73,7 +73,7 @@ Standard-Emoji ersetzt.
 | Bereich | Umsetzung |
 |---|---|
 | ~~`/setup-server`~~ | **Entfernt**, weil die Struktur eingerichtet ist. Die Einrichtungslogik (`src/setup/setupServer.js`) bleibt erhalten. Den Befehl stellst du bei Bedarf aus der Git-Historie wieder her (`git checkout 599f0f9 -- src/commands/setup-server.js`) |
-| `/setup-panels` | Dokumentation (mit „Regeln akzeptieren“ und „Konto verknüpfen“), Kundenservice-Panel mit Auswahlmenü, Systemstatus und Statistik in `systemmeldungen`. Ein erneuter Aufruf **bearbeitet** die Panels, statt neue zu posten. Außerdem legt der Befehl **fehlende** Channels des Layouts an (z. B. `willkommen`) und benennt Rollen mit früherem Namen um. Bestehende Channels und Rollenrechte bleiben dabei unverändert |
+| `/setup-panels` | Regeln & Infos (mit „Regeln akzeptieren“ und „Konto verknüpfen“), Kundenservice-Panel mit Auswahlmenü, Systemstatus und Statistik in `systemmeldungen`. Ein erneuter Aufruf **bearbeitet** die Panels, statt neue zu posten. Außerdem legt der Befehl **fehlende** Channels des Layouts an (z. B. `willkommen`) und benennt Rollen mit früherem Namen um. Bestehende Channels und Rollenrechte bleiben dabei unverändert |
 | `marktübersicht` | Jeder Markt erhält **genau eine Nachricht**. Sie entsteht beim ersten Erscheinen und wird bei Statuswechseln (offen, pausiert, Handel beendet, entschieden) bearbeitet. Kleinstschwankungen lösen keine Bearbeitung aus, Folgenachrichten gibt es nicht |
 | Konto (privat) | `/verify`, `/balance`, `/portfolio`, `/history`, `/daily`, `/leaderboard`. Alle Antworten sind nur für die anfragende Person sichtbar |
 | Kundenservice | Fünf Anliegen. Jede Anfrage wird ein privater Channel nur für Ersteller und zuständiges Team. Es gibt „Übernehmen“ und „Anfrage schließen“ (mit Bestätigung). Das Abschlussprotokoll mit `.txt`-Transkript landet in `moderation` |
@@ -93,7 +93,7 @@ gespeicherte IDs oder die alten Namen. Die Vorschau listet alle Änderungen auf,
 
 - **Umbenannt und verschoben** (Nachrichtenverlauf bleibt erhalten, neue Rechte werden gesetzt):
   `📢・ankündigungen` → `ankündigungen`, `📈・live-markets` → `marktübersicht`,
-  `👋・willkommen` → `dokumentation`, `💬・allgemeiner-chat` → `diskussionen`,
+  `👋・willkommen` → `regeln`, `💬・allgemeiner-chat` → `diskussionen`,
   `🧠・analysen` → `marktanalysen`, `🎫・ticket-erstellen` → `support`,
   `⚖️・markt-entscheidungen` → `betrieb`, `📝・moderations-logs` → `prüfprotokoll`,
   `🛠️・bot-logs` → `systemmeldungen`, `🎫・ticket-logs` → `moderation`, `💬・team-chat` → `team`.
@@ -246,7 +246,7 @@ src/
     env.js                 Umgebungsvariablen (validiert)
     serverLayout.js        Rollen, Kategorien, Channels, Berechtigungen, Ticket-Typen
     legacyLayout.js        Frühere Struktur (nur zur Migration)
-    docs.js                Texte für #dokumentation
+    docs.js                Texte für #regeln
     theme.js               Farben/Design
   lib/
     hugoApi.js             Website-API-Client (siehe docs/API.md)

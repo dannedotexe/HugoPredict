@@ -175,7 +175,7 @@ const CATEGORIES = [
         permissions: profiles.publicRead({ managers: ['marketMod'] }),
       },
       {
-        key: 'docs', name: 'dokumentation', type: T, legacy: ['welcome'],
+        key: 'docs', name: 'regeln', type: T, legacy: ['welcome'], previousNames: ['dokumentation'],
         topic: 'Plattform, virtuelle HC, Gebühren und Marktregeln.',
         permissions: profiles.publicRead(),
       },

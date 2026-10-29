@@ -1,7 +1,7 @@
 'use strict';
 
 /*
- * Inhalte für #dokumentation. Hier zentral gepflegt, damit Texte ohne
+ * Inhalte für #regeln. Hier zentral gepflegt, damit Texte ohne
  * Code-Änderung an anderer Stelle angepasst werden können.
  *
  * Wichtig: Konkrete Gebührensätze sind bewusst NICHT hinterlegt – das Repository

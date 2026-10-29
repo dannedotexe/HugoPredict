@@ -66,7 +66,7 @@ async function checkVerification(interaction, deps) {
     return replyPrivate(interaction, {
       embeds: [embeds.warning('Noch nicht bestätigt', status.pending
         ? 'Die Bestätigung steht noch aus. Folge den Anweisungen und prüfe den Status danach erneut.'
-        : 'Es läuft keine Kontoverknüpfung. Starte sie mit `/verify` oder über „Konto verknüpfen“ in #dokumentation.')],
+        : 'Es läuft keine Kontoverknüpfung. Starte sie mit `/verify` oder über „Konto verknüpfen“ in #regeln.')],
     });
   }
 

@@ -292,3 +292,21 @@ test('ensureMissingChannels legt nur fehlende Channels an und ändert nichts Bes
   created.setPosition = async () => {};
   assert.equal((await ensureMissingChannels(guild, store)).created.length, 0, 'idempotent');
 });
+
+test('syncChannelNames benennt #dokumentation in #regeln um, sonst nichts', async () => {
+  const { syncChannelNames } = require('../src/setup/setupServer');
+  const guild = fakeGuild(allBot);
+  const store = tmpStore();
+  await runSetup(guild, store);
+  const g = store.guild('G');
+  const docs = guild.channels.cache.get(g.channels.docs);
+  docs.name = 'dokumentation';
+  const custom = guild.channels.cache.get(g.channels.discussions);
+  custom.name = 'mein-chat';
+  for (const c of guild.channels.cache.values()) c.setName = async (n) => { c.name = n; };
+  const res = await syncChannelNames(guild, store);
+  assert.deepEqual(res.renamed, ['#dokumentation → #regeln']);
+  assert.equal(docs.name, 'regeln');
+  assert.equal(custom.name, 'mein-chat', 'selbst gewählte Namen bleiben');
+  assert.equal((await syncChannelNames(guild, store)).renamed.length, 0);
+});

@@ -36,7 +36,7 @@ function panelDefinitions() {
         return card({
           size: 'lg',
           icon: 'logo',
-          title: 'Dokumentation',
+          title: 'Regeln & Infos',
           intro: `Alles Wichtige zu **${theme.brand}** auf einen Blick.\nBitte lies die Regeln, bevor du der Community beitrittst.`,
           blocks,
           footer: 'Mit „Regeln akzeptieren“ erhältst du Zugang zur Community',
