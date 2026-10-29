@@ -160,6 +160,11 @@ const CATEGORIES = [
     permissions: profiles.publicRead(),
     channels: [
       {
+        key: 'greeting', name: 'willkommen', type: T,
+        topic: 'Begrüßung neuer Mitglieder.',
+        permissions: profiles.publicRead(),
+      },
+      {
         key: 'announcements', name: 'ankündigungen', type: T, legacy: ['announcements'],
         topic: 'Offizielle Mitteilungen des HugoPredict-Teams.',
         permissions: profiles.publicRead(),

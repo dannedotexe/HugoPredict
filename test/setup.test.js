@@ -30,7 +30,7 @@ function fakeGuild(botPerms) {
   };
   const makeChannel = (o) => {
     const c = {
-      id: String(seq++), name: o.name, type: o.type, parentId: o.parent ?? null, topic: o.topic, ow: o.permissionOverwrites, messages: ['bestehende Nachricht'],
+      id: String(seq++), name: o.name, type: o.type, parentId: o.parent ?? null, topic: o.topic, ow: o.permissionOverwrites, messages: ['bestehende Nachricht'], setPosition: async () => c,
       edit: async (x) => {
         if (x.name !== undefined) c.name = x.name;
         if (x.parent !== undefined) c.parentId = x.parent;
@@ -86,6 +86,9 @@ async function legacyGuild({ withStore }) {
 const tmpStore = () => new Store(fs.mkdtempSync(path.join(os.tmpdir(), 'hm-setup-')));
 const allBot = L.REQUIRED_BOT_PERMISSIONS.reduce((a, p) => a | p, 0n);
 const legacyChannelCount = LEGACY_CATEGORIES.reduce((a, c) => a + c.channels.length, 0);
+// Channels des neuen Layouts, die einen Vorgänger haben (werden migriert statt neu angelegt)
+const migratable = L.allChannels().filter((c) => c.legacy?.length).length;
+const brandNew = L.allChannels().length - migratable;
 
 test('Neuer Server: alles wird erstellt, zweiter Lauf ist idempotent', async () => {
   const guild = fakeGuild(allBot);
@@ -115,15 +118,15 @@ for (const withStore of [true, false]) {
     const rolesBefore = guild.roles.cache.size;
 
     const plan = planSetup(guild, store);
-    assert.equal(plan.channelsNew.length, 0, 'alle neuen Channels haben einen Vorgänger');
-    assert.equal(plan.channelsMigrated.length, L.allChannels().length);
+    assert.equal(plan.channelsNew.length, brandNew, 'nur Channels ohne Vorgänger werden neu angelegt');
+    assert.equal(plan.channelsMigrated.length, migratable);
     assert.equal(plan.rolesNew, 0);
     assert.equal(plan.rolesRenamed.length, L.ROLES.length);
 
     const res = await runSetup(guild, store);
     assert.deepEqual(res.errors, []);
-    assert.equal(res.created.length, 0, 'keine Duplikate');
-    assert.equal(guild.channels.cache.size, channelsBefore, 'kein Channel gelöscht oder hinzugefügt');
+    assert.equal(res.created.length, brandNew, 'keine Duplikate');
+    assert.equal(guild.channels.cache.size, channelsBefore + brandNew, 'kein Channel gelöscht, nur neue hinzugefügt');
     assert.equal(guild.roles.cache.size, rolesBefore, 'keine Rolle gelöscht oder hinzugefügt');
     assert.equal(guild.deleted.length, 0);
 
@@ -143,7 +146,7 @@ for (const withStore of [true, false]) {
     assert.equal(guild.roles.cache.get(g.roles.bots).name, 'HugoPredict Bot');
 
     // Veraltetes nur gemeldet
-    const obsoleteChannels = legacyChannelCount - L.allChannels().length;
+    const obsoleteChannels = legacyChannelCount - migratable;
     assert.equal(res.obsolete.filter((o) => o.startsWith('#')).length, obsoleteChannels);
     assert.ok(res.obsolete.includes('Rolle 💎 Diamond Trader'));
     assert.ok(res.obsolete.includes('Kategorie 📊 MARKETS'));
@@ -164,10 +167,10 @@ test('Archivieren verschiebt veraltete Channels in eine versteckte Kategorie, oh
   const archiveId = store.guild('G').categories.archive;
   const archive = guild.channels.cache.get(archiveId);
   assert.equal(archive.name, 'ARCHIV');
-  assert.equal(guild.channels.cache.size, before + 1, 'nur die Archiv-Kategorie kommt hinzu');
+  assert.equal(guild.channels.cache.size, before + 1 + brandNew, 'nur Archiv-Kategorie und neue Channels kommen hinzu');
   assert.equal(guild.deleted.length, 0);
   const archived = guild.channels.cache.filter((c) => c.parentId === archiveId);
-  assert.equal(archived.size, legacyChannelCount - L.allChannels().length);
+  assert.equal(archived.size, legacyChannelCount - migratable);
   for (const ch of archived.values()) {
     const ev = ch.ow.find((o) => o.id === 'G');
     assert.ok((ev.deny & P.ViewChannel) === P.ViewChannel, `${ch.name} ist versteckt`);
@@ -226,7 +229,7 @@ test('Aufräumen löscht nur Archiv, leere Alt-Kategorien und optional alte Roll
   const withoutRoles = planCleanup(guild, store);
   assert.equal(withoutRoles.roles.length, 0);
   const plan = planCleanup(guild, store, { includeRoles: true });
-  assert.equal(plan.channels.length, legacyChannelCount - L.allChannels().length);
+  assert.equal(plan.channels.length, legacyChannelCount - migratable);
   assert.ok(plan.categories.some((c) => c.name === 'ARCHIV'));
   assert.ok(plan.categories.some((c) => c.name === '📊 MARKETS'));
   assert.ok(!plan.categories.some((c) => c.id === keepCat.id), 'nicht leere Kategorie bleibt');
@@ -266,4 +269,26 @@ test('syncRoleNames benennt nur Rollen mit früherem Namen um', async () => {
   assert.deepEqual(res.renamed.sort(), ['Bot → HugoPredict Bot', 'Kundenservice → Support']);
   assert.equal(owner.name, 'Mein eigener Name', 'frei vergebene Namen bleiben');
   assert.equal((await syncRoleNames(guild, store)).renamed.length, 0, 'idempotent');
+});
+
+test('ensureMissingChannels legt nur fehlende Channels an und ändert nichts Bestehendes', async () => {
+  const { ensureMissingChannels } = require('../src/setup/setupServer');
+  const guild = fakeGuild(allBot);
+  const store = tmpStore();
+  await runSetup(guild, store);
+  const g = store.guild('G');
+  // #willkommen entfernen, wie auf einem Server, der vor der Erweiterung eingerichtet wurde
+  const greeting = guild.channels.cache.get(g.channels.greeting);
+  guild.channels.cache.delete(greeting.id);
+  delete g.channels.greeting;
+  const snap = (c) => JSON.stringify([c.name, c.parentId, c.ow], (k, v) => (typeof v === 'bigint' ? v.toString() : v));
+  const before = new Map([...guild.channels.cache.values()].map((c) => [c.id, snap(c)]));
+  for (const c of guild.channels.cache.values()) c.setPosition = async () => {};
+  const res = await ensureMissingChannels(guild, store);
+  assert.deepEqual(res.created, ['#willkommen']);
+  const created = guild.channels.cache.get(g.channels.greeting);
+  assert.equal(created.parentId, g.categories.info);
+  for (const [id, saved] of before) assert.equal(snap(guild.channels.cache.get(id)), saved, 'unverändert');
+  created.setPosition = async () => {};
+  assert.equal((await ensureMissingChannels(guild, store)).created.length, 0, 'idempotent');
 });

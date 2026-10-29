@@ -192,7 +192,7 @@ async function main() {
   client = new Client({ intents });
   deps.membersIntent = membersIntent;
   const stats = createStatsService({ store, ctx, logger, membersIntent });
-  const welcome = createWelcomeService({ store, env, logger });
+  const welcome = createWelcomeService({ store, env, logger, ctx });
   deps.services.stats = stats;
   wire({ stats, welcome, membersIntent });
   await client.login(env.discordToken);

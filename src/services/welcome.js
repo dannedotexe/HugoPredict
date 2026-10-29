@@ -6,37 +6,57 @@ const { card } = require('../lib/ui');
 const theme = require('../config/theme');
 
 const channelUrl = (guildId, channelId) => `https://discord.com/channels/${guildId}/${channelId}`;
+const nf = new Intl.NumberFormat('de-DE');
 
-/** Begrüßung per Direktnachricht – kein Beitrag im öffentlichen Chat. */
-function welcomePayload({ guildId, guildName, ids = {}, websiteUrl }) {
+/**
+ * Begrüßungskarte für #willkommen: Profilbild oben rechts, Erwähnung,
+ * Mitgliedsnummer und die ersten drei Schritte.
+ */
+function welcomePayload({ guildId, guildName, ids = {}, websiteUrl, userId, avatarUrl, memberCount }) {
   const ref = (key, fallback) => (ids[key] ? `<#${ids[key]}>` : fallback);
   const buttons = [];
   if (ids.docs) buttons.push(withEmoji(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Zur Dokumentation').setURL(channelUrl(guildId, ids.docs)), 'rules'));
   if (websiteUrl) buttons.push(withEmoji(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Zur Website').setURL(websiteUrl), 'external'));
-  return card({
+  const payload = card({
     size: 'lg',
     icon: 'logo',
-    title: `Willkommen bei ${theme.brand}`,
-    intro: `Schön, dass du auf **${guildName}** dabei bist. In drei Schritten bist du startklar.`,
+    title: 'Willkommen',
+    intro: `${userId ? `<@${userId}>, schön` : 'Schön'}, dass du bei **${guildName}** dabei bist.${memberCount ? `\n-# Mitglied Nr. ${nf.format(memberCount)}` : ''}`,
+    thumbnailUrl: avatarUrl,
     blocks: [
       { heading: '1. Dokumentation lesen', icon: 'rules', body: `In ${ref('docs', '#dokumentation')} findest du Plattform, Marktregeln und Verhaltensregeln.\nMit „Regeln akzeptieren“ erhältst du Zugang zur Community.` },
       { heading: '2. Konto verknüpfen', icon: 'link', body: 'Mit `/verify` oder „Konto verknüpfen“ rufst du Guthaben und Portfolio privat ab.' },
       { heading: '3. Bei Fragen', icon: 'support', body: `Der Support hilft dir in ${ref('support', '#support')}.` },
     ],
     actions: buttons.length ? [new ActionRowBuilder().addComponents(buttons)] : [],
+    footer: theme.brand === guildName ? null : undefined,
   });
+  // Nur die neue Person wird benachrichtigt – keine Rollen, kein @everyone.
+  payload.allowedMentions = { users: userId ? [userId] : [] };
+  return payload;
 }
 
-function createWelcomeService({ store, env, logger }) {
+function createWelcomeService({ store, env, logger, ctx }) {
   async function onMemberAdd(member) {
     if (member.user.bot) return;
     const g = store.guild(member.guild.id);
     if (g.layoutVersion !== 2) return;
-    try {
-      await member.send(welcomePayload({ guildId: member.guild.id, guildName: member.guild.name, ids: g.channels, websiteUrl: env.websiteUrl }));
-    } catch {
-      logger.debug(`Begrüßung an ${member.id} nicht zustellbar (Direktnachrichten deaktiviert).`);
+    const payload = welcomePayload({
+      guildId: member.guild.id,
+      guildName: member.guild.name,
+      ids: g.channels,
+      websiteUrl: env.websiteUrl,
+      userId: member.id,
+      avatarUrl: member.displayAvatarURL({ extension: 'png', size: 256 }),
+      memberCount: member.guild.memberCount,
+    });
+    const channel = await ctx.channel(member.guild, 'greeting');
+    if (channel?.isTextBased()) {
+      await channel.send(payload).catch((err) => logger.warn('Begrüßung in #willkommen fehlgeschlagen:', err.message));
+      return;
     }
+    // Ohne #willkommen: Begrüßung per Direktnachricht
+    await member.send({ ...payload, allowedMentions: { parse: [] } }).catch(() => logger.debug(`Begrüßung an ${member.id} nicht zustellbar.`));
   }
   return { onMemberAdd };
 }

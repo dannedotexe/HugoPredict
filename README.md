@@ -15,7 +15,7 @@ API an.
 
 | Kategorie | Channels | Sichtbar für |
 |---|---|---|
-| **INFORMATIONEN** | `ankündigungen`, `marktübersicht`, `dokumentation` | alle (nur lesen) |
+| **INFORMATIONEN** | `willkommen`, `ankündigungen`, `marktübersicht`, `dokumentation` | alle (nur lesen) |
 | **COMMUNITY** | `diskussionen`, `marktanalysen` | ab *Mitglied* |
 | **KUNDENSERVICE** | `support` (+ private Anfrage-Channels) | alle (nur lesen); Anfragen nur für Ersteller und Team |
 | **INTERN · PRIVAT** | `betrieb`, `prüfprotokoll`, `systemmeldungen`, `moderation`, `team` | nur zuständige Teamrollen |
@@ -73,13 +73,13 @@ Standard-Emoji ersetzt.
 | Bereich | Umsetzung |
 |---|---|
 | ~~`/setup-server`~~ | **Entfernt**, weil die Struktur eingerichtet ist. Die Einrichtungslogik (`src/setup/setupServer.js`) bleibt erhalten. Den Befehl stellst du bei Bedarf aus der Git-Historie wieder her (`git checkout 599f0f9 -- src/commands/setup-server.js`) |
-| `/setup-panels` | Dokumentation (mit „Regeln akzeptieren“ und „Konto verknüpfen“), Kundenservice-Panel mit Auswahlmenü, Systemstatus in `systemmeldungen`. Ein erneuter Aufruf **bearbeitet** die Panels, statt neue zu posten |
+| `/setup-panels` | Dokumentation (mit „Regeln akzeptieren“ und „Konto verknüpfen“), Kundenservice-Panel mit Auswahlmenü, Systemstatus und Statistik in `systemmeldungen`. Ein erneuter Aufruf **bearbeitet** die Panels, statt neue zu posten. Außerdem legt der Befehl **fehlende** Channels des Layouts an (z. B. `willkommen`) und benennt Rollen mit früherem Namen um. Bestehende Channels und Rollenrechte bleiben dabei unverändert |
 | `marktübersicht` | Jeder Markt erhält **genau eine Nachricht**. Sie entsteht beim ersten Erscheinen und wird bei Statuswechseln (offen, pausiert, Handel beendet, entschieden) bearbeitet. Kleinstschwankungen lösen keine Bearbeitung aus, Folgenachrichten gibt es nicht |
 | Konto (privat) | `/verify`, `/balance`, `/portfolio`, `/history`, `/daily`, `/leaderboard`. Alle Antworten sind nur für die anfragende Person sichtbar |
 | Kundenservice | Fünf Anliegen. Jede Anfrage wird ein privater Channel nur für Ersteller und zuständiges Team. Es gibt „Übernehmen“ und „Anfrage schließen“ (mit Bestätigung). Das Abschlussprotokoll mit `.txt`-Transkript landet in `moderation` |
 | Marktvorschläge | `/vorschlag` öffnet ein Formular. Der Vorschlag wird in `betrieb` geprüft, angenommen oder (mit Begründung) abgelehnt, und die einreichende Person erhält eine Direktnachricht. Eine Annahme legt den Markt nur bei aktivierter API an (`MARKET_CREATION_ENABLED`) |
 | Moderation | `/mod verwarnen`, `timeout`, `timeout-aufheben`, `kicken`, `bannen`, `entbannen`, `verlauf`. Pflichtbegründung, Hierarchieprüfung (nie gegen gleich- oder höhergestellte Rollen, Eigentümer oder Bot), nummerierte Fälle, Benachrichtigung per Direktnachricht, Protokoll in `moderation` (Kick/Bann zusätzlich in `prüfprotokoll`). Moderator darf verwarnen, Timeout vergeben und kicken; bannen und entbannen dürfen nur Inhaber und Administrator |
-| Begrüßung | Neue Mitglieder erhalten eine Direktnachricht mit den drei ersten Schritten (Dokumentation, Konto verknüpfen, Support). Kein Beitrag im öffentlichen Chat. Benötigt den *Server Members Intent* |
+| Begrüßung | In `willkommen` begrüßt der Bot jedes neue Mitglied mit einer Karte (Profilbild, Erwähnung, Mitgliedsnummer, erste drei Schritte). Ohne den Channel geht die Begrüßung als Direktnachricht raus. Benötigt den *Server Members Intent* |
 | Statistik | Ein Embed in `systemmeldungen` (stündlich aktualisiert): Mitglieder, online, neu in 7 Tagen, Rollen Mitglied/Verifiziert, offene Anfragen, Vorschläge in Prüfung, Moderationsfälle. Rollen- und Beitrittszahlen benötigen den *Server Members Intent* |
 | Sicherheit | Rechteprüfung bei jedem privilegierten Command, Button und Formular. Dazu kommen Rate-Limits, Sperren gegen Doppelklicks und Idempotency-Keys für Daily und Marktanlage |
 

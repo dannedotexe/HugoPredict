@@ -40,7 +40,7 @@ test('Rollen: deutsche Namen, geforderte Reihenfolge, ohne Emojis', () => {
 
 test('Struktur entspricht exakt der Vorgabe', () => {
   assert.deepEqual(L.CATEGORIES.map((c) => [c.name, c.channels.map((ch) => ch.name)]), [
-    ['INFORMATIONEN', ['ankündigungen', 'marktübersicht', 'dokumentation']],
+    ['INFORMATIONEN', ['willkommen', 'ankündigungen', 'marktübersicht', 'dokumentation']],
     ['COMMUNITY', ['diskussionen', 'marktanalysen']],
     ['KUNDENSERVICE', ['support']],
     ['INTERN · PRIVAT', ['betrieb', 'prüfprotokoll', 'systemmeldungen', 'moderation', 'team']],

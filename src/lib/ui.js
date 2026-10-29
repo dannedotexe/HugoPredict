@@ -36,8 +36,9 @@ const quote = (text) => String(text).split('\n').map((l) => (l.trim() ? `> ${l}`
  * @param {string|null} [o.footer] Fußzeile (klein); null = keine
  * @param {boolean} [o.ephemeral] Nur für die anfragende Person sichtbar
  * @param {'lg'|'md'} [o.size]   Überschriftgröße: lg für Panels, md für Einzelkarten
+ * @param {string} [o.thumbnailUrl] Eigenes Bild oben rechts (z. B. Profilbild) statt des Logos
  */
-function card({ title, icon, intro, eyebrow, accent = theme.colors.primary, logo = true, blocks = [], actions = [], footer, ephemeral = false, size = 'md' }) {
+function card({ title, icon, intro, eyebrow, accent = theme.colors.primary, logo = true, blocks = [], actions = [], footer, ephemeral = false, size = 'md', thumbnailUrl }) {
   const container = new ContainerBuilder().setAccentColor(accent);
   const head = [
     eyebrow ? `-# ${eyebrow}` : null,
@@ -45,11 +46,11 @@ function card({ title, icon, intro, eyebrow, accent = theme.colors.primary, logo
     intro || null,
   ].filter(Boolean).join('\n');
 
-  const withLogo = logo && fs.existsSync(LOGO_FILE);
-  if (withLogo) {
+  const withLogo = !thumbnailUrl && logo && fs.existsSync(LOGO_FILE);
+  if (thumbnailUrl || withLogo) {
     container.addSectionComponents(new SectionBuilder()
       .addTextDisplayComponents(new TextDisplayBuilder().setContent(head))
-      .setThumbnailAccessory(new ThumbnailBuilder().setURL(`attachment://${LOGO_NAME}`).setDescription(theme.brand)));
+      .setThumbnailAccessory(new ThumbnailBuilder().setURL(thumbnailUrl ?? `attachment://${LOGO_NAME}`).setDescription(theme.brand)));
   } else {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(head));
   }

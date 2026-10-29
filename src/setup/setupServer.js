@@ -352,6 +352,38 @@ async function runSetup(guild, store, { syncPermissions = false, archiveObsolete
 }
 
 /**
+ * Legt ausschließlich FEHLENDE Channels des Layouts an (z. B. nach einer
+ * Erweiterung). Bestehende Channels, Kategorien und Rollen bleiben unverändert.
+ */
+async function ensureMissingChannels(guild, store) {
+  const g = store.guild(guild.id);
+  const me = guild.members.me;
+  const created = [];
+  const errors = [];
+  const plan = buildPlan(guild, store);
+  for (const { def, category, action } of plan.channels) {
+    if (action !== 'create') continue;
+    const parent = g.categories[category.key] && guild.channels.cache.get(g.categories[category.key]);
+    if (!parent) continue;
+    try {
+      const { overwrites } = resolveOverwrites(def.permissions, { guild, me, roleIds: g.roles });
+      const ch = await guild.channels.create({
+        name: def.name, type: def.type, parent: parent.id, topic: def.topic,
+        rateLimitPerUser: def.rateLimitPerUser, permissionOverwrites: overwrites, reason: REASON,
+      });
+      // An die Layout-Position innerhalb der Kategorie setzen
+      await ch.setPosition(category.channels.findIndex((c) => c.key === def.key)).catch(() => {});
+      g.channels[def.key] = ch.id;
+      created.push(`#${def.name}`);
+    } catch (err) {
+      errors.push(`#${def.name}: ${err.message}`);
+    }
+  }
+  if (created.length) store.save();
+  return { created, errors };
+}
+
+/**
  * Benennt Rollen mit einem früheren Namen (legacyNames) in den aktuellen Namen um.
  * Ändert ausschließlich den Namen – keine Rechte, Farben oder Mitglieder.
  */
@@ -378,4 +410,4 @@ async function syncRoleNames(guild, store) {
   return { renamed, warnings };
 }
 
-module.exports = { planSetup, runSetup, buildPlan, resolveOverwrites, missingBotPermissions, syncRoleNames };
+module.exports = { planSetup, runSetup, buildPlan, resolveOverwrites, missingBotPermissions, syncRoleNames, ensureMissingChannels };
