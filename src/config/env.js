@@ -53,7 +53,8 @@ const env = {
   apiTimeoutMs: int('HUGO_API_TIMEOUT_MS', 8000, { min: 1000, max: 60000 }),
   marketCreationEnabled: bool('MARKET_CREATION_ENABLED', false),
 
-  currency: str('CURRENCY_NAME', 'HC'),
+  // „HC“ war der frühere Standardwert und wird als „HugoCoins“ ausgeschrieben.
+  currency: ((v) => (v === 'HC' ? 'HugoCoins' : v))(str('CURRENCY_NAME', 'HugoCoins')),
   marketFeedIntervalSeconds: int('MARKET_FEED_INTERVAL_SECONDS', 60, { min: 15, max: 3600 }),
   marketFeedMaxMarkets: int('MARKET_FEED_MAX_MARKETS', 25, { min: 1, max: 100 }),
 

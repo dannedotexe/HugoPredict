@@ -179,7 +179,7 @@ npm start        # startet den Bot
 | `HUGO_API_TIMEOUT_MS` | nein | `8000` | Timeout pro Request |
 | `MARKET_CREATION_ENABLED` | nein | `false` | Angenommene Vorschläge per API anlegen |
 | `BRAND_NAME` | nein | `HugoPredict` | Name in Embeds |
-| `CURRENCY_NAME` | nein | `HC` | Währungsname |
+| `CURRENCY_NAME` | nein | `HugoCoins` | Währungsname (der frühere Wert `HC` wird als HugoCoins angezeigt) |
 | `MARKET_FEED_INTERVAL_SECONDS` | nein | `60` | Abfrageintervall für `marktübersicht` |
 | `MARKET_FEED_MAX_MARKETS` | nein | `25` | Höchstzahl aktiver Märkte mit eigener Nachricht |
 | `TICKET_CLOSE_CONFIRMATION` | nein | `true` | Bestätigung vor dem Schließen einer Anfrage |

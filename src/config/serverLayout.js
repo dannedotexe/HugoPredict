@@ -176,7 +176,7 @@ const CATEGORIES = [
       },
       {
         key: 'docs', name: 'regeln', type: T, legacy: ['welcome'], previousNames: ['dokumentation'],
-        topic: 'Plattform, virtuelle HC, Gebühren und Marktregeln.',
+        topic: 'Plattform, HugoCoins, Gebühren und Marktregeln.',
         permissions: profiles.publicRead(),
       },
     ],

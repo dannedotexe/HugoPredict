@@ -80,7 +80,7 @@ function marketCard(market, { currency }, { ephemeral = false } = {}) {
   });
 }
 
-/** Änderungen unter einem Prozentpunkt bzw. einer HC lösen keine Bearbeitung aus. */
+/** Änderungen unter einem Prozentpunkt bzw. einem HugoCoin lösen keine Bearbeitung aus. */
 function marketHash(m) {
   const r = (v, f) => (Number.isFinite(v) ? Math.round(v * f) : null);
   return crypto.createHash('sha1')
