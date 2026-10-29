@@ -44,6 +44,7 @@ export function startBot() {
   const payCommand = process.env.PAY_COMMAND || '/pay {player} {amount}';
   let bot;
   let timer;
+  let stopped = false;
 
   const whisper = (player, text) => {
     try { bot.whisper(player, text); } catch { /* bot may be disconnecting */ }
@@ -122,10 +123,18 @@ export function startBot() {
     bot.on('end', () => {
       botState.online = false;
       clearInterval(timer);
+      if (stopped) return;
       console.log('[bot] Verbindung getrennt, neuer Versuch in 30s');
       setTimeout(connect, 30000);
     });
   }
 
   connect();
+  return {
+    stop() {
+      stopped = true;
+      clearInterval(timer);
+      bot?.quit();
+    },
+  };
 }

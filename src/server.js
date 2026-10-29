@@ -2,13 +2,30 @@ import './env.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
+import { db } from './db.js';
 import * as svc from './services.js';
 import { botState, startBot } from './bot.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.set('trust proxy', 'loopback');
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'same-origin');
+  res.setHeader('Content-Security-Policy', [
+    "default-src 'self'",
+    "img-src 'self' https://mc-heads.net data:",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src https://fonts.gstatic.com",
+    "connect-src 'self'",
+    "frame-ancestors 'none'",
+  ].join('; '));
+  next();
+});
 app.use(express.json({ limit: '20kb' }));
+app.get('/api/health', (req, res) => res.json({ ok: true, uptime: Math.round(process.uptime()), bot: botState.online }));
 app.use(express.static(path.join(root, '..', 'public')));
 app.get('/lmsr.js', (req, res) => res.sendFile(path.join(root, 'lmsr.js')));
 
@@ -116,5 +133,17 @@ app.post('/api/admin/credit', handle((req) => (admin(req), svc.adminCredit(req.b
 app.use('/api', (req, res) => res.status(404).json({ error: 'Nicht gefunden' }));
 
 const port = Number(process.env.PORT || 3000);
-app.listen(port, () => console.log(`HugoPredict läuft auf http://localhost:${port}`));
-startBot();
+const server = app.listen(port, () => console.log(`HugoPredict läuft auf http://localhost:${port}`));
+const bot = startBot();
+
+function shutdown(signal) {
+  console.log(`${signal} erhalten, fahre herunter…`);
+  bot?.stop();
+  server.close(() => {
+    db.close();
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(1), 5000).unref();
+}
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));

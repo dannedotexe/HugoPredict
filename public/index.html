@@ -4,18 +4,23 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>HugoPredict</title>
-  <meta name="description" content="Prediction Market für Hugo SMP – wette mit deinem Ingame-Geld auf Clan Fights, die nächste Meta und Real-Life-Events.">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%2310151c'/><rect x='3' y='3' width='4' height='10' fill='%233ddc84'/><rect x='9' y='6' width='4' height='7' fill='%23ff5d6c'/></svg>">
+  <meta name="description" content="Prediction Market für Hugo SMP: Wette mit deinem Ingame-Geld auf Clan Fights, die nächste Meta und echte Ereignisse.">
+  <meta name="theme-color" content="#26272c">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <a href="#/" class="logo"><span class="logo-mark"><i></i><i></i><i></i></span>Hugo<b>Predict</b></a>
-      <nav class="nav" id="nav">
+  <a class="skip" href="#app">Zum Inhalt springen</a>
+  <header class="bar">
+    <div class="bar-in">
+      <a href="#/" class="brand" translate="no">
+        <svg class="px" width="26" height="26" viewBox="0 0 8 8" aria-hidden="true"><use href="#i-emerald"/></svg>
+        HugoPredict
+      </a>
+      <nav class="nav" id="nav" aria-label="Hauptnavigation">
         <a href="#/" data-route="markets">Märkte</a>
         <a href="#/portfolio" data-route="portfolio">Portfolio</a>
         <a href="#/wallet" data-route="wallet">Wallet</a>
@@ -26,14 +31,28 @@
     </div>
   </header>
 
-  <main id="app" class="container"></main>
+  <main id="app" class="wrap" tabindex="-1"></main>
 
-  <footer class="footer container">
-    <span>HugoPredict · Fan-Projekt für Hugo SMP · Gewettet wird nur mit Ingame-Geld</span>
-    <span id="bot-status" class="bot-status"></span>
+  <footer class="foot wrap">
+    <p>HugoPredict ist ein Fan-Projekt für Hugo SMP. Gewettet wird nur mit Ingame-Geld.</p>
+    <p id="bot-status" class="bot-status"></p>
   </footer>
 
-  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-emerald" viewBox="0 0 8 8" shape-rendering="crispEdges">
+      <path fill="#0b6b36" d="M3 0h2v1h1v1h1v4h-1v1h-1v1h-2v-1h-1v-1h-1v-4h1v-1h1z"/>
+      <path fill="#2ad07a" d="M3 1h2v1h1v4h-1v1h-2v-1h-1v-4h1z"/>
+      <path fill="#a6f7c8" d="M3 2h1v2h-1z"/>
+    </symbol>
+    <symbol id="i-arrow" viewBox="0 0 10 7" shape-rendering="crispEdges">
+      <path fill="currentColor" d="M0 2h6v-2h1v1h1v1h1v1h1v1h-1v1h-1v1h-1v1h-1v-2h-6z"/>
+    </symbol>
+    <symbol id="i-cross" viewBox="0 0 8 8" shape-rendering="crispEdges">
+      <path fill="currentColor" d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6zM7 7h1v1H7zM7 0h1v1H7zM6 1h1v1H6zM5 2h1v1H5zM4 3h1v1H4zM3 4h1v1H3zM2 5h1v1H2zM1 6h1v1H1zM0 7h1v1H0z"/>
+    </symbol>
+  </svg>
   <script type="module" src="/app.js"></script>
 </body>
 </html>
