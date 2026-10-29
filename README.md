@@ -155,7 +155,12 @@ sudo systemctl enable --now hugosmp-market-bot
 journalctl -u hugosmp-market-bot -f    # Logs ansehen
 ```
 
-Updates einspielen: `cd /opt/hugosmp-market-bot && sudo -u hugobot git pull && sudo -u hugobot npm ci --omit=dev && sudo systemctl restart hugosmp-market-bot`.
+**Einfacher:** `bash scripts/install-server.sh` erledigt Installation, Start (pm2 oder systemd) und richtet
+**automatische Updates** ein. Ein cron-Job prüft dann alle 10 Minuten, ob es auf dem Branch neue Commits
+gibt, und startet den Bot gegebenenfalls neu (Protokoll: `data/update.log`). Ohne direkten SSH-Schlüssel
+geht es auch aus der Oracle Cloud Shell über eine Bastion-Sitzung: `scripts/bastion-connect.sh`.
+
+Manuell updaten: `cd /opt/hugosmp-market-bot && sudo -u hugobot git pull && sudo -u hugobot npm ci --omit=dev && sudo systemctl restart hugosmp-market-bot`.
 
 Wenn das Repository privat ist, verwende zum Klonen einen Deploy-Key oder ein
 Personal-Access-Token. Sichere `data/store.json` regelmäßig, denn dort liegen die
