@@ -50,6 +50,9 @@ module.exports = {
     if (!interaction.guild.members.me.permissions.has(NOTIFY_BOT_PERMISSION)) {
       e.addFields({ name: 'Hinweis zu Benachrichtigungen', value: 'Damit die Rollen „Neue Prognosen“ und „Ankündigungen“ gepingt werden, aktiviere bei der Bot-Rolle das Recht „@everyone, @here und alle Rollen erwähnen“.', inline: false });
     }
+    if (!interaction.guild.members.me.permissions.has(PermissionFlagsBits.ManageNicknames)) {
+      e.addFields({ name: 'Hinweis zu Namen', value: 'Damit der Bot nach der Kontoverknüpfung den Minecraft-Namen als Server-Namen setzt, aktiviere bei der Bot-Rolle das Recht „Nicknames verwalten“.', inline: false });
+    }
     if (renamedChannels.renamed.length) e.addFields({ name: 'Channels umbenannt', value: renamedChannels.renamed.join('\n').slice(0, 1024), inline: false });
     if (renamedChannels.warnings.length) e.addFields({ name: 'Hinweise (Channels)', value: renamedChannels.warnings.join('\n').slice(0, 1024), inline: false });
     if (channels.created.length) e.addFields({ name: 'Channels angelegt', value: channels.created.join('\n').slice(0, 1024), inline: false });

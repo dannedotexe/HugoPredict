@@ -75,12 +75,12 @@ test('Benachrichtigungs-Karte zieht nach #pings um; alte Nachricht wird entfernt
   assert.ok(channels.get('pings').msgs.has(g.panels.notify.messageId));
 });
 
-test('Kontoverknüpfung vergibt nur Mitglied und Verifiziert, keine Ping-Rollen', async () => {
+test('Kontoverknüpfung vergibt nur Mitglied und Verifiziert und setzt den Minecraft-Namen', async () => {
   const { checkVerification } = require('../src/interactions/verification');
   const added = [];
   const interaction = {
     guild: { id: 'G' }, user: { id: '1' },
-    member: { roles: { cache: new Collection(), add: async (ids) => added.push(...ids) } },
+    member: { nickname: null, roles: { cache: new Collection(), add: async (ids) => added.push(...ids) }, setNickname: async (n) => { interaction.member.nickname = n; } },
     replied: false, deferred: false,
     deferReply: async () => { interaction.deferred = true; }, editReply: async () => {}, followUp: async () => {}, reply: async () => {},
   };
@@ -91,4 +91,5 @@ test('Kontoverknüpfung vergibt nur Mitglied und Verifiziert, keine Ping-Rollen'
   };
   await checkVerification(interaction, deps);
   assert.deepEqual(added.sort(), ['M', 'V']);
+  assert.equal(interaction.member.nickname, 'Steve', 'Server-Name = Minecraft-Name');
 });

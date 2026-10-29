@@ -81,6 +81,17 @@ async function checkVerification(interaction, deps) {
     await deps.ctx.audit(interaction.guild, 'system', { title: 'Rolle nicht vergeben', description: `Verifiziert für <@${interaction.user.id}>: ${err.message}` });
     return replyPrivate(interaction, { embeds: [embeds.error('Rolle nicht vergeben', 'Deine Verknüpfung ist gültig, die Rolle konnte jedoch nicht vergeben werden. Das Team wurde informiert.')] });
   }
+  // Server-Name = Minecraft-Name. Klappt nicht bei Personen über der Bot-Rolle
+  // (z. B. Server-Eigentümer) oder ohne das Recht „Nicknames verwalten“.
+  let nickNote = '';
+  if (status.minecraftName && member.nickname !== status.minecraftName) {
+    try {
+      await member.setNickname(status.minecraftName, 'Minecraft-Name aus der Kontoverknüpfung');
+      nickNote = `\nDein Name auf diesem Server ist jetzt **${status.minecraftName}**.`;
+    } catch (err) {
+      deps.logger.warn('Nickname nicht gesetzt:', err.message);
+    }
+  }
   await deps.ctx.audit(interaction.guild, 'audit', {
     title: 'Konto verknüpft',
     fields: [
@@ -88,7 +99,7 @@ async function checkVerification(interaction, deps) {
       { name: 'Minecraft', value: status.minecraftName ?? '—' },
     ],
   });
-  return replyPrivate(interaction, { embeds: [embeds.success('Konto verknüpft', `Dein Konto${status.minecraftName ? ` **${status.minecraftName}**` : ''} ist verknüpft. Kontoabfragen wie \`/balance\` stehen dir jetzt zur Verfügung.`)] });
+  return replyPrivate(interaction, { embeds: [embeds.success('Konto verknüpft', `Dein Konto${status.minecraftName ? ` **${status.minecraftName}**` : ''} ist verknüpft. Kontoabfragen wie \`/balance\` stehen dir jetzt zur Verfügung.${nickNote}`)] });
 }
 
 async function handle(interaction, deps, [action]) {
