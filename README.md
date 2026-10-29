@@ -216,7 +216,8 @@ Prozess). Er braucht einen eigenen, gekauften Minecraft-Java-Account.
 | Einzahlung | Spieler zahlt `/pay HugoPredict 15k`. Gutgeschrieben wird nur, wenn der Kontostand des Bots (`/balance`) wirklich gestiegen ist; Spieler-Chat wird nie ausgewertet. Meldung an die Website mit Idempotency-Key, bei Störungen später erneut |
 | Auszahlung | Nur mit `MC_PAYOUTS_ENABLED=true`: vom Team freigegebene Auszahlungen der Website werden per `/pay` ausgeführt und am Kontostand geprüft. Limit `MC_PAYOUT_MAX`. Jede Auszahlung höchstens einmal, Unklares meldet der Bot dem Team statt zu wiederholen |
 
-Erster Start: In `systemmeldungen` erscheint „Minecraft: Anmeldung nötig“ mit Link und Code.
+Einschalten auf dem Server: `bash ~/HugoPredict/scripts/enable-minecraft.sh bot@beispiel.de` (Server
+standardmäßig `hugosmp.net`, ausschalten mit `--aus`). Erster Start: In `systemmeldungen` erscheint „Minecraft: Anmeldung nötig“ mit Link und Code.
 Dort mit dem Microsoft-Konto des Bots anmelden; die Anmeldung wird in `data/minecraft-auth`
 gespeichert. Erkennt der Bot Zahlungs- oder Kontostandsnachrichten nicht, meldet er die
 unbekannte Nachricht in `systemmeldungen`. Dann `MC_PAY_PATTERN`/`MC_BALANCE_PATTERN`
