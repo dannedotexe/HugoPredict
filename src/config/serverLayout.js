@@ -154,6 +154,9 @@ const profiles = {
 // ---------------------------------------------------------------------------
 
 const T = ChannelType.GuildText;
+// Einheitlicher Präfix vor allen Channel-Namen (Unicode-Strich, kein Emoji).
+const PREFIX = '┃';
+const named = (plain, ...older) => ({ name: `${PREFIX}${plain}`, previousNames: [plain, ...older] });
 
 const CATEGORIES = [
   {
@@ -163,27 +166,27 @@ const CATEGORIES = [
     permissions: profiles.publicRead(),
     channels: [
       {
-        key: 'greeting', name: 'willkommen', type: T,
+        key: 'greeting', ...named('willkommen'), type: T,
         topic: 'Begrüßung neuer Mitglieder.',
         permissions: profiles.publicRead(),
       },
       {
-        key: 'announcements', name: 'ankündigungen', type: T, legacy: ['announcements'],
+        key: 'announcements', ...named('ankündigungen'), type: T, legacy: ['announcements'],
         topic: 'Offizielle Mitteilungen des HugoPredict-Teams.',
         permissions: profiles.publicRead(),
       },
       {
-        key: 'marketOverview', name: 'marktübersicht', type: T, legacy: ['liveMarkets'],
+        key: 'marketOverview', ...named('marktübersicht'), type: T, legacy: ['liveMarkets'],
         topic: 'Neue, pausierte und entschiedene Märkte. Wird automatisch aktualisiert.',
         permissions: profiles.publicRead({ managers: ['marketMod'] }),
       },
       {
-        key: 'docs', name: 'regeln', type: T, legacy: ['welcome'], previousNames: ['dokumentation'],
+        key: 'docs', ...named('regeln', 'dokumentation'), type: T, legacy: ['welcome'],
         topic: 'Plattform, HugoCoins, Gebühren und Marktregeln.',
         permissions: profiles.publicRead(),
       },
       {
-        key: 'pings', name: 'pings', type: T,
+        key: 'pings', ...named('pings'), type: T,
         topic: 'Wähle, worüber du per Ping informiert wirst.',
         permissions: profiles.publicRead(),
       },
@@ -195,8 +198,8 @@ const CATEGORIES = [
     legacy: ['community'],
     permissions: profiles.memberChat(),
     channels: [
-      { key: 'discussions', name: 'diskussionen', type: T, legacy: ['general'], topic: 'Sachlicher Austausch rund um Plattform und Märkte.', permissions: profiles.memberChat() },
-      { key: 'analyses', name: 'marktanalysen', type: T, legacy: ['analyses'], topic: 'Fundierte Analysen zu einzelnen Märkten. Keine Anlageberatung.', permissions: profiles.memberChat(), rateLimitPerUser: 30 },
+      { key: 'discussions', ...named('diskussionen'), type: T, legacy: ['general'], topic: 'Sachlicher Austausch rund um Plattform und Märkte.', permissions: profiles.memberChat() },
+      { key: 'analyses', ...named('marktanalysen'), type: T, legacy: ['analyses'], topic: 'Fundierte Analysen zu einzelnen Märkten. Keine Anlageberatung.', permissions: profiles.memberChat(), rateLimitPerUser: 30 },
     ],
   },
   {
@@ -205,7 +208,7 @@ const CATEGORIES = [
     legacy: ['support'],
     permissions: profiles.publicRead({ writers: [...LEADERSHIP, 'support'] }),
     channels: [
-      { key: 'support', name: 'support', type: T, legacy: ['ticketCreate'], topic: 'Private Anfragen an den Kundenservice. Tickets sind nur für dich und das Team sichtbar.', permissions: profiles.publicRead() },
+      { key: 'support', ...named('support'), type: T, legacy: ['ticketCreate'], topic: 'Private Anfragen an den Kundenservice. Tickets sind nur für dich und das Team sichtbar.', permissions: profiles.publicRead() },
     ],
   },
   {
@@ -214,11 +217,11 @@ const CATEGORIES = [
     legacy: ['team'],
     permissions: profiles.staff(STAFF),
     channels: [
-      { key: 'operations', name: 'betrieb', type: T, legacy: ['marketDecisions'], topic: 'Marktbetrieb: Vorschläge prüfen und Entscheidungen vorbereiten.', permissions: profiles.staff(['marketMod', ...LEADERSHIP]) },
-      { key: 'audit', name: 'prüfprotokoll', type: T, legacy: ['modLogs'], topic: 'Administrative Eingriffe, Transaktionen und Sicherheitsereignisse.', permissions: profiles.staff(LEADERSHIP, { readOnly: true }) },
-      { key: 'system', name: 'systemmeldungen', type: T, legacy: ['botLogs'], topic: 'Systemstatus und technische Meldungen.', permissions: profiles.staff(['developer', ...LEADERSHIP], { readOnly: true }) },
-      { key: 'moderation', name: 'moderation', type: T, legacy: ['ticketLogs'], topic: 'Moderation und Ticket-Protokolle.', permissions: profiles.staff(['moderator', 'support', ...LEADERSHIP]) },
-      { key: 'team', name: 'team', type: T, legacy: ['teamChat'], topic: 'Internes Team.', permissions: profiles.staff(STAFF) },
+      { key: 'operations', ...named('betrieb'), type: T, legacy: ['marketDecisions'], topic: 'Marktbetrieb: Vorschläge prüfen und Entscheidungen vorbereiten.', permissions: profiles.staff(['marketMod', ...LEADERSHIP]) },
+      { key: 'audit', ...named('prüfprotokoll'), type: T, legacy: ['modLogs'], topic: 'Administrative Eingriffe, Transaktionen und Sicherheitsereignisse.', permissions: profiles.staff(LEADERSHIP, { readOnly: true }) },
+      { key: 'system', ...named('systemmeldungen'), type: T, legacy: ['botLogs'], topic: 'Systemstatus und technische Meldungen.', permissions: profiles.staff(['developer', ...LEADERSHIP], { readOnly: true }) },
+      { key: 'moderation', ...named('moderation'), type: T, legacy: ['ticketLogs'], topic: 'Moderation und Ticket-Protokolle.', permissions: profiles.staff(['moderator', 'support', ...LEADERSHIP]) },
+      { key: 'team', ...named('team'), type: T, legacy: ['teamChat'], topic: 'Internes Team.', permissions: profiles.staff(STAFF) },
     ],
   },
 ];
