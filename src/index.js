@@ -19,6 +19,7 @@ const { RateLimiter, LockSet, LIMITS } = require('./lib/rateLimit');
 const { createGuildContext } = require('./lib/guildContext');
 const { embeds, formatRetry } = require('./lib/embeds');
 const { replyPrivate } = require('./lib/respond');
+const { emojis } = require('./lib/emojis');
 const { loadCommands, loadInteractionHandlers } = require('./registry');
 const { createStatusService } = require('./services/status');
 const { createMarketFeed } = require('./services/marketFeed');
@@ -134,6 +135,9 @@ client.once(Events.ClientReady, async (c) => {
   logger.info(`Eingeloggt als ${c.user.tag} auf ${c.guilds.cache.size} Server(n).`);
   if (!api.configured) logger.warn('Website-API nicht konfiguriert (HUGO_API_URL/HUGO_API_KEY) – Konto- und Marktfunktionen sind deaktiviert.');
   if (env.guildId && !c.guilds.cache.has(env.guildId)) logger.warn(`Bot ist nicht auf dem Server DISCORD_GUILD_ID=${env.guildId}.`);
+
+  // Custom-Emojis zuerst bereitstellen, damit Panels und Embeds sie nutzen können.
+  await emojis.sync(c, logger);
 
   const every = (ms, fn, name) => {
     const run = () => fn(c).catch((err) => logger.error(`${name}:`, err));

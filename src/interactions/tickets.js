@@ -8,6 +8,7 @@ const { TICKET_TYPES, BOT_TEXT } = require('../config/serverLayout');
 const { embeds, truncate, discordTime } = require('../lib/embeds');
 const { replyPrivate, EPHEMERAL } = require('../lib/respond');
 const theme = require('../config/theme');
+const { emojis, withEmoji } = require('../lib/emojis');
 
 const USER_PERMS = [P.ViewChannel, P.ReadMessageHistory, P.SendMessages, P.AttachFiles, P.EmbedLinks, P.AddReactions];
 const STAFF_PERMS = [...USER_PERMS, P.ManageMessages];
@@ -29,8 +30,8 @@ function isResponsible(member, ticket, ctx) {
 
 function ticketButtons({ disabled = false } = {}) {
   return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('hm:ticket:claim').setLabel('Übernehmen').setStyle(ButtonStyle.Secondary).setDisabled(disabled),
-    new ButtonBuilder().setCustomId('hm:ticket:close').setLabel('Anfrage schließen').setStyle(ButtonStyle.Secondary).setDisabled(disabled),
+    withEmoji(new ButtonBuilder().setCustomId('hm:ticket:claim').setLabel('Übernehmen').setStyle(ButtonStyle.Secondary).setDisabled(disabled), 'claim'),
+    withEmoji(new ButtonBuilder().setCustomId('hm:ticket:close').setLabel('Anfrage schließen').setStyle(ButtonStyle.Secondary).setDisabled(disabled), 'lock'),
   );
 }
 
@@ -95,7 +96,7 @@ async function createTicket(interaction, deps, type) {
     await channel.send({
       content: [`<@${user.id}>`, ...roleIds.map((id) => `<@&${id}>`)].join(' '),
       embeds: [
-        embeds.brand().setTitle(`Anfrage #${number} · ${type.label}`).setDescription(truncate(details, 4000)).addFields(
+        embeds.brand().setTitle(`Anfrage #${number} · ${type.label}`).setDescription(truncate(`${emojis.icon(type.key)}${details}`, 4000)).addFields(
           { name: 'Betreff', value: truncate(subject, 1024), inline: false },
           { name: 'Erstellt von', value: `<@${user.id}>`, inline: true },
           { name: 'Zuständig', value: roleIds.map((id) => `<@&${id}>`).join(' ') || 'Team', inline: true },
@@ -242,7 +243,7 @@ async function handle(interaction, deps, [action, arg]) {
     return replyPrivate(interaction, {
       embeds: [embeds.warning('Anfrage schließen?', 'Der Verlauf wird protokolliert und der Channel anschließend entfernt.')],
       components: [new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('hm:ticket:confirmclose').setLabel('Endgültig schließen').setStyle(ButtonStyle.Danger),
+        withEmoji(new ButtonBuilder().setCustomId('hm:ticket:confirmclose').setLabel('Endgültig schließen').setStyle(ButtonStyle.Danger), 'lock'),
         new ButtonBuilder().setCustomId('hm:ticket:cancelclose').setLabel('Abbrechen').setStyle(ButtonStyle.Secondary),
       )],
     });

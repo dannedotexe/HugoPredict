@@ -27,17 +27,28 @@ API an.
 | `betrieb` | Marktvorschläge prüfen, annehmen, ablehnen | Marktverwaltung, Inhaber, Administrator |
 | `prüfprotokoll` | Einrichtung, Ankündigungen, Daily-Gutschriften, Kontoverknüpfungen, verweigerte Zugriffe | Inhaber, Administrator (nur lesen) |
 | `systemmeldungen` | Systemstatus, API-Störungen, Fehler | Entwickler, Inhaber, Administrator (nur lesen) |
-| `moderation` | Moderation, Ticket-Protokolle mit Transkript | Moderator, Kundenservice, Inhaber, Administrator |
+| `moderation` | Moderation, Ticket-Protokolle mit Transkript | Moderator, Support, Inhaber, Administrator |
 | `team` | Internes Team | alle Teamrollen |
 
-**Rollen** (in dieser Reihenfolge): Inhaber, Administrator, Entwickler, Marktverwaltung,
-Moderator, Kundenservice, Verifiziert, Mitglied, Bot. Es gibt keine Level- oder Prestige-Rollen.
+**Rollen** (in dieser Reihenfolge). Es gibt keine Level- oder Prestige-Rollen.
+
+| Rolle | Aufgabe |
+|---|---|
+| Inhaber | Vollzugriff auf Server, Bot und Plattform |
+| Administrator | Serververwaltung, Benutzer und Moderation |
+| Entwickler | Technik, Bot, Website und Systemwartung |
+| Marktverwaltung | Märkte prüfen, verwalten und Ergebnisse bearbeiten |
+| Moderator | Regeln durchsetzen und Diskussionen moderieren |
+| Support | Tickets bearbeiten und Nutzern helfen |
+| Verifiziert | Minecraft-Konto erfolgreich verknüpft |
+| Mitglied | Standardrolle für Community-Mitglieder |
+| HugoPredict Bot | Technische Rolle für den Discord-Bot |
 
 - **Administrator** ist die **einzige** Rolle mit dem Administrator-Recht. **Inhaber** hat
   umfassende Verwaltungsrechte, aber bewusst ohne Administrator-Flag.
 - **Marktverwaltung** moderiert `marktübersicht` und entscheidet über Vorschläge, hat aber keine
   Guthaben-Funktionen und keinen Zugriff auf das Prüfprotokoll.
-- **Kundenservice** bearbeitet zugewiesene Anfragen. Kontostände lassen sich über den Bot
+- **Support** bearbeitet zugewiesene Anfragen. Kontostände lassen sich über den Bot
   grundsätzlich nicht ändern.
 - **Mitglied** (über „Regeln akzeptieren“) und **Verifiziert** (nach bestätigter Kontoverknüpfung)
   sind die einzigen Rollen, die der Bot selbst vergibt.
@@ -45,6 +56,17 @@ Moderator, Kundenservice, Verifiziert, Mitglied, Bot. Es gibt keine Level- oder 
 
 Die komplette Struktur steht deklarativ in [`src/config/serverLayout.js`](src/config/serverLayout.js),
 die Texte von `dokumentation` in [`src/config/docs.js`](src/config/docs.js).
+
+### Custom-Emojis
+
+Statt Standard-Emojis nutzt der Bot ein eigenes, einheitliches Icon-Set: Linien-Icons in Emerald auf
+dunkler Kachel (`assets/emojis/`, erzeugt mit `scripts/build-emojis.js`). Beim Start lädt der Bot sie
+als **Application Emojis** hoch. Sie gehören dem Bot und belegen keine Emoji-Plätze des Servers.
+Verwendet werden sie in Panels, Buttons, Auswahlmenüs, der Marktübersicht und im Systemstatus.
+Channel-Namen bleiben ohne Emojis, weil Discord dort keine Custom-Emojis zulässt. Hat der Server
+Boost-Stufe 2, setzt `/setup-server` die Icons zusätzlich als **Rollen-Icons**. Bereits gesetzte
+Icons werden nicht überschrieben. Fehlt ein Emoji, wird es weggelassen und nie durch ein
+Standard-Emoji ersetzt.
 
 ## Funktionen
 

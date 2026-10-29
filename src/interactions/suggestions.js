@@ -5,6 +5,7 @@ const { embeds, truncate } = require('../lib/embeds');
 const { replyPrivate, replyApiError, EPHEMERAL } = require('../lib/respond');
 const { userMessage } = require('../lib/hugoApi');
 const theme = require('../config/theme');
+const { withEmoji } = require('../lib/emojis');
 
 /*
  * Ablauf: /vorschlag (Modal) → Prüfung durch die Marktverwaltung in #betrieb →
@@ -55,8 +56,8 @@ function suggestionEmbed(s) {
 function decisionRow(s) {
   const closed = s.status !== 'open';
   return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`hm:suggest:accept:${s.id}`).setLabel('Annehmen').setStyle(ButtonStyle.Success).setDisabled(closed),
-    new ButtonBuilder().setCustomId(`hm:suggest:reject:${s.id}`).setLabel('Ablehnen').setStyle(ButtonStyle.Secondary).setDisabled(closed),
+    withEmoji(new ButtonBuilder().setCustomId(`hm:suggest:accept:${s.id}`).setLabel('Annehmen').setStyle(ButtonStyle.Success).setDisabled(closed), 'check'),
+    withEmoji(new ButtonBuilder().setCustomId(`hm:suggest:reject:${s.id}`).setLabel('Ablehnen').setStyle(ButtonStyle.Secondary).setDisabled(closed), 'error'),
   );
 }
 

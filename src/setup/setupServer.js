@@ -3,6 +3,8 @@
 const { ChannelType, OverwriteType, PermissionsBitField, PermissionFlagsBits } = require('discord.js');
 const { ROLES, CATEGORIES, ARCHIVE_CATEGORY, REQUIRED_BOT_PERMISSIONS } = require('../config/serverLayout');
 const { LEGACY_CATEGORIES, LEGACY_ROLES } = require('../config/legacyLayout');
+const { emojis } = require('../lib/emojis');
+const fs = require('node:fs');
 
 const permNames = (bits) => new PermissionsBitField(bits).toArray();
 const REASON = 'HugoPredict-Einrichtung';
@@ -216,6 +218,21 @@ async function runSetup(guild, store, { syncPermissions = false, archiveObsolete
     if (manageable.length < ROLES.length) result.warnings.push('Nicht alle Rollen liegen unter der Bot-Rolle – deren Position wurde nicht verändert.');
   } catch (err) {
     result.warnings.push(`Rollen-Reihenfolge konnte nicht gesetzt werden: ${err.message}`);
+  }
+
+  // Rollen-Icons (nur mit Server-Boost Stufe 2; vorhandene Icons bleiben unangetastet)
+  if (guild.features?.includes('ROLE_ICONS')) {
+    for (const def of ROLES) {
+      const role = guild.roles.cache.get(g.roles[def.key]);
+      const file = def.icon && emojis.filePath(def.icon);
+      if (!role || role.icon || !file || !fs.existsSync(file) || role.position >= me.roles.highest.position) continue;
+      try {
+        await role.setIcon(fs.readFileSync(file), REASON);
+        result.updated.push(`Rollen-Icon ${def.name}`);
+      } catch (err) {
+        result.warnings.push(`Rollen-Icon ${def.name}: ${err.message}`);
+      }
+    }
   }
 
   const botRole = guild.roles.cache.get(g.roles.bots);

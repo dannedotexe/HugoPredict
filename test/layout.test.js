@@ -33,7 +33,8 @@ function effective(spec, roles) {
 const can = (spec, roles, p) => (effective(spec, roles) & p) === p;
 
 test('Rollen: deutsche Namen, geforderte Reihenfolge, ohne Emojis', () => {
-  assert.deepEqual(L.ROLES.map((r) => r.name), ['Inhaber', 'Administrator', 'Entwickler', 'Marktverwaltung', 'Moderator', 'Kundenservice', 'Verifiziert', 'Mitglied', 'Bot']);
+  assert.deepEqual(L.ROLES.map((r) => r.name), ['Inhaber', 'Administrator', 'Entwickler', 'Marktverwaltung', 'Moderator', 'Support', 'Verifiziert', 'Mitglied', 'HugoPredict Bot']);
+  for (const r of L.ROLES) assert.ok(r.description && r.icon, `${r.name}: Beschreibung und Icon`);
   for (const r of L.ROLES) assert.match(r.name, /^[A-Za-zÄÖÜäöüß ]+$/);
 });
 

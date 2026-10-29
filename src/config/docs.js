@@ -16,6 +16,7 @@ function sections({ currency, websiteUrl }) {
   return [
     {
       title: 'Die Plattform',
+      icon: 'platform',
       body: [
         `HugoPredict ist ein Prognosemarkt für Ereignisse rund um den Minecraft-Server HugoSMP. Jeder Markt stellt eine klar formulierte Frage mit festgelegten Ergebnissen.`,
         '',
@@ -26,6 +27,7 @@ function sections({ currency, websiteUrl }) {
     },
     {
       title: `Virtuelle ${currency}`,
+      icon: 'coin',
       body: [
         `${currency} sind die virtuelle Währung der Plattform. Sie haben keinen realen Geldwert und können weder gegen Echtgeld gekauft noch in Echtgeld ausgezahlt werden.`,
         '',
@@ -34,12 +36,14 @@ function sections({ currency, websiteUrl }) {
     },
     {
       title: 'Handelsgebühren',
+      icon: 'fees',
       body: FEE_DETAILS
         ? FEE_DETAILS.map((l) => `• ${l}`).join('\n')
         : `Die jeweils gültigen Gebühren werden auf der ${site} vor jeder Order angezeigt und sind dort verbindlich. Änderungen werden in #ankündigungen bekannt gegeben.`,
     },
     {
       title: 'Marktregeln',
+      icon: 'rules',
       body: [
         '1. Jeder Markt nennt seine Ergebnisse, seinen Handelsschluss und eine Entscheidungsquelle.',
         '2. Entschieden wird ausschließlich anhand dieser Quelle durch die Marktverwaltung.',
@@ -50,6 +54,7 @@ function sections({ currency, websiteUrl }) {
     },
     {
       title: 'Verhaltensregeln',
+      icon: 'conduct',
       body: [
         '• Respektvoller, sachlicher Umgang. Keine Beleidigungen, keine Diskriminierung.',
         '• Keine Werbung, kein Spam, keine unaufgeforderten Direktnachrichten.',

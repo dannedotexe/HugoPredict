@@ -5,6 +5,7 @@ const { embeds, discordTime } = require('../lib/embeds');
 const { replyPrivate, replyApiError, EPHEMERAL } = require('../lib/respond');
 const { SELF_ASSIGNABLE_VIA_BOT } = require('../config/serverLayout');
 const { ApiError } = require('../lib/hugoApi');
+const { withEmoji } = require('../lib/emojis');
 
 const MC_NAME = /^[A-Za-z0-9_]{3,16}$/;
 
@@ -40,8 +41,8 @@ async function startVerification(interaction, rawName, deps) {
     );
     if (res.expiresAt) e.addFields({ name: 'Gültig bis', value: discordTime(res.expiresAt, 'R'), inline: true });
     e.addFields({ name: 'Sicherheit', value: 'Gib diesen Code nicht an andere Personen weiter.', inline: false });
-    const buttons = [new ButtonBuilder().setCustomId('hm:verify:check').setStyle(ButtonStyle.Success).setLabel('Status prüfen')];
-    if (res.verifyUrl) buttons.push(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Auf der Website bestätigen').setURL(res.verifyUrl));
+    const buttons = [withEmoji(new ButtonBuilder().setCustomId('hm:verify:check').setStyle(ButtonStyle.Success).setLabel('Status prüfen'), 'verified')];
+    if (res.verifyUrl) buttons.push(withEmoji(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Auf der Website bestätigen').setURL(res.verifyUrl), 'external'));
     return replyPrivate(interaction, { embeds: [e], components: [new ActionRowBuilder().addComponents(buttons)] });
   } catch (err) {
     return replyApiError(interaction, err, { ...deps, action: 'Verifizierung starten' });

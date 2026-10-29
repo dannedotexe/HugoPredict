@@ -3,6 +3,7 @@
 const { embeds, discordTime } = require('../lib/embeds');
 const { userMessage } = require('../lib/hugoApi');
 const theme = require('../config/theme');
+const { emojis } = require('../lib/emojis');
 
 function createStatusService({ api, store, env, logger }) {
   const startedAt = new Date();
@@ -28,18 +29,18 @@ function createStatusService({ api, store, env, logger }) {
   }
 
   async function buildEmbed() {
-    const dot = (ok) => (ok === null ? 'Unbekannt' : ok ? 'Betriebsbereit' : 'Gestört');
+    const dot = (ok) => (ok === null ? `${emojis.icon('closed')}Unbekannt` : ok ? `${emojis.icon('resolved')}Betriebsbereit` : `${emojis.icon('warning')}Gestört`);
     const allOk = state.apiOk === true;
     return embeds.base(allOk ? theme.colors.success : api.configured ? theme.colors.warning : theme.colors.neutral)
       .setTitle('Systemstatus')
       .addFields(
-        { name: 'Discord-Bot', value: `Betriebsbereit · gestartet ${discordTime(startedAt, 'R')}`, inline: false },
+        { name: 'Discord-Bot', value: `${emojis.icon('resolved')}Betriebsbereit · gestartet ${discordTime(startedAt, 'R')}`, inline: false },
         {
           name: 'Website-API',
-          value: api.configured ? `${dot(state.apiOk)}${state.apiError ? `\n${state.apiError}` : ''}` : 'Nicht verbunden',
+          value: api.configured ? `${dot(state.apiOk)}${state.apiError ? `\n${state.apiError}` : ''}` : `${emojis.icon('closed')}Nicht verbunden`,
           inline: false,
         },
-        { name: 'Marktübersicht', value: state.lastSyncAt ? `${dot(state.lastSyncOk)} · ${discordTime(state.lastSyncAt, 'R')}` : 'Noch keine Synchronisierung', inline: false },
+        { name: 'Marktübersicht', value: state.lastSyncAt ? `${dot(state.lastSyncOk)} · ${discordTime(state.lastSyncAt, 'R')}` : `${emojis.icon('closed')}Noch keine Synchronisierung`, inline: false },
         { name: 'Website', value: env.websiteUrl || '—', inline: false },
       )
       .setFooter({ text: `${theme.brand} · Zuletzt geprüft` });

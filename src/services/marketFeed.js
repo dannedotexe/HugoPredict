@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { embeds, truncate, formatAmount, formatPrice, discordTime } = require('../lib/embeds');
 const theme = require('../config/theme');
+const { emojis, withEmoji } = require('../lib/emojis');
 
 /*
  * #marktübersicht: Jeder Markt erhält genau EINE Nachricht. Sie entsteht, wenn
@@ -34,7 +35,9 @@ function marketEmbed(market, { currency }) {
     .setAuthor({ name: `Markt · ${STATUS_LABELS[market.status] ?? market.status}` })
     .setTitle(truncate(market.title, 256));
   if (market.url) e.setURL(market.url);
-  if (market.description) e.setDescription(truncate(market.description, 350));
+  // Statuszeile mit Icon (Autorzeile und Titel zeigen keine Custom-Emojis an)
+  const statusLine = `${emojis.icon(market.status)}**${STATUS_LABELS[market.status] ?? market.status}**`;
+  e.setDescription(truncate(market.description ? `${statusLine}\n${market.description}` : statusLine, 400));
   const fields = [];
   if (market.status === 'resolved') {
     fields.push({ name: 'Ergebnis', value: market.outcome ? truncate(market.outcome, 256) : '—', inline: true });
@@ -55,7 +58,7 @@ function marketEmbed(market, { currency }) {
 
 function marketComponents(market) {
   if (!market.url) return [];
-  return [new ActionRowBuilder().addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Zum Markt').setURL(market.url))];
+  return [new ActionRowBuilder().addComponents(withEmoji(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Zum Markt').setURL(market.url), 'external'))];
 }
 
 /** Änderungen unter einem Prozentpunkt bzw. einer HC lösen keine Bearbeitung aus. */

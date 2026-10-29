@@ -1,31 +1,48 @@
 'use strict';
 
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
-const { TICKET_TYPES } = require('../config/serverLayout');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
+const { TICKET_TYPES, ROLES } = require('../config/serverLayout');
 const { LEGACY_PANELS } = require('../config/legacyLayout');
 const { sections } = require('../config/docs');
 const { embeds, truncate } = require('../lib/embeds');
+const { emojis, withEmoji } = require('../lib/emojis');
 const theme = require('../config/theme');
+
+const heading = (icon, title) => `${emojis.icon(icon)}**${title}**`;
+
+/** Abschnitt „Rollen“: Rollen-Erwähnung (pingt nicht in Embeds) plus Beschreibung. */
+function rolesSection(roleIds = {}) {
+  return ROLES.map((r) => `${emojis.icon(r.icon)}${roleIds[r.key] ? `<@&${roleIds[r.key]}>` : `**${r.name}**`}\n${r.description}`).join('\n\n');
+}
 
 function panelDefinitions() {
   return [
     {
       key: 'docs',
       channelKey: 'docs',
-      build: ({ env }) => {
-        const list = sections({ currency: env.currency, websiteUrl: env.websiteUrl });
-        const header = embeds.brand()
-          .setTitle(`${theme.brand} · Dokumentation`)
-          .setDescription('Alles Wichtige zur Plattform auf einen Blick. Bitte lies die Regeln, bevor du der Community beitrittst.');
-        const body = list.map((s) => embeds.base(theme.colors.neutral).setTitle(s.title).setDescription(truncate(s.body, 4096)));
+      build: ({ env, roleIds, channelIds = {} }) => {
+        // Channel-Namen im Text werden zu anklickbaren Verweisen, sofern eingerichtet.
+        const link = (text) => text
+          .replace(/#ankündigungen/g, channelIds.announcements ? `<#${channelIds.announcements}>` : '#ankündigungen')
+          .replace(/#support/g, channelIds.support ? `<#${channelIds.support}>` : '#support');
+        const list = [
+          ...sections({ currency: env.currency, websiteUrl: env.websiteUrl }),
+          { title: 'Rollen', icon: 'roles', body: rolesSection(roleIds) },
+        ];
+        const header = embeds.brand().setDescription([
+          `${heading('logo', `${theme.brand} · Dokumentation`)}`,
+          '',
+          'Alles Wichtige zur Plattform auf einen Blick. Bitte lies die Regeln, bevor du der Community beitrittst.',
+        ].join('\n'));
+        const body = list.map((s) => embeds.base(theme.colors.neutral).setDescription(truncate(`${heading(s.icon, s.title)}\n\n${link(s.body)}`, 4096)));
         const all = [header, ...body];
         // Nur das letzte Embed trägt Footer und Zeitstempel – die Nachricht wirkt dadurch ruhiger.
         all.slice(0, -1).forEach((e) => e.setFooter(null).setTimestamp(null));
         const buttons = [
-          new ButtonBuilder().setCustomId('hm:rules:accept').setStyle(ButtonStyle.Success).setLabel('Regeln akzeptieren'),
-          new ButtonBuilder().setCustomId('hm:verify:start').setStyle(ButtonStyle.Secondary).setLabel('Konto verknüpfen'),
+          withEmoji(new ButtonBuilder().setCustomId('hm:rules:accept').setStyle(ButtonStyle.Success).setLabel('Regeln akzeptieren'), 'check'),
+          withEmoji(new ButtonBuilder().setCustomId('hm:verify:start').setStyle(ButtonStyle.Secondary).setLabel('Konto verknüpfen'), 'link'),
         ];
-        if (env.websiteUrl) buttons.push(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Zur Website').setURL(env.websiteUrl));
+        if (env.websiteUrl) buttons.push(withEmoji(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Zur Website').setURL(env.websiteUrl), 'external'));
         return { embeds: all, components: [new ActionRowBuilder().addComponents(buttons)] };
       },
     },
@@ -34,10 +51,12 @@ function panelDefinitions() {
       channelKey: 'support',
       build: () => ({
         embeds: [
-          embeds.brand().setTitle('Kundenservice').setDescription([
+          embeds.brand().setDescription([
+            heading('support', 'Kundenservice'),
+            '',
             'Wähle unten das passende Anliegen. Es wird ein privater Channel erstellt, den nur du und das zuständige Team sehen.',
             '',
-            ...TICKET_TYPES.map((t) => `**${t.label}**\n${t.description}`),
+            ...TICKET_TYPES.map((t) => `${emojis.icon(t.key)}**${t.label}**\n${t.description}`),
             '',
             'Das Team fragt niemals nach Passwörtern. Korrekturen von Guthaben erfolgen ausschließlich über die Website.',
           ].join('\n')),
@@ -46,7 +65,10 @@ function panelDefinitions() {
           new StringSelectMenuBuilder()
             .setCustomId('hm:ticket:select')
             .setPlaceholder('Anliegen auswählen')
-            .addOptions(TICKET_TYPES.map((t) => ({ label: t.label, value: t.key, description: truncate(t.description, 100) }))),
+            .addOptions(TICKET_TYPES.map((t) => withEmoji(
+              new StringSelectMenuOptionBuilder().setLabel(t.label).setValue(t.key).setDescription(truncate(t.description, 100)),
+              t.key,
+            ))),
         )],
       }),
     },
@@ -86,7 +108,7 @@ async function publishPanels(guild, { store, env, statusService }) {
 
   for (const def of panelDefinitions()) {
     try {
-      await publish(def.key, g.channels[def.channelKey], def.build({ guild, env, ids: g.channels }));
+      await publish(def.key, g.channels[def.channelKey], def.build({ guild, env, roleIds: g.roles, channelIds: g.channels }));
     } catch (err) {
       result.errors.push(`${def.key}: ${err.message}`);
     }
@@ -101,4 +123,4 @@ async function publishPanels(guild, { store, env, statusService }) {
   return result;
 }
 
-module.exports = { publishPanels, panelDefinitions };
+module.exports = { publishPanels, panelDefinitions, rolesSection };

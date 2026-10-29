@@ -137,7 +137,8 @@ for (const withStore of [true, false]) {
 
     // Rollen umbenannt
     assert.equal(guild.roles.cache.get(g.roles.owner).name, 'Inhaber');
-    assert.equal(guild.roles.cache.get(g.roles.support).name, 'Kundenservice');
+    assert.equal(guild.roles.cache.get(g.roles.support).name, 'Support');
+    assert.equal(guild.roles.cache.get(g.roles.bots).name, 'HugoPredict Bot');
 
     // Veraltetes nur gemeldet
     const obsoleteChannels = legacyChannelCount - L.allChannels().length;
@@ -174,6 +175,39 @@ test('Archivieren verschiebt veraltete Channels in eine versteckte Kategorie, oh
   const again = await runSetup(guild, store, { archiveObsolete: true });
   assert.equal(again.created.length, 0);
   assert.equal(guild.channels.cache.filter((c) => c.name === 'ARCHIV').size, 1);
+});
+
+test('Zwischenversion: Kundenservice und Bot werden zu Support und HugoPredict Bot', async () => {
+  const guild = fakeGuild(allBot);
+  const store = tmpStore();
+  await guild.roles.create({ name: 'Kundenservice' });
+  await guild.roles.create({ name: 'Bot' });
+  const res = await runSetup(guild, store);
+  assert.deepEqual(res.errors, []);
+  const g = store.guild('G');
+  assert.equal(guild.roles.cache.get(g.roles.support).name, 'Support');
+  assert.equal(guild.roles.cache.get(g.roles.bots).name, 'HugoPredict Bot');
+  assert.equal(guild.roles.cache.filter((r) => r.name === 'Support').size, 1, 'kein Duplikat');
+});
+
+test('Rollen-Icons nur mit Boost-Funktion und ohne vorhandenes Icon', async () => {
+  for (const features of [[], ['ROLE_ICONS']]) {
+    const guild = fakeGuild(allBot);
+    guild.features = features;
+    const store = tmpStore();
+    const origCreate = guild.roles.create;
+    guild.roles.create = async (o) => {
+      const r = await origCreate(o);
+      r.icon = null;
+      r.setIcon = async (buf) => { assert.ok(Buffer.isBuffer(buf)); r.icon = 'hash'; };
+      return r;
+    };
+    const res = await runSetup(guild, store);
+    const icons = res.updated.filter((u) => u.startsWith('Rollen-Icon'));
+    assert.equal(icons.length, features.length ? L.ROLES.length : 0);
+    const again = await runSetup(guild, store);
+    assert.equal(again.updated.filter((u) => u.startsWith('Rollen-Icon')).length, 0, 'vorhandene Icons bleiben');
+  }
 });
 
 test('Fehlende Bot-Rechte brechen verständlich ab', async () => {
