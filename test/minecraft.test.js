@@ -39,9 +39,11 @@ test('reconcile: nur gedeckte Zahlungen zählen', () => {
   const a = { name: 'A', amount: 100 };
   const b = { name: 'B', amount: 50 };
   assert.deepEqual(reconcile([a, b], 150), { confirmed: [a, b], unconfirmed: [], surplus: 0, decreased: false });
-  const r = reconcile([a, b], 100);
-  assert.deepEqual(r.confirmed, [a]);
-  assert.deepEqual(r.unconfirmed, [b]);
+  // Echte (A) und gefälschte (B) Zahlung zugleich: keine wird gutgeschrieben, beide gehen zur Prüfung
+  const r = reconcile([b, a], 100);
+  assert.deepEqual(r.confirmed, []);
+  assert.deepEqual(r.unconfirmed, [b, a]);
+  assert.equal(reconcile([a, b], 200).surplus, 50);
   assert.equal(reconcile([], 30).surplus, 30);
   assert.equal(reconcile([a], -10).decreased, true);
 });

@@ -125,7 +125,7 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
     const result = reconcile(claims.splice(0), delta);
     setBalance(balance);
     for (const claim of result.confirmed) queueDeposit(claim);
-    if (result.unconfirmed.length) reportUnconfirmed(result.unconfirmed, 'Der Kontostand des Bots ist nicht entsprechend gestiegen');
+    if (result.unconfirmed.length) reportUnconfirmed(result.unconfirmed, `Der Kontostand ist nur um ${formatAmount(Math.max(0, delta))} gestiegen, die erkannten Zahlungen ergeben mehr. Mindestens eine Nachricht ist falsch`);
     if (result.surplus) {
       notify('audit', {
         title: 'Minecraft: Unerklärter Geldeingang',
