@@ -370,6 +370,7 @@ async function ensureMissingChannels(guild, store) {
       const ch = await guild.channels.create({
         name: def.name, type: def.type, parent: parent.id, topic: def.topic,
         rateLimitPerUser: def.rateLimitPerUser, userLimit: def.userLimit, permissionOverwrites: overwrites, reason: REASON,
+        ...(def.forum ?? {}),
       });
       // An die Layout-Position innerhalb der Kategorie setzen
       await ch.setPosition(category.channels.findIndex((c) => c.key === def.key)).catch(() => {});
@@ -381,6 +382,38 @@ async function ensureMissingChannels(guild, store) {
   }
   if (created.length) store.save();
   return { created, errors };
+}
+
+/**
+ * Ein Layout-Channel hat einen neuen Typ bekommen (z. B. #vorschläge: Text → Forum).
+ * Der alte Channel wird gelöscht, wenn außer dem Bot niemand darin geschrieben hat,
+ * sonst als „…-alt“ umbenannt, damit nichts verloren geht. Danach legt
+ * ensureMissingChannels den neuen Channel an.
+ */
+async function retireChangedChannels(guild, store) {
+  const g = store.guild(guild.id);
+  const removed = [];
+  const kept = [];
+  for (const def of CATEGORIES.flatMap((c) => c.channels)) {
+    const old = g.channels[def.key] && guild.channels.cache.get(g.channels[def.key]);
+    if (!old || old.type === def.type) continue;
+    const messages = old.isTextBased?.() ? await old.messages.fetch({ limit: 50 }).catch(() => null) : null;
+    const used = !messages || messages.some((m) => !m.author?.bot);
+    try {
+      if (used) {
+        await old.setName(`${old.name}-alt`, REASON);
+        kept.push(`#${old.name}`);
+      } else {
+        await old.delete(REASON);
+        removed.push(`#${old.name}`);
+      }
+      delete g.channels[def.key];
+    } catch (err) {
+      kept.push(`#${old.name} (${err.message})`);
+    }
+  }
+  if (removed.length || kept.length) store.save();
+  return { removed, kept };
 }
 
 /**
@@ -484,4 +517,4 @@ async function lockNicknames(guild, store) {
   return { changed, warnings };
 }
 
-module.exports = { planSetup, runSetup, buildPlan, resolveOverwrites, missingBotPermissions, syncRoleNames, syncChannelNames, ensureMissingChannels, ensureMissingRoles, lockNicknames };
+module.exports = { planSetup, runSetup, buildPlan, resolveOverwrites, missingBotPermissions, syncRoleNames, syncChannelNames, ensureMissingChannels, ensureMissingRoles, lockNicknames, retireChangedChannels };

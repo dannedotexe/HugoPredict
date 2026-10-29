@@ -1,6 +1,6 @@
 'use strict';
 
-const { ChannelType, PermissionFlagsBits: P } = require('discord.js');
+const { ChannelType, ForumLayoutType, SortOrderType, PermissionFlagsBits: P } = require('discord.js');
 
 /*
  * Zentrale, deklarative Beschreibung der Serverstruktur.
@@ -184,6 +184,7 @@ const profiles = {
 const WAITING_ROOM_LIMIT = 5;
 const T = ChannelType.GuildText;
 const V = ChannelType.GuildVoice;
+const F = ChannelType.GuildForum;
 // Channel-Namen: Emoji + Strich + Name, z. B. „📜┃regeln“. Frühere Schreibweisen
 // (mit Strich ohne Emoji bzw. ganz ohne) werden von /setup-panels umbenannt.
 const SEPARATOR = '┃';
@@ -240,7 +241,30 @@ const CATEGORIES = [
       { key: 'discussions', ...named('diskussionen'), type: T, legacy: ['general'], topic: 'Sachlicher Austausch rund um Plattform und Prognosen.', permissions: profiles.memberChat() },
       { key: 'analyses', ...named('analysen', '📊┃marktanalysen', '┃marktanalysen', 'marktanalysen'), type: T, legacy: ['analyses'], topic: 'Fundierte Analysen zu einzelnen Prognosen. Keine Anlageberatung.', permissions: profiles.memberChat(), rateLimitPerUser: 30 },
       { key: 'media', ...named('medien'), type: T, topic: 'Bilder, Screenshots und Clips rund um HugoSMP und die Prognosen. Bitte nur eigene Inhalte.', permissions: profiles.memberChat(), rateLimitPerUser: 30 },
-      { key: 'ideas', ...named('vorschläge'), type: T, topic: 'Ideen für Server, Bot und Website. Neue Prognosen bitte über „Prognose vorschlagen“ in #prognosen.', permissions: profiles.memberChat(), rateLimitPerUser: 60 },
+      {
+        key: 'ideas',
+        ...named('vorschläge'),
+        type: F,
+        // Forum: ein Beitrag pro Vorschlag, Abstimmung per 👍, Status-Tags setzt nur das Team.
+        topic: 'Ein Beitrag pro Vorschlag: kurzer Titel, Idee und warum sie hilft. Bitte vorher suchen, ob es den Vorschlag schon gibt, und mit 👍 abstimmen. Neue Prognosen bitte über „Prognose vorschlagen“ in #prognosen.',
+        permissions: profiles.memberChat(),
+        rateLimitPerUser: 300,
+        forum: {
+          availableTags: [
+            { name: 'Server', emoji: { id: null, name: '🏠' } },
+            { name: 'Bot', emoji: { id: null, name: '🤖' } },
+            { name: 'Website', emoji: { id: null, name: '🌐' } },
+            { name: 'Minecraft', emoji: { id: null, name: '⛏️' } },
+            { name: 'In Prüfung', emoji: { id: null, name: '🔍' }, moderated: true },
+            { name: 'Angenommen', emoji: { id: null, name: '✅' }, moderated: true },
+            { name: 'Abgelehnt', emoji: { id: null, name: '❌' }, moderated: true },
+            { name: 'Umgesetzt', emoji: { id: null, name: '🎉' }, moderated: true },
+          ],
+          defaultReactionEmoji: { id: null, name: '👍' },
+          defaultForumLayout: ForumLayoutType.ListView,
+          defaultSortOrder: SortOrderType.LatestActivity,
+        },
+      },
       { key: 'voice', ...named('Voice 1', '🔊┃voice-1', '🔊┃talk', '┃talk', 'talk'), type: V, permissions: profiles.memberVoice() },
       { key: 'voice2', ...named('Voice 2', '🔊┃voice-2'), type: V, permissions: profiles.memberVoice() },
       { key: 'voice3', ...named('Voice 3', '🔊┃voice-3'), type: V, permissions: profiles.memberVoice() },

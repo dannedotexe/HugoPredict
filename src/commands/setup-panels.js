@@ -6,7 +6,7 @@ const { embeds } = require('../lib/embeds');
 const { replyPrivate, EPHEMERAL } = require('../lib/respond');
 const { publishPanels } = require('../setup/panels');
 const { setSupportOpen, syncWaitingRoom } = require('../services/supportVoice');
-const { syncRoleNames, syncChannelNames, ensureMissingChannels, ensureMissingRoles, lockNicknames } = require('../setup/setupServer');
+const { syncRoleNames, syncChannelNames, ensureMissingChannels, ensureMissingRoles, lockNicknames, retireChangedChannels } = require('../setup/setupServer');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -28,6 +28,8 @@ module.exports = {
     const nicknames = await lockNicknames(interaction.guild, deps.store);
     // Neue Channels des Layouts anlegen (nur fehlende, Bestehendes bleibt unverändert).
     await interaction.guild.channels.fetch();
+    // Channels mit neuem Typ ersetzen (z. B. #vorschläge wird ein Forum).
+    const replaced = await retireChangedChannels(interaction.guild, deps.store);
     const channels = await ensureMissingChannels(interaction.guild, deps.store);
     // Ein neu angelegter Warteraum übernimmt den gespeicherten Zustand (offen/geschlossen).
     if (!deps.store.guild(interaction.guild.id).supportVoice.open) await setSupportOpen(interaction.guild, deps.store, false).catch(() => {});
@@ -65,6 +67,9 @@ module.exports = {
     }
     if (renamedChannels.renamed.length) e.addFields({ name: 'Channels umbenannt', value: renamedChannels.renamed.join('\n').slice(0, 1024), inline: false });
     if (renamedChannels.warnings.length) e.addFields({ name: 'Hinweise (Channels)', value: renamedChannels.warnings.join('\n').slice(0, 1024), inline: false });
+    if (replaced.removed.length || replaced.kept.length) {
+      e.addFields({ name: 'Channels ersetzt', value: [...replaced.removed.map((n) => `${n} (leer, entfernt)`), ...replaced.kept.map((n) => `${n} → umbenannt in …-alt`)].join('\n').slice(0, 1024), inline: false });
+    }
     if (channels.created.length) e.addFields({ name: 'Channels angelegt', value: channels.created.join('\n').slice(0, 1024), inline: false });
     if (channels.errors.length) e.addFields({ name: 'Channel-Fehler', value: channels.errors.join('\n').slice(0, 1024), inline: false });
     if (roles.renamed.length) e.addFields({ name: 'Rollen umbenannt', value: roles.renamed.join('\n').slice(0, 1024), inline: false });

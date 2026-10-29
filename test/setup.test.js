@@ -367,3 +367,31 @@ test('lockNicknames entzieht @everyone und Community-Rollen „Nickname ändern�
   assert.ok(admin.permissions.has(P.ChangeNickname), 'Teamrollen unverändert');
   assert.equal((await lockNicknames(guild, store)).changed.length, 0, 'idempotent');
 });
+
+test('retireChangedChannels: leerer alter Channel wird ersetzt, benutzter umbenannt', async () => {
+  const { retireChangedChannels } = require('../src/setup/setupServer');
+  const L2 = require('../src/config/serverLayout');
+  const ideas = L2.allChannels().find((c) => c.key === 'ideas');
+  assert.equal(ideas.type, ChannelType.GuildForum);
+  assert.ok(ideas.forum.availableTags.some((t) => t.name === 'Angenommen' && t.moderated));
+  assert.ok(ideas.forum.availableTags.some((t) => t.name === 'Bot' && !t.moderated));
+
+  const make = (id, botOnly) => {
+    const ch = {
+      id, name: '💡┃vorschläge', type: ChannelType.GuildText, isTextBased: () => true, deleted: false,
+      messages: { fetch: async () => new Collection([['1', { author: { bot: botOnly } }]]) },
+      delete: async () => { ch.deleted = true; }, setName: async (n) => { ch.name = n; },
+    };
+    return ch;
+  };
+  for (const botOnly of [true, false]) {
+    const store = tmpStore();
+    const old = make('OLD', botOnly);
+    store.guild('G').channels.ideas = 'OLD';
+    const guild = { id: 'G', channels: { cache: new Collection([['OLD', old]]) } };
+    const res = await retireChangedChannels(guild, store);
+    assert.equal(store.guild('G').channels.ideas, undefined, 'Platz frei für das Forum');
+    if (botOnly) assert.ok(old.deleted && res.removed.length === 1);
+    else assert.ok(!old.deleted && old.name === '💡┃vorschläge-alt' && res.kept.length === 1, 'Inhalte bleiben erhalten');
+  }
+});
