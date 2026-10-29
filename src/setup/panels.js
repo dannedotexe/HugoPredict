@@ -117,11 +117,12 @@ function panelDefinitions() {
           : `**Geschlossen.** ${channelIds.waitingRoom ? `<#${channelIds.waitingRoom}>` : 'Der Warteraum'} ist sichtbar, kann aber nicht betreten werden.`,
         accent: supportOpen ? theme.colors.success : theme.colors.neutral,
         logo: false,
-        blocks: [{ body: 'Öffne den Warteraum, sobald jemand vom Team Zeit hat, und schließe ihn, wenn niemand mehr betreuen kann.' }],
+        blocks: [{ body: 'Öffne den Warteraum, sobald jemand vom Team Zeit hat, und schließe ihn, wenn niemand mehr betreuen kann.\n„Warteraum leeren“ wirft alle Wartenden aus dem Warteraum, das Team bleibt drin.' }],
         footer: null,
         actions: [new ActionRowBuilder().addComponents(
           withEmoji(new ButtonBuilder().setCustomId('hm:supportvoice:open').setStyle(ButtonStyle.Success).setLabel('Öffnen').setDisabled(supportOpen), 'open'),
           withEmoji(new ButtonBuilder().setCustomId('hm:supportvoice:close').setStyle(ButtonStyle.Danger).setLabel('Schließen').setDisabled(!supportOpen), 'closed'),
+          withEmoji(new ButtonBuilder().setCustomId('hm:supportvoice:empty').setStyle(ButtonStyle.Secondary).setLabel('Warteraum leeren'), 'error'),
         )],
       }),
     },

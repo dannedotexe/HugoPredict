@@ -63,4 +63,21 @@ async function setSupportOpen(guild, store, open) {
   return true;
 }
 
-module.exports = { createSupportVoiceService, setSupportOpen };
+/**
+ * Trennt alle Wartenden (außer Bots und dem Team) vom Warteraum.
+ * Gibt die Zahl der entfernten Personen zurück, oder null ohne Warteraum.
+ */
+async function emptyWaitingRoom(guild, store, isStaff) {
+  const g = store.guild(guild.id);
+  const channel = g.channels.waitingRoom && guild.channels.cache.get(g.channels.waitingRoom);
+  if (!channel) return null;
+  let removed = 0;
+  for (const member of channel.members.values()) {
+    if (member.user?.bot || isStaff(member)) continue;
+    await member.voice.disconnect('Support-Warteraum geleert');
+    removed += 1;
+  }
+  return removed;
+}
+
+module.exports = { createSupportVoiceService, setSupportOpen, emptyWaitingRoom };

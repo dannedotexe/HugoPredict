@@ -163,3 +163,17 @@ test('Support-Warteraum öffnen/schließen ändert „Verbinden“ und meldet nu
   const tickets = JSON.stringify(panelDefinitions().find((d) => d.key === 'tickets').build({ channelIds: { waitingRoom: 'W' }, supportOpen: true }));
   assert.match(tickets, /Sprach-Support/);
 });
+
+test('Warteraum leeren trennt nur Wartende, nicht Team oder Bots', async () => {
+  const { emptyWaitingRoom } = require('../src/services/supportVoice');
+  const store = tmpStore();
+  store.guild('G').channels.waitingRoom = 'W';
+  const kicked = [];
+  const m = (id, extra = {}) => ({ id, user: { bot: false }, voice: { disconnect: async () => kicked.push(id) }, ...extra });
+  const members = new Collection([['a', m('a')], ['b', m('b')], ['staff', m('staff')], ['bot', m('bot', { user: { bot: true } })]]);
+  const guild = { id: 'G', channels: { cache: new Collection([['W', { members }]]) } };
+  assert.equal(await emptyWaitingRoom(guild, store, (x) => x.id === 'staff'), 2);
+  assert.deepEqual(kicked.sort(), ['a', 'b']);
+  store.guild('G').channels.waitingRoom = null;
+  assert.equal(await emptyWaitingRoom(guild, store, () => false), null);
+});
