@@ -19,7 +19,8 @@ const LOGO_FILE = path.join(__dirname, '..', '..', 'assets', 'brand', 'logo.png'
 const LOGO_NAME = 'hugopredict.png';
 const TEXT_LIMIT = 4000; // Discord: Summe aller Textbausteine einer Nachricht
 
-const quote = (text) => String(text).split('\n').map((l) => (l.trim() ? `> ${l}` : '>')).join('\n');
+// Leerzeilen im Zitat brauchen ein unsichtbares Zeichen, sonst zeigt Discord ein einzelnes „>“ an.
+const quote = (text) => String(text).split('\n').map((l) => (l.trim() ? `> ${l}` : '> \u200b')).join('\n');
 
 /**
  * Baut eine Karte.

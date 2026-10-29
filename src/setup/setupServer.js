@@ -351,4 +351,31 @@ async function runSetup(guild, store, { syncPermissions = false, archiveObsolete
   return result;
 }
 
-module.exports = { planSetup, runSetup, buildPlan, resolveOverwrites, missingBotPermissions };
+/**
+ * Benennt Rollen mit einem früheren Namen (legacyNames) in den aktuellen Namen um.
+ * Ändert ausschließlich den Namen – keine Rechte, Farben oder Mitglieder.
+ */
+async function syncRoleNames(guild, store) {
+  const g = store.guild(guild.id);
+  const me = guild.members.me;
+  const renamed = [];
+  const warnings = [];
+  for (const def of ROLES) {
+    const role = guild.roles.cache.get(g.roles[def.key]);
+    if (!role || role.name === def.name || !(def.legacyNames ?? []).includes(role.name)) continue;
+    if (role.position >= me.roles.highest.position) {
+      warnings.push(`Rolle „${role.name}“ liegt über der Bot-Rolle und wurde nicht umbenannt.`);
+      continue;
+    }
+    const from = role.name;
+    try {
+      await role.setName(def.name, REASON);
+      renamed.push(`${from} → ${def.name}`);
+    } catch (err) {
+      warnings.push(`Rolle „${from}“: ${err.message}`);
+    }
+  }
+  return { renamed, warnings };
+}
+
+module.exports = { planSetup, runSetup, buildPlan, resolveOverwrites, missingBotPermissions, syncRoleNames };

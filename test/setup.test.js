@@ -251,3 +251,19 @@ test('Fehlende Bot-Rechte brechen verständlich ab', async () => {
   assert.equal(res.created.length, 0);
   assert.match(res.errors[0], /ManageRoles/);
 });
+
+test('syncRoleNames benennt nur Rollen mit früherem Namen um', async () => {
+  const { syncRoleNames } = require('../src/setup/setupServer');
+  const guild = fakeGuild(allBot);
+  const store = tmpStore();
+  const g = store.guild('G');
+  const support = await guild.roles.create({ name: 'Kundenservice' });
+  const bot = await guild.roles.create({ name: 'Bot' });
+  const owner = await guild.roles.create({ name: 'Mein eigener Name' });
+  for (const r of [support, bot, owner]) r.setName = async (n) => { r.name = n; };
+  Object.assign(g.roles, { support: support.id, bots: bot.id, owner: owner.id });
+  const res = await syncRoleNames(guild, store);
+  assert.deepEqual(res.renamed.sort(), ['Bot → HugoPredict Bot', 'Kundenservice → Support']);
+  assert.equal(owner.name, 'Mein eigener Name', 'frei vergebene Namen bleiben');
+  assert.equal((await syncRoleNames(guild, store)).renamed.length, 0, 'idempotent');
+});
