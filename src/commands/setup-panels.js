@@ -14,7 +14,7 @@ module.exports = {
   rateLimit: 'setup',
   async execute(interaction, deps) {
     if (deps.store.guild(interaction.guild.id).layoutVersion !== 2) {
-      return replyPrivate(interaction, { embeds: [embeds.warning('Einrichtung fehlt', 'Bitte führe zuerst `/setup-server` aus, um die aktuelle Serverstruktur einzurichten.')] });
+      return replyPrivate(interaction, { embeds: [embeds.warning('Einrichtung fehlt', 'Die aktuelle Serverstruktur ist auf diesem Server nicht eingerichtet.')] });
     }
     await interaction.deferReply({ flags: EPHEMERAL });
     const result = await publishPanels(interaction.guild, { store: deps.store, env: deps.env, statusService: deps.services.status });

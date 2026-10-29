@@ -87,7 +87,7 @@ async function publishPanels(guild, { store, env, statusService }) {
   const publish = async (key, channelId, payload) => {
     const channel = channelId && (guild.channels.cache.get(channelId) ?? (await guild.channels.fetch(channelId).catch(() => null)));
     if (!channel?.isTextBased()) {
-      result.errors.push(`${key}: Channel fehlt – bitte zuerst /setup-server ausführen.`);
+      result.errors.push(`${key}: Channel fehlt – die Serverstruktur ist nicht vollständig eingerichtet.`);
       return;
     }
     const candidates = [g.panels[key], g.panels[LEGACY_PANELS[key]]].filter((p) => p?.channelId === channel.id);

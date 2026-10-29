@@ -231,7 +231,7 @@ const TICKET_TYPES = [
   { key: 'other', label: 'Sonstiges', description: 'Alle weiteren Anliegen', roles: ['support'] },
 ];
 
-// Rechte, die der Bot für /setup-server mindestens benötigt. Discord erlaubt
+// Rechte, die der Bot für die Einrichtung mindestens benötigt. Discord erlaubt
 // in Overwrites nur Rechte, die der Bot selbst besitzt.
 const REQUIRED_BOT_PERMISSIONS = [
   P.ManageRoles, P.ManageChannels, P.ViewChannel, P.SendMessages, P.EmbedLinks, P.AttachFiles,

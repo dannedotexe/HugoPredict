@@ -10,7 +10,6 @@ const { TICKET_TYPES } = require('../src/config/serverLayout');
 const { marketEmbed, marketComponents } = require('../src/services/marketFeed');
 const { leaderboardEmbed, BOARDS } = require('../src/services/leaderboards');
 const { listPayload } = require('../src/commands/markets');
-const { resultEmbed, previewEmbed } = require('../src/commands/setup-server');
 const { loadCommands } = require('../src/registry');
 
 const json = (x) => (typeof x?.toJSON === 'function' ? x.toJSON() : x);
@@ -63,12 +62,10 @@ test('Embeds für Märkte, Ranglisten, Vorschläge, Ankündigungen und Setup', (
   const lp = listPayload([{ id: '1', title: 'A', yesPrice: 0.5 }, { id: '2', title: 'B' }], 'paused', 'HC');
   lp.embeds.forEach(json);
   lp.components.forEach(json);
-  json(resultEmbed({ created: ['a'], updated: ['b → c'], existing: [], warnings: ['w'], errors: ['e'], obsolete: ['#x'], archived: ['#y'] }));
-  json(previewEmbed({ rolesNew: 0, rolesRenamed: ['a → b'], categoriesNew: 0, categoriesRenamed: [], channelsNew: ['#n'], channelsMigrated: ['#o → #n'], unchanged: 1, obsolete: ['#x'], obsoleteChannels: 1 }, { sync: false, archive: true }));
 });
 
 test('Slash-Commands sind gültig und vollständig', () => {
   const names = [...loadCommands().keys()].sort();
-  assert.deepEqual(names, ['ankündigung', 'aufräumen', 'balance', 'daily', 'help', 'history', 'leaderboard', 'markets', 'ping', 'portfolio', 'setup-panels', 'setup-server', 'verify', 'vorschlag']);
+  assert.deepEqual(names, ['ankündigung', 'aufräumen', 'balance', 'daily', 'help', 'history', 'leaderboard', 'markets', 'ping', 'portfolio', 'setup-panels', 'verify', 'vorschlag']);
   for (const c of loadCommands().values()) assert.equal(c.data.toJSON().contexts[0], 0);
 });

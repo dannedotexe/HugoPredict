@@ -13,7 +13,7 @@ module.exports = {
       { name: 'Hilfe', value: 'Anfragen an den Kundenservice stellst du in #support.\n`/ping` Systemstatus', inline: false },
     );
     if (interaction.member && ctx.can(interaction.member, 'setup')) {
-      e.addFields({ name: 'Verwaltung', value: '`/setup-server` Struktur einrichten\n`/setup-panels` Panels veröffentlichen\n`/ankündigung` Ankündigung veröffentlichen\n`/aufräumen` Archiv und alte Kategorien löschen', inline: false });
+      e.addFields({ name: 'Verwaltung', value: '`/setup-panels` Panels veröffentlichen\n`/ankündigung` Ankündigung veröffentlichen\n`/aufräumen` Archiv und alte Kategorien löschen', inline: false });
     }
     return replyPrivate(interaction, { embeds: [e] });
   },

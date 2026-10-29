@@ -64,7 +64,7 @@ dunkler Kachel (`assets/emojis/`, erzeugt mit `scripts/build-emojis.js`). Beim S
 als **Application Emojis** hoch. Sie gehören dem Bot und belegen keine Emoji-Plätze des Servers.
 Verwendet werden sie in Panels, Buttons, Auswahlmenüs, der Marktübersicht und im Systemstatus.
 Channel-Namen bleiben ohne Emojis, weil Discord dort keine Custom-Emojis zulässt. Hat der Server
-Boost-Stufe 2, setzt `/setup-server` die Icons zusätzlich als **Rollen-Icons**. Bereits gesetzte
+Boost-Stufe 2, setzt die Einrichtung die Icons zusätzlich als **Rollen-Icons**. Bereits gesetzte
 Icons werden nicht überschrieben. Fehlt ein Emoji, wird es weggelassen und nie durch ein
 Standard-Emoji ersetzt.
 
@@ -72,7 +72,7 @@ Standard-Emoji ersetzt.
 
 | Bereich | Umsetzung |
 |---|---|
-| `/setup-server` | Richtet Rollen, Kategorien, Channels und Berechtigungen ein und **migriert** die frühere Struktur (siehe unten). Vorher kommt eine Vorschau mit Bestätigung. Vorhandenes wird erkannt und nicht dupliziert |
+| ~~`/setup-server`~~ | **Entfernt**, weil die Struktur eingerichtet ist. Die Einrichtungslogik (`src/setup/setupServer.js`) bleibt erhalten. Den Befehl stellst du bei Bedarf aus der Git-Historie wieder her (`git checkout 599f0f9 -- src/commands/setup-server.js`) |
 | `/setup-panels` | Dokumentation (mit „Regeln akzeptieren“ und „Konto verknüpfen“), Kundenservice-Panel mit Auswahlmenü, Systemstatus in `systemmeldungen`. Ein erneuter Aufruf **bearbeitet** die Panels, statt neue zu posten |
 | `marktübersicht` | Jeder Markt erhält **genau eine Nachricht**. Sie entsteht beim ersten Erscheinen und wird bei Statuswechseln (offen, pausiert, Handel beendet, entschieden) bearbeitet. Kleinstschwankungen lösen keine Bearbeitung aus, Folgenachrichten gibt es nicht |
 | Konto (privat) | `/verify`, `/balance`, `/portfolio`, `/history`, `/daily`, `/leaderboard`. Alle Antworten sind nur für die anfragende Person sichtbar |
@@ -82,7 +82,10 @@ Standard-Emoji ersetzt.
 
 ## Migration von der früheren Struktur
 
-`/setup-server` erkennt die frühere Struktur (Emoji-Channels wie `📈・live-markets`) über
+> Hinweis: Der Befehl `/setup-server` wurde nach der Migration entfernt. Dieser Abschnitt beschreibt,
+> was er getan hat.
+
+`/setup-server` erkannte die frühere Struktur (Emoji-Channels wie `📈・live-markets`) über
 gespeicherte IDs oder die alten Namen. Die Vorschau listet alle Änderungen auf, bevor etwas passiert.
 
 - **Umbenannt und verschoben** (Nachrichtenverlauf bleibt erhalten, neue Rechte werden gesetzt):
@@ -137,7 +140,7 @@ npm start        # startet den Bot
 
 1. **Servereinstellungen → Rollen:** Die Bot-Rolle ganz nach **oben** ziehen. Der Bot kann
    nur Rollen erstellen, umbenennen, sortieren und vergeben, die unter seiner eigenen Rolle liegen.
-2. `/setup-server` ausführen, die Vorschau prüfen und mit **Einrichtung starten** bestätigen.
+2. `/setup-server` ausführen (derzeit entfernt, siehe Funktionen), die Vorschau prüfen und mit **Einrichtung starten** bestätigen.
    - `veraltete_archivieren: true` verschiebt Channels der früheren Struktur ins ARCHIV.
    - `berechtigungen_synchronisieren: true` setzt auch unveränderte Channels und Rollen auf
      das Standard-Layout zurück.
@@ -147,7 +150,7 @@ npm start        # startet den Bot
 4. `/setup-panels` ausführen.
 5. Dir selbst die Rolle **Inhaber** geben und dem Team die passenden Rollen zuweisen.
 
-`/setup-server` und `/setup-panels` können beliebig oft ausgeführt werden.
+`/setup-panels` kann beliebig oft ausgeführt werden.
 
 ### 4. Website anbinden
 
@@ -244,7 +247,8 @@ src/
     rateLimit.js           Rate-Limits und Sperren
     embeds.js, respond.js, logger.js
   setup/
-    setupServer.js         /setup-server-Logik (idempotent)
+    setupServer.js         Einrichtung und Migration (idempotent)
+    cleanup.js             /aufräumen
     panels.js              /setup-panels-Inhalte
   services/
     marketFeed.js          #marktübersicht (eine Nachricht pro Markt)
@@ -258,4 +262,4 @@ test/                      node:test-Tests
 ```
 
 Custom-IDs folgen dem Schema `hm:<bereich>:<aktion>[:<arg>]`. Neue Channels oder Rollen
-fügst du in `serverLayout.js` hinzu und führst danach `/setup-server` erneut aus.
+fügst du in `serverLayout.js` hinzu. Für die Übernahme auf den Server muss `/setup-server` wiederhergestellt werden.

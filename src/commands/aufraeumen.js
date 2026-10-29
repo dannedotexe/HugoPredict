@@ -25,7 +25,7 @@ module.exports = {
 
     if (!total) {
       const e = embeds.info('Nichts aufzuräumen', 'Es gibt kein Archiv, keine leeren alten Kategorien und keine ausgewählten veralteten Rollen.');
-      if (plan.leftoverChannels.length) e.addFields({ name: 'Veraltete Channels außerhalb des Archivs', value: `${list(plan.leftoverChannels)}\n\nVerschiebe sie zuerst mit \`/setup-server veraltete_archivieren:true\` ins Archiv.`, inline: false });
+      if (plan.leftoverChannels.length) e.addFields({ name: 'Veraltete Channels außerhalb des Archivs', value: `${list(plan.leftoverChannels)}\n\nDiese Channels liegen nicht im Archiv und werden daher nicht automatisch gelöscht.`, inline: false });
       return replyPrivate(interaction, { embeds: [e] });
     }
 
