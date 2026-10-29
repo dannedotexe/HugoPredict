@@ -1,7 +1,6 @@
 'use strict';
 
 const { Client, Events, GatewayIntentBits, Partials } = require('discord.js');
-const { env, assertDiscordEnv } = require('./config/env');
 const { createLogger } = require('./lib/logger');
 const { Store } = require('./lib/store');
 const { HugoApi } = require('./lib/hugoApi');
@@ -14,7 +13,15 @@ const { createStatusService } = require('./services/status');
 const { createMarketFeed } = require('./services/marketFeed');
 const { createLeaderboards } = require('./services/leaderboards');
 
-assertDiscordEnv();
+let env;
+try {
+  const config = require('./config/env');
+  config.assertDiscordEnv();
+  env = config.env;
+} catch (err) {
+  console.error(`Konfigurationsfehler: ${err.message}`);
+  process.exit(1);
+}
 
 const logger = createLogger(env.logLevel);
 const store = new Store(env.dataDir);
@@ -129,6 +136,19 @@ client.on(Events.GuildMemberAdd, async (member) => {
       ].filter(Boolean).join('\n') || 'Schön, dass du da bist.')],
     allowedMentions: { users: [member.id] },
   }).catch((err) => logger.warn('Willkommensnachricht:', err.message));
+});
+
+// Manuell gelöschte Ticket-Channels freigeben, damit das Ticket-Limit nicht blockiert.
+client.on(Events.ChannelDelete, (channel) => {
+  if (!channel.guild) return;
+  const g = store.guild(channel.guild.id);
+  const ticket = g.tickets[channel.id];
+  if (!ticket) return;
+  delete g.tickets[channel.id];
+  store.save();
+  if (ticket.status === 'open') {
+    ctx.audit(channel.guild, 'ticketLogs', { title: `Ticket #${ticket.number} manuell gelöscht`, description: 'Der Channel wurde ohne Abschluss über den Bot gelöscht – kein Transkript vorhanden.' });
+  }
 });
 
 const intervals = [];
