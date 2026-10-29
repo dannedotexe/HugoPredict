@@ -313,7 +313,14 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
       const amount = parseAmount(pay.amount);
       if (amount === null || pay.name.toLowerCase() === bot?.username?.toLowerCase()) return;
       const player = findPlayer(pay.name);
-      claims.push({ name: player?.username ?? pay.name, uuid: player?.uuid ?? null, amount, at: new Date().toISOString() });
+      const claim = { name: player?.username ?? pay.name, uuid: player?.uuid ?? null, amount, at: new Date().toISOString() };
+      if (config.balanceCheck === false) {
+        // MC_BALANCE_CHECK=false: Nachricht gilt direkt, der bekannte Kontostand wird mitgeführt.
+        if (db.lastBalance !== null) setBalance(db.lastBalance + amount);
+        queueDeposit(claim);
+        return;
+      }
+      claims.push(claim);
       scheduleSettle();
       return;
     }

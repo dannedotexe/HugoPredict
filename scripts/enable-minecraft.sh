@@ -2,6 +2,7 @@
 # Schaltet den Minecraft-Bot ein und startet HugoPredict neu.
 #   bash ~/HugoPredict/scripts/enable-minecraft.sh bot@beispiel.de [server]
 # Ohne Server wird hugosmp.net verwendet. Ausschalten: ... --aus
+# Einzahlungen ohne /balance-Prüfung: ... --kontostand-aus (wieder an: --kontostand-an)
 set -euo pipefail
 
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -21,6 +22,9 @@ set_var() {
 if [ "${1:-}" = "--aus" ]; then
   set_var MC_ENABLED false
   echo "Minecraft-Bot ausgeschaltet."
+elif [ "${1:-}" = "--kontostand-aus" ] || [ "${1:-}" = "--kontostand-an" ]; then
+  [ "$1" = "--kontostand-aus" ] && set_var MC_BALANCE_CHECK false || set_var MC_BALANCE_CHECK true
+  echo "Kontostand-Prüfung für Einzahlungen: ${1#--kontostand-}."
 else
   ACCOUNT="${1:-}"
   HOST="${2:-hugosmp.net}"

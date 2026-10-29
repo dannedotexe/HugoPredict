@@ -221,3 +221,16 @@ test('Kontoverknüpfung: Code nur an Spieler, die online sind', async (t) => {
   // Dasselbe Minecraft-Konto kann kein zweites Discord-Konto verknüpfen
   assert.deepEqual(await mc.sendLinkCode('222222222222222222', 'Steve'), { error: 'taken' });
 });
+
+test('MC_BALANCE_CHECK=false: Zahlungsnachricht zählt sofort, ohne /balance', async (t) => {
+  const { world, api, mc } = setup({ balanceCheck: false });
+  t.after(() => mc.stop());
+  mc.start();
+  await until(() => mc._internal.db.lastBalance === 1000);
+  const before = world.sent.filter((m) => m === '/balance').length;
+  world.bots[0].emit('messagestr', 'Steve hat dir 300 gezahlt.', 'system');
+  await until(() => api.calls.deposits.length === 1);
+  assert.equal(api.calls.deposits[0].amount, 300);
+  assert.equal(world.sent.filter((m) => m === '/balance').length, before, 'kein /balance');
+  assert.equal(mc._internal.db.lastBalance, 1300, 'Kontostand mitgeführt');
+});
