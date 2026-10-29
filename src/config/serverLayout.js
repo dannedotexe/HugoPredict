@@ -107,6 +107,8 @@ const PRIVILEGES = {
 
 // Rollen, die der Bot selbst vergeben darf (alle anderen vergeben nur Menschen)
 const SELF_ASSIGNABLE_VIA_BOT = ['member', 'verified', 'notifyMarkets', 'notifyNews'];
+// Community-Rollen ohne „Nickname ändern“ (zusätzlich zu @everyone)
+const NICKNAME_LOCKED_ROLES = ['member', 'verified', 'notifyMarkets', 'notifyNews'];
 
 // ---------------------------------------------------------------------------
 // Berechtigungs-Bausteine
@@ -287,6 +289,7 @@ module.exports = {
   MEMBER_TIER,
   PRIVILEGES,
   SELF_ASSIGNABLE_VIA_BOT,
+  NICKNAME_LOCKED_ROLES,
   TICKET_TYPES,
   LOG_ROUTES,
   REQUIRED_BOT_PERMISSIONS,

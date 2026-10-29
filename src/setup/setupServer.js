@@ -1,7 +1,7 @@
 'use strict';
 
 const { ChannelType, OverwriteType, PermissionsBitField, PermissionFlagsBits } = require('discord.js');
-const { ROLES, CATEGORIES, ARCHIVE_CATEGORY, REQUIRED_BOT_PERMISSIONS } = require('../config/serverLayout');
+const { ROLES, CATEGORIES, ARCHIVE_CATEGORY, REQUIRED_BOT_PERMISSIONS, NICKNAME_LOCKED_ROLES } = require('../config/serverLayout');
 const { LEGACY_CATEGORIES, LEGACY_ROLES } = require('../config/legacyLayout');
 const { emojis } = require('../lib/emojis');
 const fs = require('node:fs');
@@ -458,4 +458,30 @@ async function syncRoleNames(guild, store) {
   return { renamed, warnings };
 }
 
-module.exports = { planSetup, runSetup, buildPlan, resolveOverwrites, missingBotPermissions, syncRoleNames, syncChannelNames, ensureMissingChannels, ensureMissingRoles };
+/**
+ * Entzieht @everyone und den Community-Rollen das Recht „Nickname ändern“.
+ * Teamrollen behalten ihre Rechte; Moderatoren können Namen weiterhin ändern.
+ */
+async function lockNicknames(guild, store) {
+  const g = store.guild(guild.id);
+  const me = guild.members.me;
+  const changed = [];
+  const warnings = [];
+  const targets = [guild.roles.everyone, ...NICKNAME_LOCKED_ROLES.map((k) => guild.roles.cache.get(g.roles[k]))];
+  for (const role of targets) {
+    if (!role?.permissions.has(PermissionFlagsBits.ChangeNickname, false)) continue;
+    if (role.id !== guild.roles.everyone.id && role.position >= me.roles.highest.position) {
+      warnings.push(`Rolle „${role.name}“ liegt über der Bot-Rolle – „Nickname ändern“ bitte manuell entfernen.`);
+      continue;
+    }
+    try {
+      await role.setPermissions(role.permissions.remove(PermissionFlagsBits.ChangeNickname), REASON);
+      changed.push(role.name);
+    } catch (err) {
+      warnings.push(`Rolle „${role.name}“: ${err.message}`);
+    }
+  }
+  return { changed, warnings };
+}
+
+module.exports = { planSetup, runSetup, buildPlan, resolveOverwrites, missingBotPermissions, syncRoleNames, syncChannelNames, ensureMissingChannels, ensureMissingRoles, lockNicknames };

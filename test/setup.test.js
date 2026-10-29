@@ -345,3 +345,25 @@ test('syncChannelNames setzt den Strich vor alle bisherigen Namen', async () => 
   assert.equal(res.renamed.length, L.allChannels().length);
   for (const def of L.allChannels()) assert.equal(guild.channels.cache.get(g.channels[def.key]).name, def.name);
 });
+
+test('lockNicknames entzieht @everyone und Community-Rollen „Nickname ändern“', async () => {
+  const { lockNicknames } = require('../src/setup/setupServer');
+  const mk = (id, name, position, perms) => {
+    const r = { id, name, position, permissions: new PermissionsBitField(perms) };
+    r.setPermissions = async (p) => { r.permissions = new PermissionsBitField(p); };
+    return r;
+  };
+  const everyone = mk('G', '@everyone', 0, [P.ViewChannel, P.ChangeNickname]);
+  const member = mk('M', '| Mitglied', 1, [P.ChangeNickname]);
+  const admin = mk('A', '| Administrator', 2, [P.ChangeNickname, P.ManageNicknames]);
+  const cache = new Map([[everyone.id, everyone], [member.id, member], [admin.id, admin]]);
+  const guild = { id: 'G', roles: { everyone, cache }, members: { me: { roles: { highest: { position: 10 } } } } };
+  const store = tmpStore();
+  Object.assign(store.guild('G').roles, { member: 'M', admin: 'A' });
+  const res = await lockNicknames(guild, store);
+  assert.deepEqual(res.changed, ['@everyone', '| Mitglied']);
+  assert.ok(!everyone.permissions.has(P.ChangeNickname) && everyone.permissions.has(P.ViewChannel));
+  assert.ok(!member.permissions.has(P.ChangeNickname));
+  assert.ok(admin.permissions.has(P.ChangeNickname), 'Teamrollen unverändert');
+  assert.equal((await lockNicknames(guild, store)).changed.length, 0, 'idempotent');
+});
