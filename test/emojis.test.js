@@ -82,7 +82,7 @@ test('Panels mit aktiven Emojis bleiben gültig und unter den Discord-Limits', a
       assert.match(json, /<:hp_/);
     }
     const docs = JSON.stringify(panelDefinitions()[0].build({ env: { currency: 'HC', websiteUrl: '' }, roleIds }).components[0].toJSON());
-    assert.ok(docs.includes(`<@&${id}>\\n> Vollzugriff auf Server, Bot und Plattform`), 'Rolle mit Beschreibung');
+    assert.ok(!docs.includes('<@&'), 'keine Rollenliste in #regeln');
     const menu = panelDefinitions()[1].build({}).components[0].toJSON().components.find((c) => c.type === 1).components[0];
     assert.ok(menu.options.every((o) => o.emoji?.id), 'Auswahlmenü mit Icons');
   } finally {

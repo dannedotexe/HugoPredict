@@ -1,7 +1,7 @@
 'use strict';
 
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
-const { TICKET_TYPES, ROLES } = require('../config/serverLayout');
+const { TICKET_TYPES } = require('../config/serverLayout');
 const { LEGACY_PANELS } = require('../config/legacyLayout');
 const { sections } = require('../config/docs');
 const { truncate } = require('../lib/embeds');
@@ -9,25 +9,17 @@ const { emojis, withEmoji } = require('../lib/emojis');
 const { card, upsert } = require('../lib/ui');
 const theme = require('../config/theme');
 
-/** Abschnitt „Rollen“: Rollen-Erwähnung (pingt nicht) plus Beschreibung. */
-function rolesSection(roleIds = {}) {
-  return ROLES.map((r) => `${emojis.icon(r.icon)}${roleIds[r.key] ? `<@&${roleIds[r.key]}>` : `**${r.name}**`}\n${r.description}`).join('\n');
-}
-
 function panelDefinitions() {
   return [
     {
       key: 'docs',
       channelKey: 'docs',
-      build: ({ env, roleIds, channelIds = {} }) => {
+      build: ({ env, channelIds = {} }) => {
         // Channel-Namen im Text werden zu anklickbaren Verweisen, sofern eingerichtet.
         const link = (text) => text
           .replace(/#ankündigungen/g, channelIds.announcements ? `<#${channelIds.announcements}>` : '#ankündigungen')
           .replace(/#support/g, channelIds.support ? `<#${channelIds.support}>` : '#support');
-        const blocks = [
-          ...sections({ currency: env.currency, websiteUrl: env.websiteUrl }).map((s) => ({ heading: s.title, icon: s.icon, body: link(s.body) })),
-          { heading: 'Rollen', icon: 'roles', body: rolesSection(roleIds) },
-        ];
+        const blocks = sections({ currency: env.currency, websiteUrl: env.websiteUrl }).map((s) => ({ heading: s.title, icon: s.icon, body: link(s.body) }));
         const buttons = [
           withEmoji(new ButtonBuilder().setCustomId('hm:rules:accept').setStyle(ButtonStyle.Success).setLabel('Regeln akzeptieren'), 'check'),
           withEmoji(new ButtonBuilder().setCustomId('hm:verify:start').setStyle(ButtonStyle.Secondary).setLabel('Konto verknüpfen'), 'link'),
@@ -118,4 +110,4 @@ async function publishPanels(guild, { store, env, statusService, statsService })
   return result;
 }
 
-module.exports = { publishPanels, panelDefinitions, rolesSection };
+module.exports = { publishPanels, panelDefinitions };
