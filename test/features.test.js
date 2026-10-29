@@ -420,3 +420,11 @@ test('Bewerbungen: nur nach Regeln, eine offene pro Person, Annahme vergibt die 
   assert.match(panel, /Supporter/);
   assert.match(panel, /Prognoseverwaltung/);
 });
+
+test('Channel-Namen in Ankündigungen werden zu Links', () => {
+  const { linkChannelNames } = require('../src/lib/channelLinks');
+  const ids = { apply: '111', docs: '222' };
+  const out = linkChannelNames('Bewirb dich in #bewerben! Lies #regeln. #gibtsnicht bleibt, <#999> auch.', (k) => ids[k]);
+  assert.equal(out, 'Bewirb dich in <#111>! Lies <#222>. #gibtsnicht bleibt, <#999> auch.');
+  assert.equal(linkChannelNames('## Überschrift #bewerben', (k) => ids[k]), '## Überschrift <#111>');
+});

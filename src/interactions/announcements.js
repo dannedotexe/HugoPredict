@@ -5,8 +5,12 @@ const { embeds, truncate, discordTime } = require('../lib/embeds');
 const { emojis, withEmoji } = require('../lib/emojis');
 const { card } = require('../lib/ui');
 const { replyPrivate, EPHEMERAL } = require('../lib/respond');
+const { linkChannelNames } = require('../lib/channelLinks');
 
-/* Ankündigungen in #ankündigungen, optional mit Ping der Rolle „Ankündigungen“. */
+/*
+ * Ankündigungen in #ankündigungen, optional mit Ping der Rolle „Ankündigungen“.
+ * Channel-Namen wie „#bewerben“ im Text werden automatisch zu Links.
+ */
 
 function announcementModal({ ping = false } = {}) {
   return new ModalBuilder().setCustomId(`hm:announce:submit:${ping ? 1 : 0}`)
@@ -54,7 +58,8 @@ async function publishAnnouncement(guild, a, deps) {
   const channel = await deps.ctx.channel(guild, 'announcements');
   if (!channel?.isTextBased()) throw new Error('Der Channel #ankündigungen ist nicht eingerichtet.');
   const pingRoleId = a.ping ? deps.ctx.roleId(guild.id, 'notifyNews') : null;
-  const msg = await channel.send(announcementCard({ ...a, pingRoleId }));
+  const body = deps.ctx.channelId ? linkChannelNames(a.body, (key) => deps.ctx.channelId(guild.id, key)) : a.body;
+  const msg = await channel.send(announcementCard({ ...a, body, pingRoleId }));
   await deps.ctx.audit(guild, 'audit', {
     title: 'Ankündigung veröffentlicht',
     fields: [{ name: 'Von', value: `<@${a.authorId}>` }, { name: 'Ping', value: pingRoleId ? 'Ja' : 'Nein' }, { name: 'Nachricht', value: msg.url }],
