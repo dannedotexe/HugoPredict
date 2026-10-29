@@ -186,7 +186,7 @@ const V = ChannelType.GuildVoice;
 const SEPARATOR = '┃';
 const ICONS = {
   willkommen: '👋', ankündigungen: '📢', prognosen: '📈', regeln: '📜', pings: '🔔',
-  diskussionen: '💬', analysen: '📊', medien: '📸', vorschläge: '💡', talk: '🔊', support: '🎫', 'support-warteraum': '⏳', 'support-1': '🎧', 'support-2': '🎧',
+  diskussionen: '💬', analysen: '📊', medien: '📸', vorschläge: '💡', talk: '🔊', support: '🎫', 'support-steuerung': '📋', 'support-warteraum': '⏳', 'support-1': '🎧', 'support-2': '🎧',
   betrieb: '🔧', prüfprotokoll: '🧾', systemmeldungen: '📡', moderation: '🔨', team: '👥',
 };
 const named = (plain, ...older) => ({
@@ -248,6 +248,7 @@ const CATEGORIES = [
     permissions: profiles.publicRead({ writers: [...LEADERSHIP, 'support'] }),
     channels: [
       { key: 'support', ...named('support'), type: T, legacy: ['ticketCreate'], topic: 'Private Anfragen an den Kundenservice. Tickets sind nur für dich und das Team sichtbar.', permissions: profiles.publicRead() },
+      { key: 'supportControl', ...named('support-steuerung'), type: T, topic: 'Support-Warteraum öffnen und schließen. Nur für das Team.', permissions: profiles.staff(PRIVILEGES.ticketStaff) },
       { key: 'waitingRoom', ...named('support-warteraum', '⏳┃warteraum', '┃warteraum', 'warteraum'), type: V, permissions: profiles.waitingRoom() },
       { key: 'supportRoom1', ...named('support-1'), type: V, permissions: profiles.supportRoom() },
       { key: 'supportRoom2', ...named('support-2'), type: V, permissions: profiles.supportRoom() },

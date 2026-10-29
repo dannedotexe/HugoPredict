@@ -63,8 +63,8 @@ test('Benachrichtigungs-Karte zieht nach #pings um; alte Nachricht wird entfernt
       messages: { fetch: async (mid) => msgs.get(mid) ?? null },
     };
   };
-  const channels = new Collection(['docs', 'pings', 'support', 'mo', 'sys'].map((id) => [id, makeChannel(id)]));
-  Object.assign(g.channels, { docs: 'docs', pings: 'pings', support: 'support', marketOverview: 'mo', system: 'sys' });
+  const channels = new Collection(['docs', 'pings', 'support', 'mo', 'sys', 'ctl'].map((id) => [id, makeChannel(id)]));
+  Object.assign(g.channels, { docs: 'docs', pings: 'pings', support: 'support', marketOverview: 'mo', system: 'sys', supportControl: 'ctl' });
   const oldMsg = await channels.get('docs').send();
   g.panels.notify = { channelId: 'docs', messageId: oldMsg.id };
   const guild = { id: 'G', client: { user: { id: BOT } }, channels: { cache: channels, fetch: async (id) => channels.get(id) } };
@@ -137,4 +137,29 @@ test('Warteraum meldet wartende Person einmal mit Supporter-Ping', async () => {
   assert.equal(sent.length, 1);
   assert.deepEqual(sent[0].allowedMentions, { roles: ['R'] });
   assert.match(JSON.stringify(sent[0]), /<#S1>/);
+});
+
+test('Support-Warteraum öffnen/schließen ändert „Verbinden“ und meldet nur, wenn offen', async () => {
+  const { createSupportVoiceService, setSupportOpen } = require('../src/services/supportVoice');
+  const { panelDefinitions } = require('../src/setup/panels');
+  const store = tmpStore();
+  store.guild('G').channels.waitingRoom = 'W';
+  const edits = [];
+  const waiting = { permissionOverwrites: { edit: async (target, perms) => edits.push([target, perms]) } };
+  const guild = { id: 'G', roles: { everyone: 'EV' }, channels: { cache: new Collection([['W', waiting]]), fetch: async () => null } };
+  assert.equal(await setSupportOpen(guild, store, false), true);
+  assert.deepEqual(edits[0], ['EV', { Connect: false }]);
+  assert.equal(store.guild('G').supportVoice.open, false);
+
+  const sent = [];
+  const ctx = { channel: async () => ({ isTextBased: () => true, send: async (p) => sent.push(p) }), roleId: () => null };
+  const svc = createSupportVoiceService({ store, ctx, logger: console });
+  await svc.onVoiceStateUpdate({ channelId: null }, { guild, member: { id: '7', user: {} }, channelId: 'W' });
+  assert.equal(sent.length, 0, 'geschlossen: keine Meldung');
+
+  const control = panelDefinitions().find((d) => d.key === 'supportControl');
+  const closed = JSON.stringify(control.build({ channelIds: { waitingRoom: 'W' }, supportOpen: false }));
+  assert.match(closed, /Geschlossen/);
+  const tickets = JSON.stringify(panelDefinitions().find((d) => d.key === 'tickets').build({ channelIds: { waitingRoom: 'W' }, supportOpen: true }));
+  assert.match(tickets, /Sprach-Support/);
 });

@@ -78,13 +78,20 @@ function panelDefinitions() {
     {
       key: 'tickets',
       channelKey: 'support',
-      build: () => card({
+      build: ({ channelIds = {}, supportOpen = true }) => card({
         size: 'lg',
         icon: 'support',
         title: 'Kundenservice',
         intro: 'Du hast eine Frage oder ein Problem? Wähle unten dein Anliegen.\nEs wird ein privater Channel erstellt, den nur du und das zuständige Team sehen.',
         blocks: [
           { heading: 'Anliegen', icon: 'info', body: TICKET_TYPES.map((t) => `${emojis.icon(t.key)}**${t.label}**\n${t.description}`).join('\n') },
+          ...(channelIds.waitingRoom ? [{
+            heading: 'Sprach-Support',
+            icon: supportOpen ? 'open' : 'closed',
+            body: supportOpen
+              ? `**Geöffnet.** Komm in <#${channelIds.waitingRoom}>, wir holen dich ab.`
+              : '**Gerade geschlossen.** Wähle unten dein Anliegen, wir melden uns schriftlich.',
+          }] : []),
           { heading: 'Sicherheit', icon: 'lock', body: 'Das Team fragt niemals nach Passwörtern.\nKorrekturen von Guthaben erfolgen ausschließlich über die Website.' },
         ],
         footer: 'Antworten erhältst du direkt in deinem Anfrage-Channel',
@@ -99,7 +106,41 @@ function panelDefinitions() {
         )],
       }),
     },
+    {
+      key: 'supportControl',
+      channelKey: 'supportControl',
+      build: ({ channelIds = {}, supportOpen = true }) => card({
+        icon: 'support',
+        title: 'Support-Warteraum',
+        intro: supportOpen
+          ? `**Geöffnet.** Mitglieder können ${channelIds.waitingRoom ? `<#${channelIds.waitingRoom}>` : 'den Warteraum'} betreten, wer wartet, wird in #moderation gemeldet.`
+          : `**Geschlossen.** ${channelIds.waitingRoom ? `<#${channelIds.waitingRoom}>` : 'Der Warteraum'} ist sichtbar, kann aber nicht betreten werden.`,
+        accent: supportOpen ? theme.colors.success : theme.colors.neutral,
+        logo: false,
+        blocks: [{ body: 'Öffne den Warteraum, sobald jemand vom Team Zeit hat, und schließe ihn, wenn niemand mehr betreuen kann.' }],
+        footer: null,
+        actions: [new ActionRowBuilder().addComponents(
+          withEmoji(new ButtonBuilder().setCustomId('hm:supportvoice:open').setStyle(ButtonStyle.Success).setLabel('Öffnen').setDisabled(supportOpen), 'open'),
+          withEmoji(new ButtonBuilder().setCustomId('hm:supportvoice:close').setStyle(ButtonStyle.Danger).setLabel('Schließen').setDisabled(!supportOpen), 'closed'),
+        )],
+      }),
+    },
   ];
+}
+
+const buildArgs = (guild, g, env) => ({ guild, env, roleIds: g.roles, channelIds: g.channels, supportOpen: g.supportVoice.open });
+
+/** Aktualisiert einzelne, bereits veröffentlichte Panels (z. B. nach Öffnen/Schließen des Warteraums). */
+async function refreshPanels(guild, keys, { store, env }) {
+  const g = store.guild(guild.id);
+  for (const def of panelDefinitions().filter((d) => keys.includes(d.key))) {
+    const ref = g.panels[def.key];
+    const channel = ref && guild.channels.cache.get(ref.channelId);
+    if (!channel?.isTextBased()) continue;
+    const msg = await upsert(channel, ref, def.build(buildArgs(guild, g, env)));
+    g.panels[def.key] = { channelId: channel.id, messageId: msg.id };
+  }
+  store.save();
 }
 
 /**
@@ -133,7 +174,7 @@ async function publishPanels(guild, { store, env, statusService, statsService })
 
   for (const def of panelDefinitions()) {
     try {
-      await publish(def.key, g.channels[def.channelKey], def.build({ guild, env, roleIds: g.roles, channelIds: g.channels }));
+      await publish(def.key, g.channels[def.channelKey], def.build(buildArgs(guild, g, env)));
     } catch (err) {
       result.errors.push(`${def.key}: ${err.message}`);
     }
@@ -156,4 +197,4 @@ async function publishPanels(guild, { store, env, statusService, statsService })
   return result;
 }
 
-module.exports = { publishPanels, panelDefinitions };
+module.exports = { publishPanels, panelDefinitions, refreshPanels };

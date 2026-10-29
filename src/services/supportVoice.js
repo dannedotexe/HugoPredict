@@ -7,6 +7,9 @@ const { card } = require('../lib/ui');
  * Support-Warteraum: Betritt jemand den Warteraum, erfährt das Team es in
  * #moderation (mit Ping der Supporter-Rolle) und kann die Person in einen
  * Support-Raum ziehen. Pro Person höchstens eine Meldung in fünf Minuten.
+ *
+ * Über das Panel in #support-steuerung öffnet und schließt das Team den
+ * Warteraum. Geschlossen bleibt er sichtbar, man kann ihn aber nicht betreten.
  */
 
 const REPEAT_MS = 5 * 60_000;
@@ -21,6 +24,7 @@ function createSupportVoiceService({ store, ctx, logger, now = Date.now }) {
     const g = store.guild(guild.id);
     const waitingId = g.channels.waitingRoom;
     if (!waitingId || newState.channelId !== waitingId || oldState.channelId === waitingId) return;
+    if (!g.supportVoice.open) return;
 
     const key = `${guild.id}:${member.id}`;
     if (now() - (lastNotice.get(key) ?? 0) < REPEAT_MS) return;
@@ -45,4 +49,18 @@ function createSupportVoiceService({ store, ctx, logger, now = Date.now }) {
   return { onVoiceStateUpdate };
 }
 
-module.exports = { createSupportVoiceService };
+/**
+ * Setzt den Warteraum auf offen oder geschlossen (Recht „Verbinden“ für @everyone).
+ * Gibt false zurück, wenn der Warteraum noch nicht eingerichtet ist.
+ */
+async function setSupportOpen(guild, store, open) {
+  const g = store.guild(guild.id);
+  const channel = g.channels.waitingRoom && (guild.channels.cache.get(g.channels.waitingRoom) ?? (await guild.channels.fetch(g.channels.waitingRoom).catch(() => null)));
+  if (!channel) return false;
+  await channel.permissionOverwrites.edit(guild.roles.everyone, { Connect: open }, { reason: `Support-Warteraum ${open ? 'geöffnet' : 'geschlossen'}` });
+  g.supportVoice.open = open;
+  store.save();
+  return true;
+}
+
+module.exports = { createSupportVoiceService, setSupportOpen };
