@@ -41,7 +41,7 @@ test('Rollen: deutsche Namen, geforderte Reihenfolge, ohne Emojis', () => {
 test('Struktur entspricht exakt der Vorgabe', () => {
   assert.deepEqual(L.CATEGORIES.map((c) => [c.name, c.channels.map((ch) => ch.name)]), [
     ['INFORMATIONEN', ['👋┃willkommen', '📢┃ankündigungen', '📈┃marktübersicht', '📜┃regeln', '🔔┃pings']],
-    ['COMMUNITY', ['💬┃diskussionen', '📊┃marktanalysen']],
+    ['COMMUNITY', ['💬┃diskussionen', '📊┃marktanalysen', '📸┃medien']],
     ['KUNDENSERVICE', ['🎫┃support']],
     ['INTERN · PRIVAT', ['🔧┃betrieb', '🧾┃prüfprotokoll', '📡┃systemmeldungen', '🔨┃moderation', '👥┃team']],
   ]);
@@ -137,4 +137,12 @@ test('Vorgänger-Schlüssel existieren in der früheren Struktur und sind eindeu
       }
     }
   }
+});
+
+test('Medien-Channel: Mitglieder dürfen Bilder hochladen, Gäste sehen ihn nicht', () => {
+  const ch = channel('media');
+  assert.ok(can(ch, ['member'], P.AttachFiles) && can(ch, ['member'], P.SendMessages));
+  assert.ok(can(ch, ['member'], P.EmbedLinks));
+  assert.ok(!can(ch, [], P.ViewChannel));
+  assert.equal(ch.rateLimitPerUser, 30);
 });

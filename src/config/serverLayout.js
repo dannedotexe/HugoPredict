@@ -159,7 +159,7 @@ const T = ChannelType.GuildText;
 const SEPARATOR = '┃';
 const ICONS = {
   willkommen: '👋', ankündigungen: '📢', marktübersicht: '📈', regeln: '📜', pings: '🔔',
-  diskussionen: '💬', marktanalysen: '📊', support: '🎫',
+  diskussionen: '💬', marktanalysen: '📊', medien: '📸', support: '🎫',
   betrieb: '🔧', prüfprotokoll: '🧾', systemmeldungen: '📡', moderation: '🔨', team: '👥',
 };
 const named = (plain, ...older) => ({
@@ -209,6 +209,7 @@ const CATEGORIES = [
     channels: [
       { key: 'discussions', ...named('diskussionen'), type: T, legacy: ['general'], topic: 'Sachlicher Austausch rund um Plattform und Märkte.', permissions: profiles.memberChat() },
       { key: 'analyses', ...named('marktanalysen'), type: T, legacy: ['analyses'], topic: 'Fundierte Analysen zu einzelnen Märkten. Keine Anlageberatung.', permissions: profiles.memberChat(), rateLimitPerUser: 30 },
+      { key: 'media', ...named('medien'), type: T, topic: 'Bilder, Screenshots und Clips rund um HugoSMP und die Märkte. Bitte nur eigene Inhalte.', permissions: profiles.memberChat(), rateLimitPerUser: 30 },
     ],
   },
   {
