@@ -133,11 +133,11 @@ for (const withStore of [true, false]) {
 
     // Vorgänger behält ID und Nachrichten, bekommt neuen Namen, neue Kategorie und neue Rechte
     assert.equal(g.channels.marketOverview, oldLive.id);
-    assert.equal(oldLive.name, '┃marktübersicht');
+    assert.equal(oldLive.name, '📈┃marktübersicht');
     assert.equal(oldLive.parentId, g.categories.info);
     assert.deepEqual(oldLive.messages, ['bestehende Nachricht']);
     const audit = guild.channels.cache.get(g.channels.audit);
-    assert.equal(audit.name, '┃prüfprotokoll');
+    assert.equal(audit.name, '🧾┃prüfprotokoll');
     assert.ok((audit.ow.find((o) => o.id === 'G').deny & P.ViewChannel) === P.ViewChannel, 'Prüfprotokoll geschützt');
     assert.ok(!audit.ow.some((o) => o.id === g.roles.member || o.id === g.roles.support), 'kein Zugriff für Mitglied/Kundenservice');
 
@@ -286,7 +286,7 @@ test('ensureMissingChannels legt nur fehlende Channels an und ändert nichts Bes
   const before = new Map([...guild.channels.cache.values()].map((c) => [c.id, snap(c)]));
   for (const c of guild.channels.cache.values()) c.setPosition = async () => {};
   const res = await ensureMissingChannels(guild, store);
-  assert.deepEqual(res.created, ['#┃willkommen']);
+  assert.deepEqual(res.created, ['#👋┃willkommen']);
   const created = guild.channels.cache.get(g.channels.greeting);
   assert.equal(created.parentId, g.categories.info);
   for (const [id, saved] of before) assert.equal(snap(guild.channels.cache.get(id)), saved, 'unverändert');
@@ -306,8 +306,8 @@ test('syncChannelNames benennt #dokumentation in #regeln um, sonst nichts', asyn
   custom.name = 'mein-chat';
   for (const c of guild.channels.cache.values()) c.setName = async (n) => { c.name = n; };
   const res = await syncChannelNames(guild, store);
-  assert.deepEqual(res.renamed.filter((r) => r.startsWith('#dokumentation')), ['#dokumentation → #┃regeln']);
-  assert.equal(docs.name, '┃regeln');
+  assert.deepEqual(res.renamed.filter((r) => r.startsWith('#dokumentation')), ['#dokumentation → #📜┃regeln']);
+  assert.equal(docs.name, '📜┃regeln');
   assert.equal(custom.name, 'mein-chat', 'selbst gewählte Namen bleiben');
   assert.equal((await syncChannelNames(guild, store)).renamed.length, 0);
 });
@@ -335,7 +335,7 @@ test('syncChannelNames setzt den Strich vor alle bisherigen Namen', async () => 
   const g = store.guild('G');
   for (const def of L.allChannels()) {
     const ch = guild.channels.cache.get(g.channels[def.key]);
-    ch.name = def.previousNames[0]; // Stand ohne Strich, wie aktuell auf dem Server
+    ch.name = def.previousNames[0]; // aktueller Stand auf dem Server (nur Strich)
     ch.setName = async (n) => { ch.name = n; };
   }
   const res = await syncChannelNames(guild, store);

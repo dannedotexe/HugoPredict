@@ -40,13 +40,13 @@ test('Rollen: deutsche Namen, geforderte Reihenfolge, ohne Emojis', () => {
 
 test('Struktur entspricht exakt der Vorgabe', () => {
   assert.deepEqual(L.CATEGORIES.map((c) => [c.name, c.channels.map((ch) => ch.name)]), [
-    ['INFORMATIONEN', ['┃willkommen', '┃ankündigungen', '┃marktübersicht', '┃regeln', '┃pings']],
-    ['COMMUNITY', ['┃diskussionen', '┃marktanalysen']],
-    ['KUNDENSERVICE', ['┃support']],
-    ['INTERN · PRIVAT', ['┃betrieb', '┃prüfprotokoll', '┃systemmeldungen', '┃moderation', '┃team']],
+    ['INFORMATIONEN', ['👋┃willkommen', '📢┃ankündigungen', '📈┃marktübersicht', '📜┃regeln', '🔔┃pings']],
+    ['COMMUNITY', ['💬┃diskussionen', '📊┃marktanalysen']],
+    ['KUNDENSERVICE', ['🎫┃support']],
+    ['INTERN · PRIVAT', ['🔧┃betrieb', '🧾┃prüfprotokoll', '📡┃systemmeldungen', '🔨┃moderation', '👥┃team']],
   ]);
-  // Präfix „┃“ plus Kleinbuchstaben – keine Emojis
-  for (const ch of L.allChannels()) assert.match(ch.name, /^┃[a-zäöüß-]+$/, ch.name);
+  // Genau ein Emoji, dann „┃“, dann Kleinbuchstaben
+  for (const ch of L.allChannels()) assert.match(ch.name, /^\p{Extended_Pictographic}┃[a-zäöüß-]+$/u, ch.name);
 });
 
 test('Administrator-Recht nur bei der Rolle Administrator', () => {

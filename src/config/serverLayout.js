@@ -154,9 +154,18 @@ const profiles = {
 // ---------------------------------------------------------------------------
 
 const T = ChannelType.GuildText;
-// Einheitlicher Präfix vor allen Channel-Namen (Unicode-Strich, kein Emoji).
-const PREFIX = '┃';
-const named = (plain, ...older) => ({ name: `${PREFIX}${plain}`, previousNames: [plain, ...older] });
+// Channel-Namen: Emoji + Strich + Name, z. B. „📜┃regeln“. Frühere Schreibweisen
+// (mit Strich ohne Emoji bzw. ganz ohne) werden von /setup-panels umbenannt.
+const SEPARATOR = '┃';
+const ICONS = {
+  willkommen: '👋', ankündigungen: '📢', marktübersicht: '📈', regeln: '📜', pings: '🔔',
+  diskussionen: '💬', marktanalysen: '📊', support: '🎫',
+  betrieb: '🔧', prüfprotokoll: '🧾', systemmeldungen: '📡', moderation: '🔨', team: '👥',
+};
+const named = (plain, ...older) => ({
+  name: `${ICONS[plain] ?? ''}${SEPARATOR}${plain}`,
+  previousNames: [`${SEPARATOR}${plain}`, plain, ...older],
+});
 
 const CATEGORIES = [
   {
