@@ -369,7 +369,7 @@ async function ensureMissingChannels(guild, store) {
       const { overwrites } = resolveOverwrites(def.permissions, { guild, me, roleIds: g.roles });
       const ch = await guild.channels.create({
         name: def.name, type: def.type, parent: parent.id, topic: def.topic,
-        rateLimitPerUser: def.rateLimitPerUser, permissionOverwrites: overwrites, reason: REASON,
+        rateLimitPerUser: def.rateLimitPerUser, userLimit: def.userLimit, permissionOverwrites: overwrites, reason: REASON,
       });
       // An die Layout-Position innerhalb der Kategorie setzen
       await ch.setPosition(category.channels.findIndex((c) => c.key === def.key)).catch(() => {});

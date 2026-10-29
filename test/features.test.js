@@ -127,9 +127,9 @@ test('Warteraum meldet wartende Person einmal mit Supporter-Ping', async () => {
   Object.assign(store.guild('G').channels, { waitingRoom: 'W', supportRoom1: 'S1' });
   const sent = [];
   const channel = { isTextBased: () => true, send: async (p) => sent.push(p) };
-  const ctx = { channel: async () => channel, roleId: (g, k) => (k === 'support' ? 'R' : null) };
-  const svc = createSupportVoiceService({ store, ctx, logger: console });
-  const guild = { id: 'G' };
+  const ctx = { channel: async () => channel, roleId: (g, k) => (k === 'support' ? 'R' : null), can: () => false };
+  const svc = createSupportVoiceService({ store, ctx, logger: console, renderDelayMs: 1e6 });
+  const guild = { id: 'G', channels: { cache: new Collection() } };
   const member = { id: '7', user: { bot: false } };
   await svc.onVoiceStateUpdate({ channelId: null }, { guild, member, channelId: 'W' });
   await svc.onVoiceStateUpdate({ channelId: 'W' }, { guild, member, channelId: 'S1' }); // verschoben
@@ -137,6 +137,45 @@ test('Warteraum meldet wartende Person einmal mit Supporter-Ping', async () => {
   assert.equal(sent.length, 1);
   assert.deepEqual(sent[0].allowedMentions, { roles: ['R'] });
   assert.match(JSON.stringify(sent[0]), /<#S1>/);
+  assert.match(JSON.stringify(sent[0]), /Platz 1/);
+});
+
+test('Warteschlange im Warteraum-Chat: Reihenfolge nach Ankunft, Team zählt nicht, Limit sichtbar', async () => {
+  const { createSupportVoiceService } = require('../src/services/supportVoice');
+  const store = tmpStore();
+  store.guild('G').channels.waitingRoom = 'W';
+  let t = 1_000_000;
+  const posted = [];
+  const members = new Collection();
+  const waiting = {
+    id: 'W', members, isTextBased: () => true,
+    send: async (p) => { posted.push(p); return { id: 'q1', edit: async (e) => { posted.push(e); return { id: 'q1' }; } }; },
+    messages: { fetch: async () => ({ id: 'q1', edit: async (e) => { posted.push(e); return { id: 'q1' }; } }) },
+  };
+  const guild = { id: 'G', channels: { cache: new Collection([['W', waiting]]) } };
+  const ctx = { channel: async () => ({ isTextBased: () => true, send: async () => {} }), roleId: () => null, can: (m) => m.id === 'staff' };
+  const svc = createSupportVoiceService({ store, ctx, logger: console, now: () => t, renderDelayMs: 1e6 });
+  const join = async (id) => {
+    const m = { id, user: { bot: false } };
+    members.set(id, m);
+    t += 1000;
+    await svc.onVoiceStateUpdate({ channelId: null }, { guild, member: m, channelId: 'W' });
+  };
+  await join('anna');
+  await join('staff');
+  await join('ben');
+  let text = JSON.stringify(svc.buildQueueCard(guild));
+  assert.ok(text.indexOf('<@anna>') < text.indexOf('<@ben>'), 'Anna zuerst');
+  assert.ok(!text.includes('<@staff>'), 'Team steht nicht in der Schlange');
+  assert.match(text, /2 von 5 Plätzen belegt/);
+
+  members.delete('anna');
+  await svc.onVoiceStateUpdate({ channelId: 'W' }, { guild, member: { id: 'anna', user: {} }, channelId: null });
+  await svc.refresh(guild);
+  text = JSON.stringify(posted.at(-1));
+  assert.match(text, /\*\*1\.\*\* <@ben>/);
+  assert.equal(store.guild('G').panels.queue.messageId, 'q1');
+  assert.deepEqual(posted.at(-1).allowedMentions, { parse: [] }, 'niemand wird gepingt');
 });
 
 test('Support-Warteraum öffnen/schließen ändert „Verbinden“ und meldet nur, wenn offen', async () => {
@@ -152,8 +191,8 @@ test('Support-Warteraum öffnen/schließen ändert „Verbinden“ und meldet nu
   assert.equal(store.guild('G').supportVoice.open, false);
 
   const sent = [];
-  const ctx = { channel: async () => ({ isTextBased: () => true, send: async (p) => sent.push(p) }), roleId: () => null };
-  const svc = createSupportVoiceService({ store, ctx, logger: console });
+  const ctx = { channel: async () => ({ isTextBased: () => true, send: async (p) => sent.push(p) }), roleId: () => null, can: () => false };
+  const svc = createSupportVoiceService({ store, ctx, logger: console, renderDelayMs: 1e6 });
   await svc.onVoiceStateUpdate({ channelId: null }, { guild, member: { id: '7', user: {} }, channelId: 'W' });
   assert.equal(sent.length, 0, 'geschlossen: keine Meldung');
 

@@ -22,6 +22,7 @@ async function handle(interaction, deps, [action]) {
     return replyPrivate(interaction, { embeds: [embeds.error('Nicht möglich', 'Die Rechte des Warteraums konnten nicht geändert werden. Die Bot-Rolle braucht „Verbinden“ und „Kanäle verwalten“.')] });
   }
   await refreshPanels(interaction.guild, ['supportControl', 'tickets'], deps).catch((err) => deps.logger.warn('Panels aktualisieren:', err.message));
+  await deps.services?.supportVoice?.refresh(interaction.guild).catch((err) => deps.logger.warn('Warteschlange:', err.message));
   await deps.ctx.audit(interaction.guild, 'tickets', {
     title: `Support-Warteraum ${open ? 'geöffnet' : 'geschlossen'}`,
     fields: [{ name: 'Von', value: `<@${interaction.user.id}>` }],

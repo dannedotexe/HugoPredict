@@ -166,4 +166,7 @@ test('Support-Sprachkanäle: Warteraum für alle, Support-Räume nur per Verschi
     assert.ok(!can(room, ['member', 'verified'], P.Connect), key);
   }
   assert.ok(can(wait, ['support'], P.MoveMembers));
+  assert.equal(wait.userLimit, L.WAITING_ROOM_LIMIT);
+  assert.equal(L.WAITING_ROOM_LIMIT, 5);
+  assert.ok(!can(wait, ['member'], P.SendMessages) && can(wait, ['support'], P.SendMessages), 'Chat nur fürs Team');
 });

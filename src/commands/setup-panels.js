@@ -5,7 +5,7 @@ const { NOTIFY_BOT_PERMISSION } = require('../config/serverLayout');
 const { embeds } = require('../lib/embeds');
 const { replyPrivate, EPHEMERAL } = require('../lib/respond');
 const { publishPanels } = require('../setup/panels');
-const { setSupportOpen } = require('../services/supportVoice');
+const { setSupportOpen, syncWaitingRoom } = require('../services/supportVoice');
 const { syncRoleNames, syncChannelNames, ensureMissingChannels, ensureMissingRoles, lockNicknames } = require('../setup/setupServer');
 
 module.exports = {
@@ -31,6 +31,9 @@ module.exports = {
     const channels = await ensureMissingChannels(interaction.guild, deps.store);
     // Ein neu angelegter Warteraum übernimmt den gespeicherten Zustand (offen/geschlossen).
     if (!deps.store.guild(interaction.guild.id).supportVoice.open) await setSupportOpen(interaction.guild, deps.store, false).catch(() => {});
+    // Platzlimit und Warteschlange im Warteraum
+    await syncWaitingRoom(interaction.guild, deps.store).catch((err) => deps.logger.warn('Warteraum einrichten:', err.message));
+    await deps.services.supportVoice?.refresh(interaction.guild).catch((err) => deps.logger.warn('Warteschlange:', err.message));
     const result = await publishPanels(interaction.guild, { store: deps.store, env: deps.env, statusService: deps.services.status, statsService: deps.services.stats });
     await deps.ctx.audit(interaction.guild, 'audit', {
       title: 'Panels veröffentlicht',

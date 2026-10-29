@@ -17,7 +17,7 @@ API an.
 |---|---|---|
 | **INFORMATIONEN** | `👋┃willkommen`, `📢┃ankündigungen`, `📈┃prognosen`, `📜┃regeln`, `🔔┃pings` | alle (nur lesen) |
 | **COMMUNITY** | `💬┃diskussionen`, `📊┃analysen`, `📸┃medien`, `💡┃vorschläge`, `🔊┃talk` (Sprachkanal) | ab *Mitglied* |
-| **KUNDENSERVICE** | `🎫┃support` (+ private Anfrage-Channels), `📋┃support-steuerung` (nur Team), Sprachkanäle `⏳┃support-warteraum`, `🎧┃support-1`, `🎧┃support-2` | alle (nur lesen); Anfragen nur für Ersteller und Team. Im Warteraum darf jeder warten (ohne zu sprechen); die Support-Räume betritt nur das Team, Nutzer werden hineingezogen. Wer den Warteraum betritt, wird in `moderation` mit Ping der Supporter gemeldet. In `support-steuerung` öffnet, schließt und leert das Team den Warteraum per Button („Leeren“ trennt alle Wartenden, das Team bleibt); der Status steht auch auf der Kundenservice-Karte |
+| **KUNDENSERVICE** | `🎫┃support` (+ private Anfrage-Channels), `📋┃support-steuerung` (nur Team), Sprachkanäle `⏳┃support-warteraum`, `🎧┃support-1`, `🎧┃support-2` | alle (nur lesen); Anfragen nur für Ersteller und Team. Im Warteraum dürfen bis zu 5 Personen warten (ohne zu sprechen, das Team zählt nicht mit); im Chat des Warteraums zeigt der Bot die Warteschlange in Ankunftsreihenfolge; die Support-Räume betritt nur das Team, Nutzer werden hineingezogen. Wer den Warteraum betritt, wird in `moderation` mit Ping der Supporter gemeldet. In `support-steuerung` öffnet, schließt und leert das Team den Warteraum per Button („Leeren“ trennt alle Wartenden, das Team bleibt); der Status steht auch auf der Kundenservice-Karte |
 | **INTERN · PRIVAT** | `🔧┃betrieb`, `🧾┃prüfprotokoll`, `📡┃systemmeldungen`, `🔨┃moderation`, `👥┃team` | nur zuständige Teamrollen |
 
 **Interne Channels im Detail**

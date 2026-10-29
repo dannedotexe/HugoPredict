@@ -151,8 +151,9 @@ function wire({ stats, welcome, membersIntent }) {
     }
   });
 
-  // Support-Warteraum: Team in #moderation informieren
+  // Support-Warteraum: Warteschlange im Warteraum-Chat, Team in #moderation informieren
   const supportVoice = createSupportVoiceService({ store, ctx, logger });
+  deps.services.supportVoice = supportVoice;
   client.on(Events.VoiceStateUpdate, (oldState, newState) => supportVoice.onVoiceStateUpdate(oldState, newState).catch((err) => logger.warn('Warteraum:', err.message)));
 
   // Begrüßung neuer Mitglieder per Direktnachricht (nur mit „Server Members Intent“)
@@ -167,6 +168,7 @@ function wire({ stats, welcome, membersIntent }) {
     // Custom-Emojis zuerst bereitstellen, damit Panels und Embeds sie nutzen können.
     await emojis.sync(c, logger);
     minecraft?.start();
+    deps.services.supportVoice?.init(c);
 
     const every = (ms, fn, name) => {
       const run = () => fn(c).catch((err) => logger.error(`${name}:`, err));

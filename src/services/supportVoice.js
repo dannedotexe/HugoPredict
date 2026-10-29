@@ -1,31 +1,95 @@
 'use strict';
 
-const { LOG_ROUTES } = require('../config/serverLayout');
-const { card } = require('../lib/ui');
+const { LOG_ROUTES, WAITING_ROOM_LIMIT, PRIVILEGES } = require('../config/serverLayout');
+const { discordTime } = require('../lib/embeds');
+const { card, upsert } = require('../lib/ui');
 
 /*
  * Support-Warteraum: Betritt jemand den Warteraum, erfährt das Team es in
  * #moderation (mit Ping der Supporter-Rolle) und kann die Person in einen
  * Support-Raum ziehen. Pro Person höchstens eine Meldung in fünf Minuten.
  *
+ * Im Chat des Warteraums steht die Warteschlange (wer zuerst kam, ist zuerst
+ * dran). Sie wird bei jedem Betreten und Verlassen aktualisiert. Höchstens
+ * WAITING_ROOM_LIMIT Personen passen hinein; das Team zählt mit „Mitglieder
+ * verschieben“ nicht zum Limit.
+ *
  * Über das Panel in #support-steuerung öffnet und schließt das Team den
  * Warteraum. Geschlossen bleibt er sichtbar, man kann ihn aber nicht betreten.
  */
 
 const REPEAT_MS = 5 * 60_000;
+const RENDER_DELAY_MS = 1500;
 
-function createSupportVoiceService({ store, ctx, logger, now = Date.now }) {
+function createSupportVoiceService({ store, ctx, logger, now = Date.now, renderDelayMs = RENDER_DELAY_MS }) {
   const lastNotice = new Map();
+  // guildId → Map(memberId → Zeitpunkt des Betretens), in Reihenfolge des Betretens
+  const queues = new Map();
+  const renderTimers = new Map();
 
-  async function onVoiceStateUpdate(oldState, newState) {
-    const guild = newState.guild;
-    const member = newState.member;
-    if (!guild || !member || member.user?.bot) return;
+  const isStaff = (member) => ctx.can(member, 'ticketStaff');
+  const queueOf = (guildId) => queues.get(guildId) ?? queues.set(guildId, new Map()).get(guildId);
+
+  function waitingChannel(guild) {
+    const id = store.guild(guild.id).channels.waitingRoom;
+    return id ? guild.channels.cache.get(id) ?? null : null;
+  }
+
+  /** Gleicht die Warteschlange mit den Personen im Warteraum ab (z. B. nach einem Neustart). */
+  function syncQueue(guild) {
+    const channel = waitingChannel(guild);
+    const queue = queueOf(guild.id);
+    const present = channel ? [...channel.members.values()].filter((m) => !m.user?.bot && !isStaff(m)) : [];
+    for (const id of queue.keys()) if (!present.some((m) => m.id === id)) queue.delete(id);
+    for (const m of present) if (!queue.has(m.id)) queue.set(m.id, now());
+    return queue;
+  }
+
+  function buildQueueCard(guild) {
     const g = store.guild(guild.id);
-    const waitingId = g.channels.waitingRoom;
-    if (!waitingId || newState.channelId !== waitingId || oldState.channelId === waitingId) return;
-    if (!g.supportVoice.open) return;
+    const queue = [...syncQueue(guild).entries()];
+    const lines = queue.map(([id, since], i) => `**${i + 1}.** <@${id}> · wartet seit ${discordTime(new Date(since), 'R')}`);
+    return card({
+      icon: 'support',
+      title: 'Warteschlange',
+      intro: g.supportVoice.open
+        ? 'Bitte warte, bis dich jemand vom Team in einen Support-Raum holt. Wer zuerst da war, ist zuerst dran.'
+        : '**Der Support ist gerade geschlossen.** Erstelle gern eine Anfrage in #support.',
+      logo: false,
+      blocks: [{
+        heading: `${queue.length} von ${WAITING_ROOM_LIMIT} Plätzen belegt`,
+        body: lines.length ? lines.join('\n') : 'Gerade wartet niemand.',
+      }],
+      footer: null,
+    });
+  }
 
+  /** Aktualisiert die Warteschlangen-Karte im Chat des Warteraums (gebündelt). */
+  function scheduleRender(guild) {
+    clearTimeout(renderTimers.get(guild.id));
+    const timer = setTimeout(() => {
+      renderTimers.delete(guild.id);
+      render(guild).catch((err) => logger.warn('Warteschlange:', err.message));
+    }, renderDelayMs);
+    timer.unref?.();
+    renderTimers.set(guild.id, timer);
+  }
+
+  async function render(guild) {
+    const channel = waitingChannel(guild);
+    if (!channel?.isTextBased?.()) return;
+    const g = store.guild(guild.id);
+    const ref = g.panels.queue?.channelId === channel.id ? g.panels.queue : null;
+    const payload = buildQueueCard(guild);
+    const msg = await upsert(channel, ref, { ...payload, allowedMentions: { parse: [] } });
+    if (msg.id !== ref?.messageId) {
+      g.panels.queue = { channelId: channel.id, messageId: msg.id };
+      store.save();
+    }
+  }
+
+  async function notifyTeam(guild, member) {
+    const g = store.guild(guild.id);
     const key = `${guild.id}:${member.id}`;
     if (now() - (lastNotice.get(key) ?? 0) < REPEAT_MS) return;
     lastNotice.set(key, now());
@@ -34,10 +98,11 @@ function createSupportVoiceService({ store, ctx, logger, now = Date.now }) {
     if (!channel?.isTextBased()) return;
     const supportRole = ctx.roleId(guild.id, 'support');
     const rooms = ['supportRoom1', 'supportRoom2'].map((k) => g.channels[k]).filter(Boolean).map((id) => `<#${id}>`);
+    const position = [...queueOf(guild.id).keys()].indexOf(member.id) + 1;
     const payload = card({
       icon: 'support',
       title: 'Jemand wartet auf Support',
-      intro: `${supportRole ? `<@&${supportRole}> · ` : ''}<@${member.id}> wartet in <#${waitingId}>.`,
+      intro: `${supportRole ? `<@&${supportRole}> · ` : ''}<@${member.id}> wartet in <#${g.channels.waitingRoom}>${position > 0 ? ` (Platz ${position})` : ''}.`,
       logo: false,
       blocks: [{ body: rooms.length ? `Zieh die Person in ${rooms.join(' oder ')}.` : 'Zieh die Person in einen freien Support-Raum.' }],
       footer: null,
@@ -46,7 +111,32 @@ function createSupportVoiceService({ store, ctx, logger, now = Date.now }) {
       .catch((err) => logger.warn('Support-Warteraum:', err.message));
   }
 
-  return { onVoiceStateUpdate };
+  async function onVoiceStateUpdate(oldState, newState) {
+    const guild = newState.guild;
+    const member = newState.member;
+    if (!guild || !member || member.user?.bot) return;
+    const waitingId = store.guild(guild.id).channels.waitingRoom;
+    if (!waitingId || oldState.channelId === newState.channelId) return;
+    const joined = newState.channelId === waitingId;
+    const left = oldState.channelId === waitingId;
+    if (!joined && !left) return;
+    if (isStaff(member)) return; // das Team steht nicht in der Schlange
+
+    const queue = queueOf(guild.id);
+    if (left) queue.delete(member.id);
+    if (joined && !queue.has(member.id)) queue.set(member.id, now());
+    scheduleRender(guild);
+    if (joined && store.guild(guild.id).supportVoice.open) await notifyTeam(guild, member);
+  }
+
+  /** Nach dem Start: Warteschlangen aller Server aufbauen und anzeigen. */
+  function init(client) {
+    for (const guild of client.guilds.cache.values()) if (waitingChannel(guild)) scheduleRender(guild);
+  }
+
+  const refresh = (guild) => render(guild);
+
+  return { onVoiceStateUpdate, init, refresh, buildQueueCard, syncQueue };
 }
 
 /**
@@ -61,6 +151,22 @@ async function setSupportOpen(guild, store, open) {
   g.supportVoice.open = open;
   store.save();
   return true;
+}
+
+/**
+ * Bringt einen bestehenden Warteraum auf den aktuellen Stand: Platzlimit und
+ * Chat nur für das Team (damit die Warteschlange sichtbar bleibt).
+ */
+async function syncWaitingRoom(guild, store) {
+  const g = store.guild(guild.id);
+  const channel = g.channels.waitingRoom && guild.channels.cache.get(g.channels.waitingRoom);
+  if (!channel) return;
+  if (channel.userLimit !== WAITING_ROOM_LIMIT) await channel.setUserLimit(WAITING_ROOM_LIMIT, 'Support-Warteraum: Platzlimit');
+  await channel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false }, { reason: 'Support-Warteraum: Chat nur für das Team' });
+  for (const key of PRIVILEGES.ticketStaff) {
+    const roleId = g.roles[key];
+    if (roleId && guild.roles.cache.has(roleId)) await channel.permissionOverwrites.edit(roleId, { SendMessages: true }, { reason: 'Support-Warteraum: Chat nur für das Team' });
+  }
 }
 
 /**
@@ -80,4 +186,4 @@ async function emptyWaitingRoom(guild, store, isStaff) {
   return removed;
 }
 
-module.exports = { createSupportVoiceService, setSupportOpen, emptyWaitingRoom };
+module.exports = { createSupportVoiceService, setSupportOpen, syncWaitingRoom, emptyWaitingRoom };

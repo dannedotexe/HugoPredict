@@ -151,8 +151,9 @@ const profiles = {
   ],
   /** Support-Warteraum: alle dürfen rein und warten (ohne zu sprechen), das Team verschiebt sie. */
   waitingRoom: () => [
-    ow('everyone', [P.ViewChannel, P.Connect], [P.Speak, P.Stream]),
-    ...each(PRIVILEGES.ticketStaff, [P.ViewChannel, P.Connect, P.Speak, P.Stream, P.MoveMembers]),
+    // Chat im Warteraum nur für das Team, damit die Warteschlange sichtbar bleibt.
+    ow('everyone', [P.ViewChannel, P.Connect], [P.Speak, P.Stream, P.SendMessages]),
+    ...each(PRIVILEGES.ticketStaff, [P.ViewChannel, P.Connect, P.Speak, P.Stream, P.MoveMembers, P.SendMessages]),
     ow('bot', BOT_TEXT),
   ],
   /** Support-Raum: selbst betreten kann nur das Team, Nutzer werden hineingezogen. */
@@ -179,6 +180,8 @@ const profiles = {
 // Kategorien & Channels
 // ---------------------------------------------------------------------------
 
+// Höchstzahl Wartender im Support-Warteraum (das Team zählt nicht mit)
+const WAITING_ROOM_LIMIT = 5;
 const T = ChannelType.GuildText;
 const V = ChannelType.GuildVoice;
 // Channel-Namen: Emoji + Strich + Name, z. B. „📜┃regeln“. Frühere Schreibweisen
@@ -249,7 +252,7 @@ const CATEGORIES = [
     channels: [
       { key: 'support', ...named('support'), type: T, legacy: ['ticketCreate'], topic: 'Private Anfragen an den Kundenservice. Tickets sind nur für dich und das Team sichtbar.', permissions: profiles.publicRead() },
       { key: 'supportControl', ...named('support-steuerung'), type: T, topic: 'Support-Warteraum öffnen und schließen. Nur für das Team.', permissions: profiles.staff(PRIVILEGES.ticketStaff) },
-      { key: 'waitingRoom', ...named('support-warteraum', '⏳┃warteraum', '┃warteraum', 'warteraum'), type: V, permissions: profiles.waitingRoom() },
+      { key: 'waitingRoom', ...named('support-warteraum', '⏳┃warteraum', '┃warteraum', 'warteraum'), type: V, userLimit: WAITING_ROOM_LIMIT, permissions: profiles.waitingRoom() },
       { key: 'supportRoom1', ...named('support-1'), type: V, permissions: profiles.supportRoom() },
       { key: 'supportRoom2', ...named('support-2'), type: V, permissions: profiles.supportRoom() },
     ],
@@ -320,6 +323,7 @@ module.exports = {
   PRIVILEGES,
   SELF_ASSIGNABLE_VIA_BOT,
   NICKNAME_LOCKED_ROLES,
+  WAITING_ROOM_LIMIT,
   TICKET_TYPES,
   LOG_ROUTES,
   REQUIRED_BOT_PERMISSIONS,
