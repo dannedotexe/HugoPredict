@@ -1,5 +1,6 @@
 'use strict';
 
+const { PermissionFlagsBits: P } = require('discord.js');
 const { LOG_ROUTES, WAITING_ROOM_LIMIT, PRIVILEGES } = require('../config/serverLayout');
 const { discordTime } = require('../lib/embeds');
 const { card, upsert } = require('../lib/ui');
@@ -139,7 +140,12 @@ function createSupportVoiceService({ store, ctx, logger, now = Date.now, renderD
 
   /** Nach dem Start: Warteschlangen aller Server aufbauen und anzeigen. */
   function init(client) {
-    for (const guild of client.guilds.cache.values()) if (waitingChannel(guild)) scheduleRender(guild);
+    for (const guild of client.guilds.cache.values()) {
+      if (!waitingChannel(guild)) continue;
+      // Limit und Schreibsperre auch ohne /setup-panels sicherstellen.
+      syncWaitingRoom(guild, store).catch((err) => logger.warn('Warteraum einrichten:', err.message));
+      scheduleRender(guild);
+    }
   }
 
   const refresh = (guild) => render(guild);
@@ -169,11 +175,19 @@ async function syncWaitingRoom(guild, store) {
   const g = store.guild(guild.id);
   const channel = g.channels.waitingRoom && guild.channels.cache.get(g.channels.waitingRoom);
   if (!channel) return;
+  const reason = 'Support-Warteraum: Chat nur für das Team';
   if (channel.userLimit !== WAITING_ROOM_LIMIT) await channel.setUserLimit(WAITING_ROOM_LIMIT, 'Support-Warteraum: Platzlimit');
-  await channel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false }, { reason: 'Support-Warteraum: Chat nur für das Team' });
+  // Nur ändern, was fehlt (kein Eintrag im Audit-Log bei jedem Start).
+  const everyone = channel.permissionOverwrites.cache.get(guild.roles.everyone.id);
+  if (!everyone?.deny.has([P.SendMessages, P.AddReactions])) {
+    await channel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false, AddReactions: false }, { reason });
+  }
   for (const key of PRIVILEGES.ticketStaff) {
     const roleId = g.roles[key];
-    if (roleId && guild.roles.cache.has(roleId)) await channel.permissionOverwrites.edit(roleId, { SendMessages: true }, { reason: 'Support-Warteraum: Chat nur für das Team' });
+    if (!roleId || !guild.roles.cache.has(roleId)) continue;
+    if (!channel.permissionOverwrites.cache.get(roleId)?.allow.has(P.SendMessages)) {
+      await channel.permissionOverwrites.edit(roleId, { SendMessages: true, AddReactions: true }, { reason });
+    }
   }
 }
 

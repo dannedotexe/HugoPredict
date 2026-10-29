@@ -217,3 +217,34 @@ test('Warteraum leeren trennt nur Wartende, nicht Team oder Bots', async () => {
   store.guild('G').channels.waitingRoom = null;
   assert.equal(await emptyWaitingRoom(guild, store, () => false), null);
 });
+
+test('Warteraum-Chat: Schreibsperre für alle, nur fehlende Rechte werden gesetzt', async () => {
+  const { syncWaitingRoom } = require('../src/services/supportVoice');
+  const { PermissionsBitField, PermissionFlagsBits: P } = require('discord.js');
+  const store = tmpStore();
+  Object.assign(store.guild('G').channels, { waitingRoom: 'W' });
+  Object.assign(store.guild('G').roles, { support: 'SUP' });
+  const edits = [];
+  const cache = new Collection();
+  const waiting = {
+    userLimit: 0,
+    setUserLimit: async (n) => { waiting.userLimit = n; },
+    permissionOverwrites: {
+      cache,
+      edit: async (target, perms) => {
+        const id = target.id ?? target;
+        edits.push([id, perms]);
+        const allow = Object.entries(perms).filter(([, v]) => v).map(([k]) => P[k]);
+        const deny = Object.entries(perms).filter(([, v]) => !v).map(([k]) => P[k]);
+        cache.set(id, { allow: new PermissionsBitField(allow), deny: new PermissionsBitField(deny) });
+      },
+    },
+  };
+  const guild = { id: 'G', roles: { everyone: { id: 'EV' }, cache: new Collection([['SUP', {}]]) }, channels: { cache: new Collection([['W', waiting]]) } };
+  await syncWaitingRoom(guild, store);
+  assert.equal(waiting.userLimit, 5);
+  assert.deepEqual(edits.map((e) => e[0]), ['EV', 'SUP']);
+  assert.equal(edits[0][1].SendMessages, false);
+  await syncWaitingRoom(guild, store);
+  assert.equal(edits.length, 2, 'zweiter Lauf ändert nichts');
+});

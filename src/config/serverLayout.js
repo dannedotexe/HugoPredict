@@ -152,8 +152,8 @@ const profiles = {
   /** Support-Warteraum: alle dürfen rein und warten (ohne zu sprechen), das Team verschiebt sie. */
   waitingRoom: () => [
     // Chat im Warteraum nur für das Team, damit die Warteschlange sichtbar bleibt.
-    ow('everyone', [P.ViewChannel, P.Connect], [P.Speak, P.Stream, P.SendMessages]),
-    ...each(PRIVILEGES.ticketStaff, [P.ViewChannel, P.Connect, P.Speak, P.Stream, P.MoveMembers, P.SendMessages]),
+    ow('everyone', [P.ViewChannel, P.Connect], [P.Speak, P.Stream, P.SendMessages, P.AddReactions]),
+    ...each(PRIVILEGES.ticketStaff, [P.ViewChannel, P.Connect, P.Speak, P.Stream, P.MoveMembers, P.SendMessages, P.AddReactions]),
     ow('bot', BOT_TEXT),
   ],
   /** Support-Raum: selbst betreten kann nur das Team, Nutzer werden hineingezogen. */
