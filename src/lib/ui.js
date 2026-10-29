@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const {
-  AttachmentBuilder, ContainerBuilder, MessageFlags, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize,
+  AttachmentBuilder, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize,
   TextDisplayBuilder, ThumbnailBuilder,
 } = require('discord.js');
 const theme = require('../config/theme');
@@ -37,8 +37,9 @@ const quote = (text) => String(text).split('\n').map((l) => (l.trim() ? `> ${l}`
  * @param {boolean} [o.ephemeral] Nur für die anfragende Person sichtbar
  * @param {'lg'|'md'} [o.size]   Überschriftgröße: lg für Panels, md für Einzelkarten
  * @param {string} [o.thumbnailUrl] Eigenes Bild oben rechts (z. B. Profilbild) statt des Logos
+ * @param {Array<{url: string, description?: string}>} [o.media] Große Bilder direkt unter der Überschrift
  */
-function card({ title, icon, intro, eyebrow, accent = theme.colors.primary, logo = true, blocks = [], actions = [], footer, ephemeral = false, size = 'md', thumbnailUrl }) {
+function card({ title, icon, intro, eyebrow, accent = theme.colors.primary, logo = true, blocks = [], actions = [], footer, ephemeral = false, size = 'md', thumbnailUrl, media = [] }) {
   const container = new ContainerBuilder().setAccentColor(accent);
   const head = [
     eyebrow ? `-# ${eyebrow}` : null,
@@ -53,6 +54,12 @@ function card({ title, icon, intro, eyebrow, accent = theme.colors.primary, logo
       .setThumbnailAccessory(new ThumbnailBuilder().setURL(thumbnailUrl ?? `attachment://${LOGO_NAME}`).setDescription(theme.brand)));
   } else {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(head));
+  }
+
+  if (media.length) {
+    container.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(
+      media.slice(0, 10).map((m) => new MediaGalleryItemBuilder().setURL(m.url).setDescription(m.description ?? theme.brand)),
+    ));
   }
 
   for (const b of blocks.filter(Boolean)) {
