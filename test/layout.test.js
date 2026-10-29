@@ -41,12 +41,13 @@ test('Rollen: deutsche Namen mit Präfix, geforderte Reihenfolge, ohne Emojis', 
 test('Struktur entspricht exakt der Vorgabe', () => {
   assert.deepEqual(L.CATEGORIES.map((c) => [c.name, c.channels.map((ch) => ch.name)]), [
     ['INFORMATIONEN', ['👋┃willkommen', '📢┃ankündigungen', '📈┃prognosen', '📜┃regeln', '🔔┃pings']],
-    ['COMMUNITY', ['💬┃diskussionen', '📊┃analysen', '📸┃medien', '💡┃vorschläge', '🔊┃voice-1', '🔊┃voice-2', '🔊┃voice-3']],
+    ['COMMUNITY', ['💬┃diskussionen', '📊┃analysen', '📸┃medien', '💡┃vorschläge', '🔊┃Voice 1', '🔊┃Voice 2', '🔊┃Voice 3']],
     ['KUNDENSERVICE', ['🎫┃support', '📋┃support-steuerung', '⏳┃support-warteraum', '🎧┃support-1', '🎧┃support-2']],
     ['INTERN · PRIVAT', ['🔧┃betrieb', '🧾┃prüfprotokoll', '📡┃systemmeldungen', '🔨┃moderation', '👥┃team']],
   ]);
   // Genau ein Emoji, dann „┃“, dann Kleinbuchstaben
-  for (const ch of L.allChannels()) assert.match(ch.name, /^\p{Extended_Pictographic}┃[a-zäöüß0-9-]+$/u, ch.name);
+  // Sprachkanäle dürfen „Voice 1“ heißen (Großbuchstabe, Leerzeichen)
+  for (const ch of L.allChannels()) assert.match(ch.name, ch.type === 2 && ch.key.startsWith('voice') ? /^\p{Extended_Pictographic}┃Voice \d$/u : /^\p{Extended_Pictographic}┃[a-zäöüß0-9-]+$/u, ch.name);
 });
 
 test('Administrator-Recht nur bei der Rolle Administrator', () => {
