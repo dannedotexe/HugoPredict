@@ -31,8 +31,6 @@ npm ci --omit=dev --no-audit --no-fund
 
 if [ ! -f .env ]; then
   echo "==> Konfiguration (.env) anlegen"
-  cp .env.example .env
-  chmod 600 .env
   read -rp "Application ID (DISCORD_CLIENT_ID): " CID
   read -rp "Server-ID (DISCORD_GUILD_ID): " GID
   read -rp "Bot-Token (DISCORD_TOKEN): " TOK
@@ -40,6 +38,8 @@ if [ ! -f .env ]; then
   [[ "$CID" =~ ^[0-9]{15,25}$ ]] || fail "Application ID muss eine Zahl sein."
   [[ "$GID" =~ ^[0-9]{15,25}$ ]] || fail "Server-ID muss eine Zahl sein."
   [[ "$TOK" =~ ^[A-Za-z0-9._-]{50,}$ ]] || fail "Das sieht nicht nach einem Bot-Token aus."
+  cp .env.example .env
+  chmod 600 .env
   sed -i -e "s#^DISCORD_CLIENT_ID=.*#DISCORD_CLIENT_ID=$CID#" \
          -e "s#^DISCORD_GUILD_ID=.*#DISCORD_GUILD_ID=$GID#" \
          -e "s#^DISCORD_TOKEN=.*#DISCORD_TOKEN=$TOK#" .env
