@@ -1,0 +1,21 @@
+{
+  "name": "hugosmp-market-bot",
+  "version": "1.0.0",
+  "description": "Discord-Bot für HugoSMP Market – Setup, Markt-Feed, Tickets, Vorschläge und Website-Integration",
+  "main": "src/index.js",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "deploy": "node src/deploy-commands.js",
+    "check": "node scripts/check-syntax.js",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "discord.js": "^14.27.0",
+    "dotenv": "^16.6.1"
+  }
+}
