@@ -1,18 +1,6 @@
 'use strict';
 
-const { Client, Events, GatewayIntentBits, Partials } = require('discord.js');
-const { createLogger } = require('./lib/logger');
-const { Store } = require('./lib/store');
-const { HugoApi } = require('./lib/hugoApi');
-const { RateLimiter, LockSet, LIMITS } = require('./lib/rateLimit');
-const { createGuildContext } = require('./lib/guildContext');
-const { embeds, formatRetry } = require('./lib/embeds');
-const { replyPrivate } = require('./lib/respond');
-const { loadCommands, loadInteractionHandlers } = require('./registry');
-const { createStatusService } = require('./services/status');
-const { createMarketFeed } = require('./services/marketFeed');
-const { createLeaderboards } = require('./services/leaderboards');
-
+// Konfiguration zuerst laden, damit .env-Werte (z. B. BRAND_NAME) überall verfügbar sind.
 let env;
 try {
   const config = require('./config/env');
@@ -23,6 +11,18 @@ try {
   process.exit(1);
 }
 
+const { Client, Events, GatewayIntentBits } = require('discord.js');
+const { createLogger } = require('./lib/logger');
+const { Store } = require('./lib/store');
+const { HugoApi } = require('./lib/hugoApi');
+const { RateLimiter, LockSet, LIMITS } = require('./lib/rateLimit');
+const { createGuildContext } = require('./lib/guildContext');
+const { embeds, formatRetry } = require('./lib/embeds');
+const { replyPrivate } = require('./lib/respond');
+const { loadCommands, loadInteractionHandlers } = require('./registry');
+const { createStatusService } = require('./services/status');
+const { createMarketFeed } = require('./services/marketFeed');
+
 const logger = createLogger(env.logLevel);
 const store = new Store(env.dataDir);
 const api = new HugoApi({ baseUrl: env.apiUrl, apiKey: env.apiKey, timeoutMs: env.apiTimeoutMs, logger });
@@ -32,14 +32,11 @@ const ctx = createGuildContext({ store, logger });
 const commands = loadCommands();
 const handlers = loadInteractionHandlers();
 
-const intents = [GatewayIntentBits.Guilds];
-// Privilegierter Intent nur, wenn Begrüßungen beim Beitritt aktiviert sind.
-if (env.welcomeOnJoin) intents.push(GatewayIntentBits.GuildMembers);
-const client = new Client({ intents, partials: [Partials.GuildMember] });
+// Nur der Guilds-Intent: keine privilegierten Intents nötig.
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 const status = createStatusService({ api, store, env, logger });
 const marketFeed = createMarketFeed({ api, store, env, ctx, logger, statusService: status });
-const leaderboards = createLeaderboards({ api, store, env, ctx, logger });
 
 const denyLog = new Map();
 
@@ -48,10 +45,9 @@ const deps = {
   services: {
     status,
     marketFeed,
-    leaderboards,
     runFeedsNow: () => {
-      marketFeed.tick(client).catch((err) => logger.error('Markt-Feed:', err));
-      leaderboards.tick(client).catch((err) => logger.error('Ranglisten:', err));
+      marketFeed.tick(client).catch((err) => logger.error('Marktübersicht:', err));
+      status.tick(client).catch((err) => logger.error('Status:', err));
     },
   },
 
@@ -68,7 +64,7 @@ const deps = {
     const key = `${interaction.user.id}:${action}`;
     if (interaction.guild && Date.now() - (denyLog.get(key) ?? 0) > 5 * 60_000) {
       denyLog.set(key, Date.now());
-      await ctx.audit(interaction.guild, 'securityLogs', {
+      await ctx.audit(interaction.guild, 'audit', {
         title: 'Zugriff verweigert',
         fields: [
           { name: 'Nutzer', value: `<@${interaction.user.id}> (${interaction.user.id})` },
@@ -85,7 +81,7 @@ async function handleCommand(interaction) {
   const cmd = commands.get(interaction.commandName);
   if (!cmd) return;
   if (!interaction.inCachedGuild()) {
-    return replyPrivate(interaction, { embeds: [embeds.error('Nur auf dem Server', 'Dieser Befehl funktioniert nur auf dem HugoSMP-Market-Server.')] });
+    return replyPrivate(interaction, { embeds: [embeds.error('Nur auf dem Server', 'Dieser Befehl ist nur auf dem HugoPredict-Server verfügbar.')] });
   }
   if (cmd.privilege && !ctx.can(interaction.member, cmd.privilege)) return deps.deny(interaction, `/${interaction.commandName}`);
   if (!deps.checkRate(interaction, cmd.rateLimit ?? 'default')) return;
@@ -108,7 +104,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   } catch (err) {
     logger.error(`Interaktion ${interaction.isChatInputCommand() ? `/${interaction.commandName}` : interaction.customId} fehlgeschlagen:`, err);
     if (interaction.guild) {
-      ctx.audit(interaction.guild, 'botLogs', {
+      ctx.audit(interaction.guild, 'system', {
         title: 'Unerwarteter Fehler',
         description: `\`${String(err?.message ?? err).slice(0, 1000)}\``,
         fields: [{ name: 'Nutzer', value: `<@${interaction.user.id}>` }],
@@ -120,24 +116,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
-client.on(Events.GuildMemberAdd, async (member) => {
-  if (!env.welcomeOnJoin) return;
-  const channel = await ctx.channel(member.guild, 'welcome');
-  if (!channel?.isTextBased()) return;
-  const rules = ctx.channelId(member.guild.id, 'rules');
-  const verify = ctx.channelId(member.guild.id, 'verification');
-  await channel.send({
-    content: `<@${member.id}>`,
-    embeds: [embeds.brand().setTitle('Willkommen bei HugoSMP Market')
-      .setDescription([
-        rules ? `Akzeptiere die Regeln in <#${rules}>.` : null,
-        verify ? `Verknüpfe danach deinen Minecraft-Account in <#${verify}>.` : null,
-        env.websiteUrl ? `Website: ${env.websiteUrl}` : null,
-      ].filter(Boolean).join('\n') || 'Schön, dass du da bist.')],
-    allowedMentions: { users: [member.id] },
-  }).catch((err) => logger.warn('Willkommensnachricht:', err.message));
-});
-
 // Manuell gelöschte Ticket-Channels freigeben, damit das Ticket-Limit nicht blockiert.
 client.on(Events.ChannelDelete, (channel) => {
   if (!channel.guild) return;
@@ -147,14 +125,14 @@ client.on(Events.ChannelDelete, (channel) => {
   delete g.tickets[channel.id];
   store.save();
   if (ticket.status === 'open') {
-    ctx.audit(channel.guild, 'ticketLogs', { title: `Ticket #${ticket.number} manuell gelöscht`, description: 'Der Channel wurde ohne Abschluss über den Bot gelöscht – kein Transkript vorhanden.' });
+    ctx.audit(channel.guild, 'tickets', { title: `Anfrage #${ticket.number} manuell entfernt`, description: 'Der Channel wurde ohne Abschluss über den Bot gelöscht. Es liegt kein Transkript vor.' });
   }
 });
 
 const intervals = [];
 client.once(Events.ClientReady, async (c) => {
   logger.info(`Eingeloggt als ${c.user.tag} auf ${c.guilds.cache.size} Server(n).`);
-  if (!api.configured) logger.warn('Website-API nicht konfiguriert (HUGO_API_URL/HUGO_API_KEY) – Wirtschafts- und Markt-Funktionen sind deaktiviert.');
+  if (!api.configured) logger.warn('Website-API nicht konfiguriert (HUGO_API_URL/HUGO_API_KEY) – Konto- und Marktfunktionen sind deaktiviert.');
   if (env.guildId && !c.guilds.cache.has(env.guildId)) logger.warn(`Bot ist nicht auf dem Server DISCORD_GUILD_ID=${env.guildId}.`);
 
   const every = (ms, fn, name) => {
@@ -163,8 +141,7 @@ client.once(Events.ClientReady, async (c) => {
     intervals.push(setInterval(run, ms));
   };
   every(5 * 60_000, status.tick, 'Status');
-  every(env.marketFeedIntervalSeconds * 1000, marketFeed.tick, 'Markt-Feed');
-  every(env.leaderboardIntervalMinutes * 60_000, leaderboards.tick, 'Ranglisten');
+  every(env.marketFeedIntervalSeconds * 1000, marketFeed.tick, 'Marktübersicht');
   intervals.push(setInterval(() => limiter.sweep(), 10 * 60_000));
 });
 

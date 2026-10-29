@@ -8,19 +8,19 @@ async function handle(interaction, deps, [action]) {
   if (action !== 'accept' || !interaction.isButton() || !interaction.inGuild()) return;
   if (!deps.checkRate(interaction, 'default')) return;
   const roleId = deps.ctx.roleId(interaction.guild.id, 'member');
-  if (!roleId) return replyPrivate(interaction, { embeds: [embeds.error('Nicht eingerichtet', 'Die Member-Rolle existiert noch nicht. Bitte informiere das Team.')] });
+  if (!roleId) return replyPrivate(interaction, { embeds: [embeds.error('Nicht eingerichtet', 'Die Rolle „Mitglied“ ist noch nicht eingerichtet. Bitte wende dich an den Kundenservice.')] });
   if (interaction.member.roles.cache.has(roleId)) {
     return replyPrivate(interaction, { embeds: [embeds.info('Bereits akzeptiert', 'Du hast die Regeln bereits akzeptiert.')] });
   }
   try {
     await interaction.member.roles.add(roleId, 'Regeln akzeptiert');
   } catch (err) {
-    deps.logger.warn('Member-Rolle:', err.message);
-    return replyPrivate(interaction, { embeds: [embeds.error('Fehler', 'Die Rolle konnte nicht vergeben werden. Bitte informiere das Team.')] });
+    deps.logger.warn('Rolle Mitglied:', err.message);
+    await deps.ctx.audit(interaction.guild, 'system', { title: 'Rolle nicht vergeben', description: `Mitglied für <@${interaction.user.id}>: ${err.message}` });
+    return replyPrivate(interaction, { embeds: [embeds.error('Rolle nicht vergeben', 'Die Rolle konnte nicht vergeben werden. Das Team wurde informiert.')] });
   }
-  const verifyId = deps.ctx.channelId(interaction.guild.id, 'verification');
   return replyPrivate(interaction, {
-    embeds: [embeds.success('Willkommen an Bord', `Du hast jetzt Zugriff auf die Community.${verifyId ? ` Verknüpfe als Nächstes deinen Minecraft-Account in <#${verifyId}>, um Trading-Funktionen freizuschalten.` : ''}`)],
+    embeds: [embeds.success('Regeln akzeptiert', 'Du hast jetzt Zugang zur Community. Verknüpfe als Nächstes dein Konto über „Konto verknüpfen“ oder `/verify`, um Kontoabfragen zu nutzen.')],
   });
 }
 

@@ -7,14 +7,14 @@ const { userMessage } = require('../lib/hugoApi');
 const theme = require('../config/theme');
 
 /*
- * Ablauf: Vorschlag (Modal) → öffentliche Abstimmung in #community-votes →
- * Prüfung durch Market Moderatoren in #markt-entscheidungen → Annahme/Ablehnung.
+ * Ablauf: /vorschlag (Modal) → Prüfung durch die Marktverwaltung in #betrieb →
+ * Annahme oder Ablehnung mit Begründung → Benachrichtigung per Direktnachricht.
  * Eine Annahme legt den Markt nur an, wenn die Website-API konfiguriert UND
- * MARKET_CREATION_ENABLED=true ist. Stimmen erstellen niemals automatisch Märkte.
+ * MARKET_CREATION_ENABLED=true ist; sonst wird die manuelle Anlage vermerkt.
  */
 
 const STATUS = {
-  open: { label: 'Abstimmung läuft', color: theme.colors.neutral },
+  open: { label: 'In Prüfung', color: theme.colors.neutral },
   accepted: { label: 'Angenommen', color: theme.colors.success },
   rejected: { label: 'Abgelehnt', color: theme.colors.danger },
 };
@@ -25,27 +25,26 @@ function suggestionModal() {
     if (placeholder) t.setPlaceholder(placeholder);
     return new ActionRowBuilder().addComponents(t);
   };
-  return new ModalBuilder().setCustomId('hm:suggest:submit').setTitle('Neuen Markt vorschlagen').addComponents(
-    input('title', 'Titel / Frage', TextInputStyle.Short, { max: 120, min: 10, placeholder: 'Gewinnt Fraktion X das Event am Samstag?' }),
-    input('description', 'Beschreibung & Regeln', TextInputStyle.Paragraph, { max: 1000, min: 20 }),
+  return new ModalBuilder().setCustomId('hm:suggest:submit').setTitle('Markt vorschlagen').addComponents(
+    input('title', 'Fragestellung', TextInputStyle.Short, { max: 120, min: 10, placeholder: 'Gewinnt Team Nord das Turnier am 14.11.?' }),
+    input('description', 'Beschreibung und Regeln', TextInputStyle.Paragraph, { max: 1000, min: 20 }),
     input('outcomes', 'Mögliche Ergebnisse', TextInputStyle.Short, { max: 200, placeholder: 'Ja / Nein' }),
-    input('source', 'Entscheidungsquelle', TextInputStyle.Short, { max: 200, placeholder: 'z. B. offizieller Event-Post in #hugo-news' }),
-    input('closes', 'Gewünschtes Ende (optional)', TextInputStyle.Short, { max: 50, required: false, placeholder: 'z. B. 31.12.2026 20:00' }),
+    input('source', 'Entscheidungsquelle', TextInputStyle.Short, { max: 200, placeholder: 'z. B. offizielle Ergebnisseite des Events' }),
+    input('closes', 'Gewünschter Handelsschluss (optional)', TextInputStyle.Short, { max: 50, required: false, placeholder: 'z. B. 14.11.2026, 20:00 Uhr' }),
   );
 }
 
 function suggestionEmbed(s) {
   const st = STATUS[s.status];
   const e = embeds.base(st.color)
-    .setTitle(truncate(`Vorschlag #${s.number} · ${s.title}`, 256))
+    .setAuthor({ name: `Marktvorschlag #${s.number} · ${st.label}` })
+    .setTitle(truncate(s.title, 256))
     .setDescription(truncate(s.description, 4000))
     .addFields(
       { name: 'Ergebnisse', value: truncate(s.outcomes, 1024), inline: false },
       { name: 'Entscheidungsquelle', value: truncate(s.source, 1024), inline: false },
-      { name: 'Gewünschtes Ende', value: s.closes || '—', inline: true },
+      { name: 'Handelsschluss', value: s.closes || '—', inline: true },
       { name: 'Eingereicht von', value: `<@${s.authorId}>`, inline: true },
-      { name: 'Stimmen', value: `Dafür **${Object.values(s.votes).filter((v) => v === 'up').length}** · Dagegen **${Object.values(s.votes).filter((v) => v === 'down').length}**`, inline: true },
-      { name: 'Status', value: st.label, inline: true },
     );
   if (s.decision) {
     e.addFields({ name: 'Entscheidung', value: truncate([`von <@${s.decision.by}>`, s.decision.reason, s.decision.websiteNote].filter(Boolean).join('\n'), 1024), inline: false });
@@ -53,39 +52,28 @@ function suggestionEmbed(s) {
   return e;
 }
 
-function voteRow(s) {
-  const closed = s.status !== 'open';
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`hm:suggest:vote:${s.id}:up`).setLabel('Dafür').setStyle(ButtonStyle.Success).setDisabled(closed),
-    new ButtonBuilder().setCustomId(`hm:suggest:vote:${s.id}:down`).setLabel('Dagegen').setStyle(ButtonStyle.Secondary).setDisabled(closed),
-  );
-}
-
 function decisionRow(s) {
   const closed = s.status !== 'open';
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`hm:suggest:accept:${s.id}`).setLabel('Annehmen').setStyle(ButtonStyle.Success).setDisabled(closed),
-    new ButtonBuilder().setCustomId(`hm:suggest:reject:${s.id}`).setLabel('Ablehnen').setStyle(ButtonStyle.Danger).setDisabled(closed),
+    new ButtonBuilder().setCustomId(`hm:suggest:reject:${s.id}`).setLabel('Ablehnen').setStyle(ButtonStyle.Secondary).setDisabled(closed),
   );
 }
 
-async function refreshMessages(guild, s, deps) {
-  const update = async (ref, components) => {
-    if (!ref) return;
-    const ch = guild.channels.cache.get(ref.channelId) ?? (await guild.channels.fetch(ref.channelId).catch(() => null));
-    const msg = ch?.isTextBased() ? await ch.messages.fetch(ref.messageId).catch(() => null) : null;
-    if (msg) await msg.edit({ embeds: [suggestionEmbed(s)], components, allowedMentions: { parse: [] } });
-  };
-  await update(s.publicMessage, [voteRow(s)]);
-  await update(s.reviewMessage, [decisionRow(s)]);
+async function refreshReview(guild, s) {
+  const ref = s.reviewMessage;
+  if (!ref) return;
+  const ch = guild.channels.cache.get(ref.channelId) ?? (await guild.channels.fetch(ref.channelId).catch(() => null));
+  const msg = ch?.isTextBased() ? await ch.messages.fetch(ref.messageId).catch(() => null) : null;
+  if (msg) await msg.edit({ embeds: [suggestionEmbed(s)], components: [decisionRow(s)], allowedMentions: { parse: [] } });
 }
 
 async function submit(interaction, deps) {
   await interaction.deferReply({ flags: EPHEMERAL });
   const g = deps.store.guild(interaction.guild.id);
-  const voteChannel = await deps.ctx.channel(interaction.guild, 'communityVotes');
-  if (!voteChannel?.isTextBased()) {
-    return replyPrivate(interaction, { embeds: [embeds.error('Nicht eingerichtet', 'Der Abstimmungs-Channel existiert noch nicht.')] });
+  const review = await deps.ctx.channel(interaction.guild, 'operations');
+  if (!review?.isTextBased()) {
+    return replyPrivate(interaction, { embeds: [embeds.error('Derzeit nicht möglich', 'Marktvorschläge sind noch nicht eingerichtet.')] });
   }
   const f = (id) => interaction.fields.getTextInputValue(id).trim();
   const number = ++g.suggestionCounter;
@@ -99,41 +87,15 @@ async function submit(interaction, deps) {
     source: f('source'),
     closes: f('closes'),
     status: 'open',
-    votes: {},
     createdAt: new Date().toISOString(),
   };
-  const pub = await voteChannel.send({ embeds: [suggestionEmbed(s)], components: [voteRow(s)], allowedMentions: { parse: [] } });
-  s.publicMessage = { channelId: voteChannel.id, messageId: pub.id };
-
-  const review = await deps.ctx.channel(interaction.guild, 'marketDecisions');
-  if (review?.isTextBased()) {
-    const msg = await review.send({ content: `Neuer Marktvorschlag: ${pub.url}`, embeds: [suggestionEmbed(s)], components: [decisionRow(s)], allowedMentions: { parse: [] } });
-    s.reviewMessage = { channelId: review.id, messageId: msg.id };
-  }
+  const msg = await review.send({ embeds: [suggestionEmbed(s)], components: [decisionRow(s)], allowedMentions: { parse: [] } });
+  s.reviewMessage = { channelId: review.id, messageId: msg.id };
   g.suggestions[s.id] = s;
   deps.store.save();
-  return replyPrivate(interaction, { embeds: [embeds.success('Vorschlag eingereicht', `Die Community kann jetzt abstimmen: ${pub.url}`)] });
-}
-
-async function vote(interaction, deps, s, direction) {
-  if (s.status !== 'open') return replyPrivate(interaction, { embeds: [embeds.info('Abstimmung beendet', 'Über diesen Vorschlag wurde bereits entschieden.')] });
-  if (!deps.ctx.hasRoleKey(interaction.member, 'member') && !deps.ctx.hasRoleKey(interaction.member, 'verified')) {
-    return replyPrivate(interaction, { embeds: [embeds.warning('Nicht berechtigt', 'Bitte akzeptiere zuerst die Regeln, um abzustimmen.')] });
-  }
-  const uid = interaction.user.id;
-  let message;
-  if (s.votes[uid] === direction) {
-    delete s.votes[uid];
-    message = 'Deine Stimme wurde zurückgezogen.';
-  } else {
-    s.votes[uid] = direction;
-    message = direction === 'up' ? 'Du hast **dafür** gestimmt.' : 'Du hast **dagegen** gestimmt.';
-  }
-  deps.store.save();
-  await interaction.update({ embeds: [suggestionEmbed(s)], components: [voteRow(s)] });
-  await interaction.followUp({ content: message, flags: EPHEMERAL });
-  // Review-Kopie aktualisieren (Stimmenstand)
-  if (s.reviewMessage) refreshMessages(interaction.guild, s, deps).catch(() => {});
+  return replyPrivate(interaction, {
+    embeds: [embeds.success('Vorschlag eingereicht', `Vielen Dank. Die Marktverwaltung prüft deinen Vorschlag #${number}. Über die Entscheidung informieren wir dich per Direktnachricht.`)],
+  });
 }
 
 function reasonModal(s, kind) {
@@ -143,6 +105,17 @@ function reasonModal(s, kind) {
         .setStyle(TextInputStyle.Paragraph).setMaxLength(500).setRequired(kind !== 'accept'),
     ),
   );
+}
+
+async function notifyAuthor(client, s) {
+  const user = await client.users.fetch(s.authorId).catch(() => null);
+  if (!user) return;
+  const accepted = s.status === 'accepted';
+  const e = embeds.base(STATUS[s.status].color)
+    .setTitle(`Dein Marktvorschlag #${s.number} wurde ${accepted ? 'angenommen' : 'abgelehnt'}`)
+    .setDescription(truncate(s.title, 4000));
+  if (s.decision.reason) e.addFields({ name: accepted ? 'Notiz' : 'Begründung', value: truncate(s.decision.reason, 1024), inline: false });
+  await user.send({ embeds: [e] }).catch(() => {}); // DMs können deaktiviert sein
 }
 
 async function decide(interaction, deps, s, kind) {
@@ -165,66 +138,52 @@ async function decide(interaction, deps, s, kind) {
             proposedByDiscordId: s.authorId,
             approvedByDiscordId: interaction.user.id,
             discordSuggestionId: s.id,
-            votes: { up: Object.values(s.votes).filter((v) => v === 'up').length, down: Object.values(s.votes).filter((v) => v === 'down').length },
           }, `discord-suggestion:${s.id}`);
           websiteNote = website.url ? `Auf der Website angelegt: ${website.url}` : `Auf der Website angelegt (ID ${website.id}).`;
         } catch (err) {
-          // Status bleibt "open": Ohne bestätigte Anlage wird nichts als erfolgreich gemeldet.
+          // Ohne bestätigte Anlage bleibt der Vorschlag offen.
           return { apiError: err };
         }
       } else {
-        websiteNote = 'Manuelle Anlage auf der Website erforderlich (automatische Marktanlage ist nicht aktiviert).';
+        websiteNote = 'Manuelle Anlage auf der Website erforderlich.';
       }
     }
 
     s.status = kind === 'accept' ? 'accepted' : 'rejected';
     s.decision = { by: interaction.user.id, at: new Date().toISOString(), reason: reason || null, websiteNote, websiteId: website?.id ?? null };
     deps.store.save();
-    await refreshMessages(interaction.guild, s, deps);
-
-    if (kind === 'reject') {
-      const ch = await deps.ctx.channel(interaction.guild, 'rejectedMarkets');
-      if (ch?.isTextBased()) await ch.send({ embeds: [suggestionEmbed(s)], allowedMentions: { parse: [] } });
-    }
-    await deps.ctx.audit(interaction.guild, 'marketDecisions', {
-      title: `Vorschlag #${s.number} ${kind === 'accept' ? 'angenommen' : 'abgelehnt'}`,
-      fields: [
-        { name: 'Von', value: `<@${interaction.user.id}>` },
-        { name: 'Website', value: websiteNote ?? '—', inline: false },
-        { name: 'Begründung', value: reason || '—', inline: false },
-      ],
-    });
+    await refreshReview(interaction.guild, s);
+    await notifyAuthor(interaction.client, s);
     return { ok: true, websiteNote };
   });
 
   if (locked) return replyPrivate(interaction, { embeds: [embeds.info('Bitte warten', 'Dieser Vorschlag wird gerade bearbeitet.')] });
   if (value.already) return replyPrivate(interaction, { embeds: [embeds.info('Bereits entschieden', 'Über diesen Vorschlag wurde bereits entschieden.')] });
   if (value.apiError) {
-    return replyApiError(interaction, value.apiError, { ...deps, action: 'Marktanlage' })
-      .then(() => interaction.followUp({ content: `Der Vorschlag bleibt offen. Fehler: ${userMessage(value.apiError)}`, flags: EPHEMERAL }));
+    await replyApiError(interaction, value.apiError, { ...deps, action: 'Marktanlage' });
+    return interaction.followUp({ content: `Der Vorschlag bleibt offen. Grund: ${userMessage(value.apiError)}`, flags: EPHEMERAL });
   }
   return replyPrivate(interaction, {
-    embeds: [embeds.success(kind === 'accept' ? 'Vorschlag angenommen' : 'Vorschlag abgelehnt', value.websiteNote ?? 'Die Entscheidung wurde veröffentlicht.')],
+    embeds: [embeds.success(kind === 'accept' ? 'Vorschlag angenommen' : 'Vorschlag abgelehnt', value.websiteNote ?? 'Die einreichende Person wurde informiert.')],
   });
 }
 
-async function handle(interaction, deps, [action, id, extra]) {
+async function handle(interaction, deps, [action, id]) {
   if (!interaction.inGuild()) return;
   if (action === 'open' && interaction.isButton()) {
     if (!deps.checkRate(interaction, 'suggest')) return;
     return interaction.showModal(suggestionModal());
   }
   if (action === 'submit' && interaction.isModalSubmit()) return submit(interaction, deps);
+  // Abstimmungs-Buttons der früheren Struktur
+  if (action === 'vote') {
+    return replyPrivate(interaction, { embeds: [embeds.info('Abstimmung beendet', 'Öffentliche Abstimmungen über Marktvorschläge finden nicht mehr statt.')] });
+  }
 
   const s = deps.store.guild(interaction.guild.id).suggestions[id];
   if (!s) return replyPrivate(interaction, { embeds: [embeds.error('Nicht gefunden', 'Dieser Vorschlag existiert nicht mehr.')] });
 
-  if (action === 'vote' && interaction.isButton() && ['up', 'down'].includes(extra)) {
-    if (!deps.checkRate(interaction, 'vote')) return;
-    return vote(interaction, deps, s, extra);
-  }
-
-  // Ab hier nur Market Moderatoren / Leitung
+  // Ab hier nur Marktverwaltung und Leitung
   if (!deps.ctx.can(interaction.member, 'marketDecision')) return deps.deny(interaction, 'Marktentscheidung');
   if ((action === 'accept' || action === 'reject') && interaction.isButton()) {
     if (s.status !== 'open') return replyPrivate(interaction, { embeds: [embeds.info('Bereits entschieden', STATUS[s.status].label)] });

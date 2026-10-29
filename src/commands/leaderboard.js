@@ -7,7 +7,7 @@ const { BOARDS, leaderboardEmbed } = require('../services/leaderboards');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('leaderboard')
-    .setDescription('Zeigt die Trader-Rangliste')
+    .setDescription('Zeigt eine Rangliste (nur für dich sichtbar)')
     .addStringOption((o) => o.setName('typ').setDescription('Rangliste').addChoices(...BOARDS.map((b) => ({ name: b.title, value: b.type })))),
   async execute(interaction, deps) {
     await interaction.deferReply({ flags: EPHEMERAL });

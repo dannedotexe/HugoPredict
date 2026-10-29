@@ -5,19 +5,21 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { Collection, PermissionsBitField, PermissionFlagsBits: P } = require('discord.js');
+const { Collection, ChannelType, PermissionsBitField, PermissionFlagsBits: P } = require('discord.js');
 const { runSetup, planSetup } = require('../src/setup/setupServer');
 const { Store } = require('../src/lib/store');
 const L = require('../src/config/serverLayout');
+const { LEGACY_CATEGORIES, LEGACY_ROLES } = require('../src/config/legacyLayout');
 
 /** Minimaler Fake-Server, der die von runSetup genutzte discord.js-API nachbildet. */
 function fakeGuild(botPerms) {
   let seq = 1000;
   const roles = new Collection();
   const channels = new Collection();
+  const deleted = [];
   const everyone = { id: 'G', name: '@everyone', position: 0, managed: false };
   roles.set('G', everyone);
-  const botRole = { id: 'BR', name: 'Bot', position: 1, managed: true };
+  const botRole = { id: 'BR', name: 'HugoPredict', position: 1, managed: true };
   roles.set('BR', botRole);
   const memberRoles = new Collection([['BR', botRole]]);
   const me = {
@@ -25,75 +27,157 @@ function fakeGuild(botPerms) {
     permissions: new PermissionsBitField(botPerms),
     roles: { highest: botRole, cache: memberRoles, add: async (r) => memberRoles.set(r.id, r) },
   };
+  const makeChannel = (o) => {
+    const c = {
+      id: String(seq++), name: o.name, type: o.type, parentId: o.parent ?? null, topic: o.topic, ow: o.permissionOverwrites, messages: ['bestehende Nachricht'],
+      edit: async (x) => {
+        if (x.name !== undefined) c.name = x.name;
+        if (x.parent !== undefined) c.parentId = x.parent;
+        if (x.permissionOverwrites) c.ow = x.permissionOverwrites;
+        if (x.topic !== undefined) c.topic = x.topic;
+        return c;
+      },
+      delete: async () => deleted.push(c.id),
+    };
+    channels.set(c.id, c);
+    return c;
+  };
   const guild = {
-    id: 'G', name: 'Test', members: { me, fetchMe: async () => me },
+    id: 'G', name: 'Test', deleted, members: { me, fetchMe: async () => me },
     roles: {
       cache: roles, everyone, fetch: async () => roles,
       create: async (o) => {
-        // neue Rollen landen direkt über @everyone, Bot-Rolle rutscht nach oben
         for (const r of roles.values()) if (r.id !== 'G') r.position += 1;
-        const r = { id: String(seq++), position: 1, managed: false, ...o, edit: async (x) => Object.assign(r, x) };
+        const r = { id: String(seq++), position: 1, managed: false, ...o };
+        r.edit = async (x) => Object.assign(r, x);
         roles.set(r.id, r);
         return r;
       },
       setPositions: async (list) => list.forEach(({ role, position }) => { roles.get(role).position = position; }),
     },
-    channels: {
-      cache: channels, fetch: async () => channels,
-      create: async (o) => {
-        const c = { id: String(seq++), parentId: o.parent ?? null, topic: o.topic, ...o,
-          permissionOverwrites: { set: async (ow) => { c.ow = ow; } }, setTopic: async (t) => { c.topic = t; } };
-        c.ow = o.permissionOverwrites;
-        channels.set(c.id, c);
-        return c;
-      },
-    },
+    channels: { cache: channels, fetch: async () => channels, create: async (o) => makeChannel(o), setPositions: async () => {} },
   };
   return guild;
 }
 
+/** Baut einen Server in der FRÜHEREN Struktur nach (wie ihn das alte /setup-server erzeugt hat). */
+async function legacyGuild({ withStore }) {
+  const guild = fakeGuild(allBot);
+  const store = tmpStore();
+  const g = store.guild('G');
+  for (const [key, name] of LEGACY_ROLES) {
+    const r = await guild.roles.create({ name });
+    if (withStore) g.roles[key] = r.id;
+  }
+  for (const cat of LEGACY_CATEGORIES) {
+    const c = await guild.channels.create({ name: cat.name, type: ChannelType.GuildCategory });
+    if (withStore) g.categories[cat.key] = c.id;
+    for (const [key, name, type] of cat.channels) {
+      const ch = await guild.channels.create({ name, type, parent: c.id });
+      if (withStore) g.channels[key] = ch.id;
+    }
+  }
+  if (withStore) g.setupCompletedAt = '2026-10-28T00:00:00Z';
+  return { guild, store };
+}
+
 const tmpStore = () => new Store(fs.mkdtempSync(path.join(os.tmpdir(), 'hm-setup-')));
 const allBot = L.REQUIRED_BOT_PERMISSIONS.reduce((a, p) => a | p, 0n);
+const legacyChannelCount = LEGACY_CATEGORIES.reduce((a, c) => a + c.channels.length, 0);
 
-test('Setup erstellt alles und ist beim zweiten Lauf idempotent', async () => {
+test('Neuer Server: alles wird erstellt, zweiter Lauf ist idempotent', async () => {
   const guild = fakeGuild(allBot);
   const store = tmpStore();
   const first = await runSetup(guild, store);
   assert.deepEqual(first.errors, []);
-  const total = L.ROLES.length + L.CATEGORIES.length + L.allChannels().length;
-  assert.equal(first.created.length, total);
-  assert.equal(guild.channels.cache.size, L.CATEGORIES.length + L.allChannels().length);
+  assert.equal(first.created.length, L.ROLES.length + L.CATEGORIES.length + L.allChannels().length);
+  assert.equal(first.obsolete.length, 0);
+  assert.ok(first.warnings.some((w) => w.startsWith('Administrator:')), 'Hinweis zum Administrator-Recht');
 
-  // Reihenfolge der Rollen entspricht dem Layout
   const ids = L.ROLES.map((r) => store.guild('G').roles[r.key]);
   const pos = ids.map((id) => guild.roles.cache.get(id).position);
-  assert.deepEqual([...pos].sort((a, b) => b - a), pos);
+  assert.deepEqual([...pos].sort((a, b) => b - a), pos, 'Rollen-Reihenfolge');
 
-  // Administrator-Recht kann der Bot nicht vergeben → Hinweis statt Fehler
-  assert.ok(first.warnings.some((w) => w.includes('🛡️ Administrator')));
-
-  const sizeBefore = guild.channels.cache.size + guild.roles.cache.size;
+  const before = guild.channels.cache.size + guild.roles.cache.size;
   const second = await runSetup(guild, store);
-  assert.equal(second.created.length, 0);
-  assert.equal(guild.channels.cache.size + guild.roles.cache.size, sizeBefore);
-  assert.equal(planSetup(guild, store).channelsNew.length, 0);
+  assert.equal(second.created.length + second.updated.length, 0);
+  assert.equal(guild.channels.cache.size + guild.roles.cache.size, before);
 });
 
-test('Team-Channel-Overwrites: Mitglieder ohne Sicht, Bot mit Zugriff', async () => {
-  const guild = fakeGuild(allBot);
-  const store = tmpStore();
-  await runSetup(guild, store);
-  const g = store.guild('G');
-  const ow = guild.channels.cache.get(g.channels.economyLogs).ow;
-  const everyone = ow.find((o) => o.id === 'G');
-  assert.ok((everyone.deny & P.ViewChannel) === P.ViewChannel);
-  assert.ok(!ow.some((o) => o.id === g.roles.member || o.id === g.roles.developer || o.id === g.roles.support));
-  assert.ok((ow.find((o) => o.id === 'BOT').allow & P.ViewChannel) === P.ViewChannel);
+for (const withStore of [true, false]) {
+  test(`Migration der früheren Struktur (${withStore ? 'mit' : 'ohne'} gespeicherte IDs): umbenennen statt duplizieren, nichts löschen`, async () => {
+    const { guild, store } = await legacyGuild({ withStore });
+    const g = store.guild('G');
+    const oldLive = guild.channels.cache.find((c) => c.name === '📈・live-markets');
+    const channelsBefore = guild.channels.cache.size;
+    const rolesBefore = guild.roles.cache.size;
+
+    const plan = planSetup(guild, store);
+    assert.equal(plan.channelsNew.length, 0, 'alle neuen Channels haben einen Vorgänger');
+    assert.equal(plan.channelsMigrated.length, L.allChannels().length);
+    assert.equal(plan.rolesNew, 0);
+    assert.equal(plan.rolesRenamed.length, L.ROLES.length);
+
+    const res = await runSetup(guild, store);
+    assert.deepEqual(res.errors, []);
+    assert.equal(res.created.length, 0, 'keine Duplikate');
+    assert.equal(guild.channels.cache.size, channelsBefore, 'kein Channel gelöscht oder hinzugefügt');
+    assert.equal(guild.roles.cache.size, rolesBefore, 'keine Rolle gelöscht oder hinzugefügt');
+    assert.equal(guild.deleted.length, 0);
+
+    // Vorgänger behält ID und Nachrichten, bekommt neuen Namen, neue Kategorie und neue Rechte
+    assert.equal(g.channels.marketOverview, oldLive.id);
+    assert.equal(oldLive.name, 'marktübersicht');
+    assert.equal(oldLive.parentId, g.categories.info);
+    assert.deepEqual(oldLive.messages, ['bestehende Nachricht']);
+    const audit = guild.channels.cache.get(g.channels.audit);
+    assert.equal(audit.name, 'prüfprotokoll');
+    assert.ok((audit.ow.find((o) => o.id === 'G').deny & P.ViewChannel) === P.ViewChannel, 'Prüfprotokoll geschützt');
+    assert.ok(!audit.ow.some((o) => o.id === g.roles.member || o.id === g.roles.support), 'kein Zugriff für Mitglied/Kundenservice');
+
+    // Rollen umbenannt
+    assert.equal(guild.roles.cache.get(g.roles.owner).name, 'Inhaber');
+    assert.equal(guild.roles.cache.get(g.roles.support).name, 'Kundenservice');
+
+    // Veraltetes nur gemeldet
+    const obsoleteChannels = legacyChannelCount - L.allChannels().length;
+    assert.equal(res.obsolete.filter((o) => o.startsWith('#')).length, obsoleteChannels);
+    assert.ok(res.obsolete.includes('Rolle 💎 Diamond Trader'));
+    assert.ok(res.obsolete.includes('Kategorie 📊 MARKETS'));
+    assert.equal(res.archived.length, 0);
+
+    // Zweiter Lauf: nichts mehr zu tun
+    const again = await runSetup(guild, store);
+    assert.equal(again.created.length + again.updated.length, 0);
+    assert.equal(planSetup(guild, store).channelsMigrated.length, 0);
+  });
+}
+
+test('Archivieren verschiebt veraltete Channels in eine versteckte Kategorie, ohne zu löschen', async () => {
+  const { guild, store } = await legacyGuild({ withStore: true });
+  const before = guild.channels.cache.size;
+  const res = await runSetup(guild, store, { archiveObsolete: true });
+  assert.deepEqual(res.errors, []);
+  const archiveId = store.guild('G').categories.archive;
+  const archive = guild.channels.cache.get(archiveId);
+  assert.equal(archive.name, 'ARCHIV');
+  assert.equal(guild.channels.cache.size, before + 1, 'nur die Archiv-Kategorie kommt hinzu');
+  assert.equal(guild.deleted.length, 0);
+  const archived = guild.channels.cache.filter((c) => c.parentId === archiveId);
+  assert.equal(archived.size, legacyChannelCount - L.allChannels().length);
+  for (const ch of archived.values()) {
+    const ev = ch.ow.find((o) => o.id === 'G');
+    assert.ok((ev.deny & P.ViewChannel) === P.ViewChannel, `${ch.name} ist versteckt`);
+    assert.deepEqual(ch.messages, ['bestehende Nachricht']);
+  }
+  // Erneutes Archivieren legt keine zweite Archiv-Kategorie an
+  const again = await runSetup(guild, store, { archiveObsolete: true });
+  assert.equal(again.created.length, 0);
+  assert.equal(guild.channels.cache.filter((c) => c.name === 'ARCHIV').size, 1);
 });
 
 test('Fehlende Bot-Rechte brechen verständlich ab', async () => {
-  const guild = fakeGuild(P.ViewChannel | P.SendMessages);
-  const res = await runSetup(guild, tmpStore());
+  const res = await runSetup(fakeGuild(P.ViewChannel | P.SendMessages), tmpStore());
   assert.equal(res.created.length, 0);
   assert.match(res.errors[0], /ManageRoles/);
 });

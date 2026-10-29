@@ -1,50 +1,80 @@
-# HugoPredict: Discord-Bot für HugoSMP Market
+# HugoPredict: Discord-Bot
 
-Discord-Bot für **HugoSMP Market**, die Prognoseplattform für den Minecraft-Server HugoSMP.
-Er richtet den kompletten Discord-Server ein (Rollen, Kategorien, Channels, Berechtigungen),
-veröffentlicht Panels, betreibt Markt-Feed, Ranglisten, Tickets, Verifizierung und
-Marktvorschläge und bindet die Website über eine klar definierte API an.
+Discord-Bot für **HugoPredict**, den Prognosemarkt für Ereignisse rund um den Minecraft-Server HugoSMP.
+Er richtet eine schlanke, professionelle Serverstruktur ein, veröffentlicht Dokumentation und
+Kundenservice-Panel, pflegt die Marktübersicht und bindet die Website über eine klar definierte
+API an.
 
 > **Wichtig:** Der Bot führt **keine eigene Wirtschaft**. Guthaben, Positionen, Transaktionen,
-> Daily-Rewards, Märkte und Ranglisten kommen ausschließlich von der Website
+> Daily-Boni, Märkte und Ranglisten kommen ausschließlich von der Website
 > (Schnittstelle: [`docs/API.md`](docs/API.md)). Ohne konfigurierte API funktionieren
-> Setup, Panels, Tickets und Vorschläge trotzdem. Wirtschaftsfunktionen melden dann
-> „nicht verbunden“, statt Werte zu erfinden.
+> Einrichtung, Dokumentation, Kundenservice und Vorschläge trotzdem. Kontofunktionen melden
+> dann „nicht verbunden“, statt Werte zu erfinden.
+
+## Serverstruktur
+
+| Kategorie | Channels | Sichtbar für |
+|---|---|---|
+| **INFORMATIONEN** | `ankündigungen`, `marktübersicht`, `dokumentation` | alle (nur lesen) |
+| **COMMUNITY** | `diskussionen`, `marktanalysen` | ab *Mitglied* |
+| **KUNDENSERVICE** | `support` (+ private Anfrage-Channels) | alle (nur lesen); Anfragen nur für Ersteller und Team |
+| **INTERN · PRIVAT** | `betrieb`, `prüfprotokoll`, `systemmeldungen`, `moderation`, `team` | nur zuständige Teamrollen |
+
+**Interne Channels im Detail**
+
+| Channel | Inhalt | Zugriff |
+|---|---|---|
+| `betrieb` | Marktvorschläge prüfen, annehmen, ablehnen | Marktverwaltung, Inhaber, Administrator |
+| `prüfprotokoll` | Einrichtung, Ankündigungen, Daily-Gutschriften, Kontoverknüpfungen, verweigerte Zugriffe | Inhaber, Administrator (nur lesen) |
+| `systemmeldungen` | Systemstatus, API-Störungen, Fehler | Entwickler, Inhaber, Administrator (nur lesen) |
+| `moderation` | Moderation, Ticket-Protokolle mit Transkript | Moderator, Kundenservice, Inhaber, Administrator |
+| `team` | Internes Team | alle Teamrollen |
+
+**Rollen** (in dieser Reihenfolge): Inhaber, Administrator, Entwickler, Marktverwaltung,
+Moderator, Kundenservice, Verifiziert, Mitglied, Bot. Es gibt keine Level- oder Prestige-Rollen.
+
+- **Administrator** ist die **einzige** Rolle mit dem Administrator-Recht. **Inhaber** hat
+  umfassende Verwaltungsrechte, aber bewusst ohne Administrator-Flag.
+- **Marktverwaltung** moderiert `marktübersicht` und entscheidet über Vorschläge, hat aber keine
+  Guthaben-Funktionen und keinen Zugriff auf das Prüfprotokoll.
+- **Kundenservice** bearbeitet zugewiesene Anfragen. Kontostände lassen sich über den Bot
+  grundsätzlich nicht ändern.
+- **Mitglied** (über „Regeln akzeptieren“) und **Verifiziert** (nach bestätigter Kontoverknüpfung)
+  sind die einzigen Rollen, die der Bot selbst vergibt.
+- Ankündigungen veröffentlichen nur Inhaber und Administrator, auf Wunsch über `/ankündigung`.
+
+Die komplette Struktur steht deklarativ in [`src/config/serverLayout.js`](src/config/serverLayout.js),
+die Texte von `dokumentation` in [`src/config/docs.js`](src/config/docs.js).
 
 ## Funktionen
 
 | Bereich | Umsetzung |
 |---|---|
-| `/setup-server` | Erstellt 11 Rollen, 10 Kategorien und 58 Channels inklusive Berechtigungen. Vorher kommt eine Vorschau mit Bestätigung. Vorhandenes wird erkannt und nicht dupliziert, IDs werden gespeichert. Am Ende steht ein Ergebnis-Embed mit Erfolgen, Hinweisen und Fehlern |
-| `/setup-panels` | Willkommen, Regeln (Button „Regeln akzeptieren“ vergibt Member), Website, Verifizierung, Ticket-Panel, Transaktions- und Betrugs-Panel, Marktvorschläge, FAQ, Status. Ein erneuter Aufruf **bearbeitet** die Panels, statt neue zu posten |
-| Verifizierung | `/verify` oder Panel-Button, dann Code über die Website-API, dann „Status prüfen“. **Verified** wird erst vergeben, wenn die Website `verified: true` meldet |
-| Konto | `/balance`, `/portfolio`, `/history`, `/daily`. Alle Antworten sind ephemer, also nur für dich sichtbar |
-| Märkte | `/markets` mit Auswahlmenü für Details. Live-Feed in `📈・live-markets` (eine Nachricht pro Markt, die nur bei Änderungen bearbeitet wird), Top-Märkte, „bald entschieden“, neue, entschiedene und abgelehnte Märkte, Preisbewegungen ab 5 Prozentpunkten mit 30 Minuten Cooldown |
-| Ranglisten | Wöchentlich, All-Time, Trefferquote, größte Gewinne. Eine Nachricht pro Channel, die automatisch aktualisiert wird. Nur echte API-Daten |
-| Tickets | 5 Typen. Jedes Ticket ist ein privater Channel nur für den Ersteller und das zuständige Team. Es gibt „Übernehmen“ und „Schließen“ (mit Bestätigung). Beim Schließen landet ein Abschluss-Log mit `.txt`-Transkript in `🎫・ticket-logs` |
-| Vorschläge | Modal mit Titel, Beschreibung, Ergebnissen, Entscheidungsquelle und Enddatum. Abstimmung in `🗳️・community-votes`, Entscheidung in `⚖️・markt-entscheidungen` (nur Market Moderator/Leitung, mit Begründung). Eine Annahme legt den Markt nur bei aktivierter API an (`MARKET_CREATION_ENABLED`). Abgelehnte Vorschläge erscheinen in `❌・abgelehnte-märkte` |
-| Sicherheit | Privilegien-Prüfung bei jedem privilegierten Command und Button, Rate-Limits, Sperren gegen Doppelklicks, Idempotency-Keys für Daily und Marktanlage. Verweigerte Zugriffe gehen nach `🚨・sicherheits-logs`, Admin-Eingriffe nach `📝・moderations-logs`, Fehler nach `🛠️・bot-logs` |
+| `/setup-server` | Richtet Rollen, Kategorien, Channels und Berechtigungen ein und **migriert** die frühere Struktur (siehe unten). Vorher kommt eine Vorschau mit Bestätigung. Vorhandenes wird erkannt und nicht dupliziert |
+| `/setup-panels` | Dokumentation (mit „Regeln akzeptieren“ und „Konto verknüpfen“), Kundenservice-Panel mit Auswahlmenü, Systemstatus in `systemmeldungen`. Ein erneuter Aufruf **bearbeitet** die Panels, statt neue zu posten |
+| `marktübersicht` | Jeder Markt erhält **genau eine Nachricht**. Sie entsteht beim ersten Erscheinen und wird bei Statuswechseln (offen, pausiert, Handel beendet, entschieden) bearbeitet. Kleinstschwankungen lösen keine Bearbeitung aus, Folgenachrichten gibt es nicht |
+| Konto (privat) | `/verify`, `/balance`, `/portfolio`, `/history`, `/daily`, `/leaderboard`. Alle Antworten sind nur für die anfragende Person sichtbar |
+| Kundenservice | Fünf Anliegen. Jede Anfrage wird ein privater Channel nur für Ersteller und zuständiges Team. Es gibt „Übernehmen“ und „Anfrage schließen“ (mit Bestätigung). Das Abschlussprotokoll mit `.txt`-Transkript landet in `moderation` |
+| Marktvorschläge | `/vorschlag` öffnet ein Formular. Der Vorschlag wird in `betrieb` geprüft, angenommen oder (mit Begründung) abgelehnt, und die einreichende Person erhält eine Direktnachricht. Eine Annahme legt den Markt nur bei aktivierter API an (`MARKET_CREATION_ENABLED`) |
+| Sicherheit | Rechteprüfung bei jedem privilegierten Command, Button und Formular. Dazu kommen Rate-Limits, Sperren gegen Doppelklicks und Idempotency-Keys für Daily und Marktanlage |
 
-### Rollen und Rechte (Kurzfassung)
+## Migration von der früheren Struktur
 
-- **🛡️ Administrator** ist die **einzige** Rolle mit dem Administrator-Recht. **👑 Owner** hat
-  umfassende Verwaltungsrechte, aber bewusst ohne Administrator-Flag.
-- **⚖️ Market Moderator** verwaltet Nachrichten in den Markt-Channels und entscheidet über
-  Vorschläge. Keine Guthaben-Funktionen, kein Zugriff auf Wirtschafts- und Transaktions-Logs.
-- **🎫 Support** sieht und bearbeitet die zugewiesenen Tickets. Er kann keine Kontostände
-  ändern, denn der Bot hat dafür überhaupt keine Funktion.
-- **🛠️ Developer** hat Webhooks, Audit-Log, `🧪・test-channel` und `🛠️・bot-logs`, aber
-  keine Wirtschafts-Logs.
-- Mitglieder können sich nur **Member** (Regeln akzeptieren) und **Verified** (nach bestätigter
-  Verifizierung) über den Bot holen. Alle anderen Rollen vergeben nur Menschen.
-- Team-Channels sind für alle Nicht-Team-Rollen unsichtbar. `📊・wirtschafts-logs`,
-  `💸・transaktions-logs`, `🚨・sicherheits-logs` und `👑・leitung` sind nur für Owner/Admin.
-- Sichtbarkeit: `📌 START HERE` und Support-Infos sieht jeder. Community, Märkte, HugoSMP und
-  Rankings gibt es ab **Member**. Die Command-Channels in TRADING gibt es ab **Verified**
-  (dort sind nur Slash-Commands erlaubt, keine öffentlichen Nachrichten).
-- Zusätzlich legt das Setup die private Kategorie **🎫 TICKETS** für Ticket-Channels an.
+`/setup-server` erkennt die frühere Struktur (Emoji-Channels wie `📈・live-markets`) über
+gespeicherte IDs oder die alten Namen. Die Vorschau listet alle Änderungen auf, bevor etwas passiert.
 
-Die komplette Struktur steht deklarativ in [`src/config/serverLayout.js`](src/config/serverLayout.js).
+- **Umbenannt und verschoben** (Nachrichtenverlauf bleibt erhalten, neue Rechte werden gesetzt):
+  `📢・ankündigungen` → `ankündigungen`, `📈・live-markets` → `marktübersicht`,
+  `👋・willkommen` → `dokumentation`, `💬・allgemeiner-chat` → `diskussionen`,
+  `🧠・analysen` → `marktanalysen`, `🎫・ticket-erstellen` → `support`,
+  `⚖️・markt-entscheidungen` → `betrieb`, `📝・moderations-logs` → `prüfprotokoll`,
+  `🛠️・bot-logs` → `systemmeldungen`, `🎫・ticket-logs` → `moderation`, `💬・team-chat` → `team`.
+  Kategorien und Rollen werden ebenso umbenannt (z. B. `👑 Owner` → `Inhaber`).
+- **Veraltet** sind alle übrigen Channels und Kategorien sowie die Rollen *Diamond Trader* und
+  *Trader*. Sie werden **nie automatisch gelöscht**. Standardmäßig werden sie nur aufgelistet.
+  Mit `/setup-server veraltete_archivieren:true` verschiebt der Bot veraltete Channels in eine
+  versteckte Kategorie **ARCHIV** (nur Inhaber/Administrator, nur lesen). Leere Kategorien und
+  veraltete Rollen kannst du danach selbst löschen.
 
 ## Installation
 
@@ -62,14 +92,13 @@ cp .env.example .env    # danach .env ausfüllen
 1. <https://discord.com/developers/applications>, dann **New Application**.
 2. Unter **Bot** auf **Reset Token** klicken und den Token als `DISCORD_TOKEN` in `.env` eintragen.
 3. Unter **General Information** die **Application ID** als `DISCORD_CLIENT_ID` eintragen.
-4. Optional bei `WELCOME_ON_JOIN=true`: Unter **Bot** den Schalter **Server Members Intent** aktivieren.
-5. Bot einladen (ersetze `CLIENT_ID`):
+4. Bot einladen (ersetze `CLIENT_ID`):
    ```
-   https://discord.com/oauth2/authorize?client_id=CLIENT_ID&scope=bot+applications.commands&permissions=380410130000
+   https://discord.com/oauth2/authorize?client_id=CLIENT_ID&scope=bot+applications.commands&permissions=378225945680
    ```
    Die Berechtigungszahl enthält genau die Rechte, die das Setup braucht
    (u. a. Rollen und Channels verwalten, Nachrichten verwalten). **Kein** Administrator-Recht.
-6. Server-ID kopieren (Entwicklermodus, dann Rechtsklick auf den Server) und als `DISCORD_GUILD_ID` eintragen.
+5. Server-ID kopieren (Entwicklermodus, dann Rechtsklick auf den Server) und als `DISCORD_GUILD_ID` eintragen.
 
 ### 2. Slash-Commands registrieren und starten
 
@@ -81,26 +110,24 @@ npm start        # startet den Bot
 ### 3. Server einrichten
 
 1. **Servereinstellungen → Rollen:** Die Bot-Rolle ganz nach **oben** ziehen. Der Bot kann
-   nur Rollen erstellen, sortieren und vergeben, die unter seiner eigenen Rolle liegen.
-2. Im Discord `/setup-server` ausführen, die Vorschau prüfen und mit **Setup starten** bestätigen.
-   - Option `berechtigungen_synchronisieren: true` setzt auch bereits vorhandene
-     Channels und Rollen auf das Standard-Layout zurück.
-3. Das Ergebnis-Embed lesen. Unter **Hinweise** steht, was manuell ergänzt werden muss:
-   Discord erlaubt Bots nur, Rechte zu vergeben, die sie selbst besitzen. Das
-   **Administrator**-Recht der Rolle 🛡️ Administrator sowie z. B. *Mitglieder bannen* für 👑 Owner
-   musst du deshalb einmal selbst in den Rolleneinstellungen setzen.
+   nur Rollen erstellen, umbenennen, sortieren und vergeben, die unter seiner eigenen Rolle liegen.
+2. `/setup-server` ausführen, die Vorschau prüfen und mit **Einrichtung starten** bestätigen.
+   - `veraltete_archivieren: true` verschiebt Channels der früheren Struktur ins ARCHIV.
+   - `berechtigungen_synchronisieren: true` setzt auch unveränderte Channels und Rollen auf
+     das Standard-Layout zurück.
+3. Das Ergebnis lesen. Unter **Hinweise** steht, was manuell ergänzt werden muss: Discord erlaubt
+   Bots nur, Rechte zu vergeben, die sie selbst besitzen. Das **Administrator**-Recht der Rolle
+   Administrator sowie z. B. *Mitglieder bannen* für Inhaber setzt du deshalb einmal selbst.
 4. `/setup-panels` ausführen.
-5. Dir selbst die Rolle 👑 Owner geben und dem Team die passenden Rollen zuweisen.
-6. Optional: Die Bot-Rolle danach unter 🛡️ Administrator schieben. Sie muss aber über
-   ⛏️ Verified und 👤 Member bleiben, damit der Bot diese vergeben kann.
+5. Dir selbst die Rolle **Inhaber** geben und dem Team die passenden Rollen zuweisen.
 
 `/setup-server` und `/setup-panels` können beliebig oft ausgeführt werden.
 
 ### 4. Website anbinden
 
 `WEBSITE_URL`, `HUGO_API_URL` und `HUGO_API_KEY` setzen und auf der Website die Endpunkte aus
-[`docs/API.md`](docs/API.md) bereitstellen. Danach den Bot neu starten. Der Status-Channel
-zeigt, ob die Verbindung steht.
+[`docs/API.md`](docs/API.md) bereitstellen. Danach den Bot neu starten. Der Systemstatus in
+`systemmeldungen` zeigt, ob die Verbindung steht.
 
 ## Umgebungsvariablen
 
@@ -110,18 +137,16 @@ zeigt, ob die Verbindung steht.
 | `DISCORD_CLIENT_ID` | ja | | Application ID |
 | `DISCORD_GUILD_ID` | empfohlen | | Server-ID für sofortige Command-Registrierung |
 | `WEBSITE_URL` | nein | | Link in Panels/Embeds |
-| `HUGO_API_URL` | für Wirtschaft | | Basis-URL der Bot-API (HTTPS) |
-| `HUGO_API_KEY` | für Wirtschaft | | API-Schlüssel (geheim) |
+| `HUGO_API_URL` | für Kontofunktionen | | Basis-URL der Bot-API (HTTPS) |
+| `HUGO_API_KEY` | für Kontofunktionen | | API-Schlüssel (geheim) |
 | `HUGO_API_TIMEOUT_MS` | nein | `8000` | Timeout pro Request |
 | `MARKET_CREATION_ENABLED` | nein | `false` | Angenommene Vorschläge per API anlegen |
+| `BRAND_NAME` | nein | `HugoPredict` | Name in Embeds |
 | `CURRENCY_NAME` | nein | `HC` | Währungsname |
-| `MARKET_FEED_INTERVAL_SECONDS` | nein | `60` | Aktualisierung des Markt-Feeds |
-| `MARKET_FEED_MAX_MARKETS` | nein | `20` | Maximal angezeigte Live-Märkte |
-| `CLOSING_SOON_HOURS` | nein | `48` | Zeitraum für „bald entschieden“ |
-| `LEADERBOARD_INTERVAL_MINUTES` | nein | `15` | Aktualisierung der Ranglisten |
-| `TICKET_CLOSE_CONFIRMATION` | nein | `true` | Bestätigung vor dem Schließen |
-| `MAX_OPEN_TICKETS_PER_USER` | nein | `2` | Offene Tickets pro Nutzer |
-| `WELCOME_ON_JOIN` | nein | `false` | Begrüßung pro Beitritt (Members-Intent nötig) |
+| `MARKET_FEED_INTERVAL_SECONDS` | nein | `60` | Abfrageintervall für `marktübersicht` |
+| `MARKET_FEED_MAX_MARKETS` | nein | `25` | Höchstzahl aktiver Märkte mit eigener Nachricht |
+| `TICKET_CLOSE_CONFIRMATION` | nein | `true` | Bestätigung vor dem Schließen einer Anfrage |
+| `MAX_OPEN_TICKETS_PER_USER` | nein | `2` | Offene Anfragen pro Person |
 | `DATA_DIR` | nein | `./data` | Speicherort für IDs, Panels, Tickets |
 | `LOG_LEVEL` | nein | `info` | `debug`/`info`/`warn`/`error` |
 
@@ -169,7 +194,7 @@ gespeicherten IDs.
 ## Entwicklung
 
 ```bash
-npm test         # Unit-Tests (Layout, Berechtigungen, API-Client, Feeds, Builder)
+npm test         # Tests: Struktur, Berechtigungen, Migration, API-Client, Marktübersicht, Embeds
 npm run check    # Syntaxprüfung aller Dateien + Validierung aller Commands
 ```
 
@@ -183,6 +208,8 @@ src/
   config/
     env.js                 Umgebungsvariablen (validiert)
     serverLayout.js        Rollen, Kategorien, Channels, Berechtigungen, Ticket-Typen
+    legacyLayout.js        Frühere Struktur (nur zur Migration)
+    docs.js                Texte für #dokumentation
     theme.js               Farben/Design
   lib/
     hugoApi.js             Website-API-Client (siehe docs/API.md)
@@ -194,11 +221,11 @@ src/
     setupServer.js         /setup-server-Logik (idempotent)
     panels.js              /setup-panels-Inhalte
   services/
-    marketFeed.js          Live-Markets, Top, bald entschieden, neu/entschieden/abgelehnt, Preisbewegungen
-    leaderboards.js        Automatische Ranglisten
-    status.js              Status-Channel
+    marketFeed.js          #marktübersicht (eine Nachricht pro Markt)
+    leaderboards.js        Ranglisten-Embed für /leaderboard
+    status.js              Systemstatus in #systemmeldungen
   commands/                Slash-Commands
-  interactions/            Buttons, Modals, Select-Menüs (tickets, suggestions, verification, rules, markets)
+  interactions/            Buttons, Modals, Select-Menüs (tickets, suggestions, verification, rules, markets, announcements)
 docs/API.md                Schnittstelle, die die Website bereitstellen muss
 deploy/                    systemd-Dienst
 test/                      node:test-Tests

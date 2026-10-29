@@ -1,186 +1,62 @@
 'use strict';
 
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const { TICKET_TYPES } = require('../config/serverLayout');
-const { embeds } = require('../lib/embeds');
+const { LEGACY_PANELS } = require('../config/legacyLayout');
+const { sections } = require('../config/docs');
+const { embeds, truncate } = require('../lib/embeds');
+const theme = require('../config/theme');
 
-const channelLink = (guildId, channelId) => (channelId ? `https://discord.com/channels/${guildId}/${channelId}` : null);
-
-function linkButton(label, url) {
-  return url ? new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel(label).setURL(url) : null;
-}
-
-function row(...buttons) {
-  const list = buttons.filter(Boolean);
-  return list.length ? new ActionRowBuilder().addComponents(list) : null;
-}
-
-/** Liefert alle Panels als { key, channelKey, build(ctx) }. */
 function panelDefinitions() {
   return [
     {
-      key: 'welcome',
-      channelKey: 'welcome',
-      build: ({ guild, env, ids }) => ({
-        embeds: [
-          embeds.brand()
-            .setTitle('Willkommen bei HugoSMP Market')
-            .setDescription([
-              'Die Prognoseplattform für den Minecraft-Server **HugoSMP**.',
-              'Handle auf den Ausgang von Ereignissen, verfolge Live-Märkte und messe dich mit anderen Tradern.',
-              '',
-              '**So startest du**',
-              `1. Lies und akzeptiere die Regeln in <#${ids.rules ?? '0'}>.`,
-              `2. Verknüpfe deinen Minecraft-Account in <#${ids.verification ?? '0'}>.`,
-              '3. Nutze `/help` für eine Übersicht aller Befehle.',
-            ].join('\n'))
-            .addFields(
-              { name: 'Website', value: env.websiteUrl || 'Wird in Kürze bekannt gegeben', inline: true },
-              { name: 'Support', value: ids.ticketCreate ? `<#${ids.ticketCreate}>` : '—', inline: true },
-            ),
-        ],
-        components: [row(
-          linkButton('Zur Website', env.websiteUrl),
-          linkButton('Regeln', channelLink(guild.id, ids.rules)),
-          linkButton('Verifizieren', channelLink(guild.id, ids.verification)),
-        )].filter(Boolean),
-      }),
-    },
-    {
-      key: 'rules',
-      channelKey: 'rules',
-      build: () => ({
-        embeds: [
-          embeds.info('Serverregeln', [
-            '**1. Respekt** – Kein Hass, keine Beleidigungen, keine Diskriminierung.',
-            '**2. Keine Manipulation** – Absprachen zur Marktmanipulation, Multi-Accounts und Ausnutzen von Fehlern sind verboten.',
-            '**3. Kein Betrug** – Keine Fake-Trades, Fake-Screenshots oder Identitätstäuschung.',
-            '**4. Privatsphäre** – Teile keine Kontodaten oder privaten Informationen anderer.',
-            '**5. Kein Spam & keine Werbung** – Auch nicht per Direktnachricht.',
-            '**6. Fehler melden** – Bugs und Probleme gehören in ein Ticket, nicht in den Chat.',
-            '**7. Entscheidungen** – Marktentscheidungen trifft ausschließlich das Market-Team anhand der angegebenen Quelle.',
-            '**8. Discord-Richtlinien** – Es gelten die Nutzungsbedingungen und Community-Richtlinien von Discord.',
-            '',
-            'Verstöße können zu Verwarnungen, Ausschluss vom Handel oder einem Bann führen.',
-          ].join('\n')),
-        ],
-        components: [row(new ButtonBuilder().setCustomId('hm:rules:accept').setStyle(ButtonStyle.Success).setLabel('Regeln akzeptieren'))],
-      }),
-    },
-    {
-      key: 'website',
-      channelKey: 'website',
-      build: ({ env }) => ({
-        embeds: [
-          embeds.brand()
-            .setTitle('HugoSMP Market')
-            .setDescription(env.websiteUrl
-              ? `Alle Märkte, dein Portfolio und dein Guthaben findest du auf der Website:\n${env.websiteUrl}`
-              : 'Der Link zur Website wird hier veröffentlicht, sobald die Plattform freigeschaltet ist.'),
-        ],
-        components: [row(linkButton('Website öffnen', env.websiteUrl))].filter(Boolean),
-      }),
-    },
-    {
-      key: 'verification',
-      channelKey: 'verification',
-      build: () => ({
-        embeds: [
-          embeds.info('Account-Verifizierung', [
-            'Verknüpfe deinen Minecraft-Account mit HugoSMP Market, um Zugriff auf Trading-Funktionen zu erhalten.',
-            '',
-            '**Ablauf**',
-            '1. Klicke auf **Verifizierung starten** und gib deinen Minecraft-Namen ein.',
-            '2. Folge den angezeigten Anweisungen, um den Code zu bestätigen.',
-            '3. Klicke auf **Status prüfen**. Nach erfolgreicher Prüfung erhältst du die Rolle **Verified**.',
-            '',
-            'Deine Daten werden nur zur Kontoverknüpfung verwendet. Gib deinen Code niemals an andere weiter.',
-          ].join('\n')),
-        ],
-        components: [row(
-          new ButtonBuilder().setCustomId('hm:verify:start').setStyle(ButtonStyle.Success).setLabel('Verifizierung starten'),
-          new ButtonBuilder().setCustomId('hm:verify:check').setStyle(ButtonStyle.Secondary).setLabel('Status prüfen'),
-        )],
-      }),
-    },
-    {
-      key: 'tickets',
-      channelKey: 'ticketCreate',
-      build: () => {
-        const buttons = TICKET_TYPES.map((t, i) =>
-          new ButtonBuilder().setCustomId(`hm:ticket:open:${t.key}`).setLabel(t.label)
-            .setStyle(i === 0 ? ButtonStyle.Primary : t.key === 'fraud' ? ButtonStyle.Danger : ButtonStyle.Secondary));
-        return {
-          embeds: [
-            embeds.info('Support-Ticket erstellen', [
-              'Wähle die passende Kategorie. Es wird ein privater Channel erstellt, den nur du und das zuständige Team sehen.',
-              '',
-              ...TICKET_TYPES.map((t) => `**${t.label}** – ${t.description}`),
-              '',
-              'Das Team wird dich niemals nach deinem Passwort fragen.',
-            ].join('\n')),
-          ],
-          components: [row(...buttons.slice(0, 5))],
-        };
+      key: 'docs',
+      channelKey: 'docs',
+      build: ({ env }) => {
+        const list = sections({ currency: env.currency, websiteUrl: env.websiteUrl });
+        const header = embeds.brand()
+          .setTitle(`${theme.brand} · Dokumentation`)
+          .setDescription('Alles Wichtige zur Plattform auf einen Blick. Bitte lies die Regeln, bevor du der Community beitrittst.');
+        const body = list.map((s) => embeds.base(theme.colors.neutral).setTitle(s.title).setDescription(truncate(s.body, 4096)));
+        const all = [header, ...body];
+        // Nur das letzte Embed trägt Footer und Zeitstempel – die Nachricht wirkt dadurch ruhiger.
+        all.slice(0, -1).forEach((e) => e.setFooter(null).setTimestamp(null));
+        const buttons = [
+          new ButtonBuilder().setCustomId('hm:rules:accept').setStyle(ButtonStyle.Success).setLabel('Regeln akzeptieren'),
+          new ButtonBuilder().setCustomId('hm:verify:start').setStyle(ButtonStyle.Secondary).setLabel('Konto verknüpfen'),
+        ];
+        if (env.websiteUrl) buttons.push(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Zur Website').setURL(env.websiteUrl));
+        return { embeds: all, components: [new ActionRowBuilder().addComponents(buttons)] };
       },
     },
     {
-      key: 'transactionIssues',
-      channelKey: 'transactionIssues',
+      key: 'tickets',
+      channelKey: 'support',
       build: () => ({
-        embeds: [embeds.warning('Probleme mit Transaktionen', 'Bitte poste keine Kontodaten öffentlich. Öffne für Probleme mit Guthaben, Trades oder Auszahlungen ein privates Ticket – das Team prüft den Fall anhand der Website-Daten.')],
-        components: [row(new ButtonBuilder().setCustomId('hm:ticket:open:balance').setStyle(ButtonStyle.Primary).setLabel('Ticket zu Guthaben/Transaktion'))],
-      }),
-    },
-    {
-      key: 'fraudReports',
-      channelKey: 'fraudReports',
-      build: () => ({
-        embeds: [embeds.error('Betrugsverdacht melden', 'Verdacht auf Betrug, Manipulation oder Multi-Accounts? Melde ihn vertraulich per Ticket. Beschuldige niemanden öffentlich.')],
-        components: [row(new ButtonBuilder().setCustomId('hm:ticket:open:fraud').setStyle(ButtonStyle.Danger).setLabel('Vertraulich melden'))],
-      }),
-    },
-    {
-      key: 'suggestions',
-      channelKey: 'marketSuggestions',
-      build: ({ ids }) => ({
         embeds: [
-          embeds.info('Markt vorschlagen', [
-            'Du hast eine Idee für einen neuen Markt? Reiche sie hier ein.',
+          embeds.brand().setTitle('Kundenservice').setDescription([
+            'Wähle unten das passende Anliegen. Es wird ein privater Channel erstellt, den nur du und das zuständige Team sehen.',
             '',
-            '**Ein guter Vorschlag hat**',
-            '• eine eindeutige, überprüfbare Frage,',
-            '• klar abgegrenzte Ergebnisse (z. B. Ja / Nein),',
-            '• eine nachvollziehbare Entscheidungsquelle.',
+            ...TICKET_TYPES.map((t) => `**${t.label}**\n${t.description}`),
             '',
-            `Die Community stimmt in ${ids.communityVotes ? `<#${ids.communityVotes}>` : 'den Community-Votes'} ab. Über die Aufnahme entscheidet das Market-Team.`,
+            'Das Team fragt niemals nach Passwörtern. Korrekturen von Guthaben erfolgen ausschließlich über die Website.',
           ].join('\n')),
         ],
-        components: [row(new ButtonBuilder().setCustomId('hm:suggest:open').setStyle(ButtonStyle.Success).setLabel('Markt vorschlagen'))],
-      }),
-    },
-    {
-      key: 'faq',
-      channelKey: 'faq',
-      build: ({ env, ids }) => ({
-        embeds: [
-          embeds.info('Häufige Fragen').addFields(
-            { name: 'Wie verknüpfe ich meinen Account?', value: `In ${ids.verification ? `<#${ids.verification}>` : 'der Account-Verifizierung'} oder mit \`/verify\`.`, inline: false },
-            { name: 'Wer sieht mein Guthaben?', value: 'Nur du. `/balance`, `/portfolio` und `/history` antworten ausschließlich privat.', inline: false },
-            { name: `Woher kommen die ${env.currency}?`, value: 'Alle Kontostände werden von der Website verwaltet. Der Discord-Bot zeigt sie nur an und kann sie nicht verändern.', inline: false },
-            { name: 'Wer entscheidet Märkte?', value: 'Das Market-Team anhand der beim Markt angegebenen Entscheidungsquelle.', inline: false },
-            { name: 'Ich habe ein Problem.', value: ids.ticketCreate ? `Öffne ein Ticket in <#${ids.ticketCreate}>.` : 'Öffne ein Support-Ticket.', inline: false },
-          ),
-        ],
-        components: [],
+        components: [new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('hm:ticket:select')
+            .setPlaceholder('Anliegen auswählen')
+            .addOptions(TICKET_TYPES.map((t) => ({ label: t.label, value: t.key, description: truncate(t.description, 100) }))),
+        )],
       }),
     },
   ];
 }
 
 /**
- * Veröffentlicht alle Panels. Bereits vorhandene Panel-Nachrichten werden
- * bearbeitet, damit keine Duplikate entstehen.
+ * Veröffentlicht alle Panels. Vorhandene Panel-Nachrichten werden bearbeitet
+ * statt neu gepostet; Panels der früheren Struktur werden weiterverwendet,
+ * wenn sie im selben Channel liegen.
  */
 async function publishPanels(guild, { store, env, statusService }) {
   const g = store.guild(guild.id);
@@ -189,14 +65,16 @@ async function publishPanels(guild, { store, env, statusService }) {
   const publish = async (key, channelId, payload) => {
     const channel = channelId && (guild.channels.cache.get(channelId) ?? (await guild.channels.fetch(channelId).catch(() => null)));
     if (!channel?.isTextBased()) {
-      result.errors.push(`${key}: Channel fehlt – zuerst /setup-server ausführen.`);
+      result.errors.push(`${key}: Channel fehlt – bitte zuerst /setup-server ausführen.`);
       return;
     }
-    const stored = g.panels[key];
-    if (stored?.channelId === channel.id) {
-      const msg = await channel.messages.fetch(stored.messageId).catch(() => null);
+    const candidates = [g.panels[key], g.panels[LEGACY_PANELS[key]]].filter((p) => p?.channelId === channel.id);
+    for (const ref of candidates) {
+      const msg = await channel.messages.fetch(ref.messageId).catch(() => null);
       if (msg) {
-        await msg.edit(payload);
+        await msg.edit({ content: null, ...payload });
+        g.panels[key] = { channelId: channel.id, messageId: msg.id };
+        if (LEGACY_PANELS[key]) delete g.panels[LEGACY_PANELS[key]];
         result.updated.push(key);
         return;
       }
@@ -213,10 +91,8 @@ async function publishPanels(guild, { store, env, statusService }) {
       result.errors.push(`${def.key}: ${err.message}`);
     }
   }
-
-  // Status-Panel wird vom Status-Service gepflegt.
   try {
-    await publish('status', g.channels.status, { embeds: [await statusService.buildEmbed()] });
+    await publish('status', g.channels.system, { embeds: [await statusService.buildEmbed()] });
   } catch (err) {
     result.errors.push(`status: ${err.message}`);
   }

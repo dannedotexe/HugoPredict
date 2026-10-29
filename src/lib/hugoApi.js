@@ -3,7 +3,7 @@
 const crypto = require('node:crypto');
 
 /*
- * Client für die HugoSMP-Market-Website.
+ * Client für die HugoPredict-Website.
  *
  * Das Repository enthält (noch) keine Website-API. Dieser Client definiert daher
  * eine klar abgegrenzte Schnittstelle, die die Website implementieren muss
@@ -26,7 +26,7 @@ class ApiError extends Error {
 
 const USER_MESSAGES = {
   not_configured: 'Die Verbindung zur Website ist noch nicht eingerichtet. Bitte wende dich an das Team.',
-  not_linked: 'Dein Discord-Account ist noch nicht mit einem HugoSMP-Market-Konto verknüpft. Nutze /verify.',
+  not_linked: 'Dein Discord-Konto ist noch nicht mit HugoPredict verknüpft. Nutze /verify.',
   not_found: 'Der angefragte Datensatz wurde auf der Website nicht gefunden.',
   unauthorized: 'Der Bot ist bei der Website nicht autorisiert. Das Team wurde informiert.',
   rate_limited: 'Die Website ist gerade ausgelastet. Bitte versuche es gleich erneut.',
@@ -51,7 +51,7 @@ function userMessage(err) {
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const SNOWFLAKE = /^\d{15,25}$/;
-const MARKET_STATUSES = ['open', 'closed', 'resolved', 'rejected'];
+const MARKET_STATUSES = ['open', 'paused', 'closed', 'resolved', 'rejected'];
 const LEADERBOARDS = ['weekly', 'all-time', 'accuracy', 'biggest-wins'];
 
 function requireArray(body, key) {
@@ -103,7 +103,7 @@ class HugoApi {
     const headers = {
       Accept: 'application/json',
       Authorization: `Bearer ${this.apiKey}`,
-      'User-Agent': 'HugoSMP-Market-Discord-Bot/1.0',
+      'User-Agent': 'HugoPredict-Discord-Bot/2.0',
       'X-Request-Id': crypto.randomUUID(),
     };
     if (body !== undefined) headers['Content-Type'] = 'application/json';

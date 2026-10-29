@@ -52,27 +52,45 @@ test('Daily-Key ist pro Nutzer und Tag stabil', () => {
   assert.notEqual(dailyKey('1', d), dailyKey('1', new Date('2026-10-30T00:00:01Z')));
 });
 
-test('Markt-Feed: Bald entschieden, Top-Volumen, Hash', () => {
-  const now = Date.parse('2026-10-29T12:00:00Z');
-  const ms = [
-    { id: 'a', closesAt: '2026-10-30T12:00:00Z', volume: 5 },
-    { id: 'b', closesAt: '2026-10-29T13:00:00Z', volume: null },
-    { id: 'c', closesAt: '2026-12-01T00:00:00Z', volume: 50 },
-    { id: 'd', closesAt: '2026-10-28T00:00:00Z', volume: 1 },
-  ];
-  assert.deepEqual(feed.closingSoon(ms, 48, now).map((m) => m.id), ['b', 'a']);
-  assert.deepEqual(feed.topByVolume(ms).map((m) => m.id), ['c', 'a', 'd']);
-  const m = { title: 'X', yesPrice: 0.5 };
-  assert.notEqual(feed.marketHash(m), feed.marketHash({ ...m, yesPrice: 0.51 }));
+test('Marktübersicht: Hash ignoriert Kleinstschwankungen', () => {
+  const m = { title: 'X', yesPrice: 0.5, volume: 100, status: 'open' };
+  assert.equal(feed.marketHash(m), feed.marketHash({ ...m, yesPrice: 0.502, volume: 100.3 }));
+  assert.notEqual(feed.marketHash(m), feed.marketHash({ ...m, yesPrice: 0.52 }));
+  assert.notEqual(feed.marketHash(m), feed.marketHash({ ...m, status: 'paused' }));
 });
 
-test('Markt-Feed: Preisbewegungen mit Schwelle und Cooldown', () => {
-  const state = {};
-  const t0 = 10 * 60 * 60_000;
-  assert.equal(feed.detectPriceMoves([{ id: 'a', yesPrice: 0.5 }], state, t0).length, 0); // Initialisierung
-  assert.equal(feed.detectPriceMoves([{ id: 'a', yesPrice: 0.53 }], state, t0).length, 0); // unter Schwelle
-  assert.equal(feed.detectPriceMoves([{ id: 'a', yesPrice: 0.6 }], state, t0).length, 1);
-  assert.equal(feed.detectPriceMoves([{ id: 'a', yesPrice: 0.7 }], state, t0 + 60_000).length, 0); // Cooldown
+test('Marktübersicht: eine Nachricht pro Markt, Bearbeitung statt Neupost', () => {
+  const a = { id: 'a', title: 'A', status: 'open', createdAt: '2026-01-02' };
+  const b = { id: 'b', title: 'B', status: 'paused', createdAt: '2026-01-01' };
+  const base = { resolved: [], seenResolved: new Set(), initialized: false, maxMarkets: 10 };
+
+  // Ersteinrichtung: aktive Märkte werden (älteste zuerst) gepostet
+  let actions = feed.planFeed({ ...base, active: [a, b], messages: {} });
+  assert.deepEqual(actions.map((x) => [x.type, x.market.id]), [['post', 'b'], ['post', 'a']]);
+
+  // Unverändert → keine Aktion; Statuswechsel → Bearbeitung
+  const messages = { a: { messageId: '1', hash: feed.marketHash(a) }, b: { messageId: '2', hash: feed.marketHash(b) } };
+  assert.equal(feed.planFeed({ ...base, active: [a, b], messages }).length, 0);
+  actions = feed.planFeed({ ...base, active: [{ ...a, status: 'paused' }, b], messages });
+  assert.deepEqual(actions.map((x) => [x.type, x.market.id]), [['edit', 'a']]);
+
+  // Entscheidung eines bekannten Marktes → Bearbeitung der bestehenden Nachricht
+  actions = feed.planFeed({ ...base, active: [b], resolved: [{ ...a, status: 'resolved', outcome: 'Ja' }], messages, initialized: true });
+  assert.deepEqual(actions.map((x) => [x.type, x.market.id]), [['edit', 'a']]);
+});
+
+test('Marktübersicht: alte entschiedene Märkte werden bei der Ersteinrichtung nicht gepostet', () => {
+  const r = { id: 'r', title: 'R', status: 'resolved' };
+  const base = { active: [], messages: {}, maxMarkets: 10 };
+  assert.equal(feed.planFeed({ ...base, resolved: [r], seenResolved: new Set(), initialized: false }).length, 0);
+  assert.equal(feed.planFeed({ ...base, resolved: [r], seenResolved: new Set(['r']), initialized: true }).length, 0);
+  assert.equal(feed.planFeed({ ...base, resolved: [r], seenResolved: new Set(), initialized: true }).length, 1);
+});
+
+test('Marktübersicht: Obergrenze für aktive Märkte', () => {
+  const active = Array.from({ length: 5 }, (_, i) => ({ id: String(i), title: String(i), status: 'open' }));
+  const actions = feed.planFeed({ active, resolved: [], messages: { 0: { messageId: 'x', hash: feed.marketHash(active[0]) } }, seenResolved: new Set(), initialized: true, maxMarkets: 3 });
+  assert.equal(actions.filter((x) => x.type === 'post').length, 2);
 });
 
 test('Formatierung zeigt fehlende Werte als —', () => {

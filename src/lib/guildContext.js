@@ -1,7 +1,7 @@
 'use strict';
 
 const { PermissionFlagsBits } = require('discord.js');
-const { PRIVILEGES } = require('../config/serverLayout');
+const { PRIVILEGES, LOG_ROUTES } = require('../config/serverLayout');
 const { embeds, truncate } = require('./embeds');
 
 /**
@@ -31,8 +31,13 @@ function createGuildContext({ store, logger }) {
     return (PRIVILEGES[privilege] ?? []).some((key) => hasRoleKey(member, key));
   }
 
-  /** Schreibt ein Log-Embed in einen Team-Channel. Fehler dabei werden nur geloggt. */
-  async function audit(guild, key, { title, description, fields = [], color, files } = {}) {
+  /**
+   * Schreibt ein Protokoll-Embed. `route` ist ein Schlüssel aus LOG_ROUTES
+   * (system, audit, tickets, operations). Fehler dabei werden nur geloggt.
+   */
+  async function audit(guild, route, { title, description, fields = [], color, files } = {}) {
+    const key = LOG_ROUTES[route];
+    if (!key) throw new Error(`Unbekannte Protokoll-Route: ${route}`);
     try {
       const ch = await channel(guild, key);
       if (!ch?.isTextBased()) return;
@@ -47,7 +52,7 @@ function createGuildContext({ store, logger }) {
       }
       await ch.send({ embeds: [embed], files, allowedMentions: { parse: [] } });
     } catch (err) {
-      logger.warn(`Audit-Log (${key}) fehlgeschlagen:`, err.message);
+      logger.warn(`Protokoll (${route}) fehlgeschlagen:`, err.message);
     }
   }
 

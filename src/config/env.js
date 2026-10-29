@@ -55,13 +55,10 @@ const env = {
 
   currency: str('CURRENCY_NAME', 'HC'),
   marketFeedIntervalSeconds: int('MARKET_FEED_INTERVAL_SECONDS', 60, { min: 15, max: 3600 }),
-  marketFeedMaxMarkets: int('MARKET_FEED_MAX_MARKETS', 20, { min: 1, max: 50 }),
-  closingSoonHours: int('CLOSING_SOON_HOURS', 48, { min: 1, max: 720 }),
-  leaderboardIntervalMinutes: int('LEADERBOARD_INTERVAL_MINUTES', 15, { min: 1, max: 1440 }),
+  marketFeedMaxMarkets: int('MARKET_FEED_MAX_MARKETS', 25, { min: 1, max: 100 }),
 
   ticketCloseConfirmation: bool('TICKET_CLOSE_CONFIRMATION', true),
   maxOpenTicketsPerUser: int('MAX_OPEN_TICKETS_PER_USER', 2, { min: 1, max: 10 }),
-  welcomeOnJoin: bool('WELCOME_ON_JOIN', false),
 
   dataDir: path.resolve(str('DATA_DIR', path.join(__dirname, '..', '..', 'data'))),
   logLevel: str('LOG_LEVEL', 'info'),

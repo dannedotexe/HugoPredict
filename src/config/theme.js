@@ -1,8 +1,8 @@
 'use strict';
 
-// Dunkles Trading-Design: Schwarz/Anthrazit mit dezenten Emerald-Akzenten.
+// Dunkles, sachliches Design: Schwarz/Anthrazit mit dezenten Emerald-Akzenten.
 module.exports = {
-  brand: 'HugoSMP Market',
+  brand: process.env.BRAND_NAME?.trim() || 'HugoPredict',
   colors: {
     primary: 0x10b981, // Emerald
     neutral: 0x2b2d31, // Anthrazit (verschmilzt mit dem dunklen Discord-Theme)

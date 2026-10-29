@@ -29,7 +29,7 @@ async function replyApiError(interaction, err, { logger, ctx, action } = {}) {
   if (!expected) {
     logger?.warn(`${action ?? 'API'} fehlgeschlagen:`, err.message);
     if (interaction.guild && ctx) {
-      await ctx.audit(interaction.guild, 'botLogs', {
+      await ctx.audit(interaction.guild, 'system', {
         title: 'API-Fehler',
         description: `${action ?? 'Aktion'} von <@${interaction.user.id}>: \`${String(err.message).slice(0, 500)}\``,
       });

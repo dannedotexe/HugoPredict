@@ -9,7 +9,7 @@ const { ApiError } = require('../lib/hugoApi');
 const MC_NAME = /^[A-Za-z0-9_]{3,16}$/;
 
 function nameModal() {
-  return new ModalBuilder().setCustomId('hm:verify:modal').setTitle('Minecraft-Account verknüpfen').addComponents(
+  return new ModalBuilder().setCustomId('hm:verify:modal').setTitle('Konto verknüpfen').addComponents(
     new ActionRowBuilder().addComponents(
       new TextInputBuilder().setCustomId('name').setLabel('Minecraft-Name').setStyle(TextInputStyle.Short)
         .setMinLength(3).setMaxLength(16).setRequired(true),
@@ -23,7 +23,7 @@ async function startVerification(interaction, rawName, deps) {
     return replyPrivate(interaction, { embeds: [embeds.error('Ungültiger Name', 'Minecraft-Namen bestehen aus 3–16 Zeichen (Buchstaben, Ziffern, Unterstrich).')] });
   }
   if (deps.ctx.hasRoleKey(interaction.member, 'verified')) {
-    return replyPrivate(interaction, { embeds: [embeds.info('Bereits verifiziert', 'Dein Account ist bereits verknüpft.')] });
+    return replyPrivate(interaction, { embeds: [embeds.info('Bereits verknüpft', 'Dein Konto ist bereits verknüpft.')] });
   }
   await interaction.deferReply({ flags: EPHEMERAL });
   try {
@@ -32,14 +32,14 @@ async function startVerification(interaction, rawName, deps) {
       discordUsername: interaction.user.username,
       minecraftName: name,
     });
-    const e = embeds.brand().setTitle('Verifizierung gestartet').setDescription(
-      res.instructions ?? 'Bestätige den folgenden Code wie auf der Website beschrieben und klicke danach auf „Status prüfen“.',
+    const e = embeds.brand().setTitle('Kontoverknüpfung gestartet').setDescription(
+      res.instructions ?? 'Bestätige den folgenden Code wie auf der Website beschrieben und wähle anschließend „Status prüfen“.',
     ).addFields(
       { name: 'Minecraft-Name', value: name, inline: true },
       { name: 'Code', value: `\`${res.code.slice(0, 64)}\``, inline: true },
     );
     if (res.expiresAt) e.addFields({ name: 'Gültig bis', value: discordTime(res.expiresAt, 'R'), inline: true });
-    e.addFields({ name: 'Sicherheit', value: 'Gib diesen Code niemals an andere Personen weiter.', inline: false });
+    e.addFields({ name: 'Sicherheit', value: 'Gib diesen Code nicht an andere Personen weiter.', inline: false });
     const buttons = [new ButtonBuilder().setCustomId('hm:verify:check').setStyle(ButtonStyle.Success).setLabel('Status prüfen')];
     if (res.verifyUrl) buttons.push(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Auf der Website bestätigen').setURL(res.verifyUrl));
     return replyPrivate(interaction, { embeds: [e], components: [new ActionRowBuilder().addComponents(buttons)] });
@@ -58,9 +58,9 @@ async function checkVerification(interaction, deps) {
   }
   if (!status.verified) {
     return replyPrivate(interaction, {
-      embeds: [embeds.warning('Noch nicht verifiziert', status.pending
+      embeds: [embeds.warning('Noch nicht bestätigt', status.pending
         ? 'Die Bestätigung steht noch aus. Folge den Anweisungen und prüfe den Status danach erneut.'
-        : 'Es läuft keine Verifizierung. Starte sie mit `/verify` oder über den Button im Verifizierungs-Channel.')],
+        : 'Es läuft keine Kontoverknüpfung. Starte sie mit `/verify` oder über „Konto verknüpfen“ in #dokumentation.')],
     });
   }
 
@@ -69,19 +69,20 @@ async function checkVerification(interaction, deps) {
   const roleIds = SELF_ASSIGNABLE_VIA_BOT.map((k) => deps.ctx.roleId(interaction.guild.id, k)).filter(Boolean);
   const toAdd = roleIds.filter((id) => !member.roles.cache.has(id));
   try {
-    if (toAdd.length) await member.roles.add(toAdd, 'Minecraft-Account über die Website verifiziert');
+    if (toAdd.length) await member.roles.add(toAdd, 'Konto über die Website verknüpft');
   } catch (err) {
-    deps.logger.warn('Verified-Rolle konnte nicht vergeben werden:', err.message);
-    return replyPrivate(interaction, { embeds: [embeds.error('Rolle konnte nicht vergeben werden', 'Deine Verifizierung ist gültig, aber der Bot konnte die Rolle nicht vergeben. Das Team wurde informiert.')] });
+    deps.logger.warn('Rolle Verifiziert konnte nicht vergeben werden:', err.message);
+    await deps.ctx.audit(interaction.guild, 'system', { title: 'Rolle nicht vergeben', description: `Verifiziert für <@${interaction.user.id}>: ${err.message}` });
+    return replyPrivate(interaction, { embeds: [embeds.error('Rolle nicht vergeben', 'Deine Verknüpfung ist gültig, die Rolle konnte jedoch nicht vergeben werden. Das Team wurde informiert.')] });
   }
-  await deps.ctx.audit(interaction.guild, 'securityLogs', {
-    title: 'Account verifiziert',
+  await deps.ctx.audit(interaction.guild, 'audit', {
+    title: 'Konto verknüpft',
     fields: [
       { name: 'Discord', value: `<@${interaction.user.id}> (${interaction.user.id})` },
       { name: 'Minecraft', value: status.minecraftName ?? '—' },
     ],
   });
-  return replyPrivate(interaction, { embeds: [embeds.success('Verifizierung erfolgreich', `Dein Account${status.minecraftName ? ` **${status.minecraftName}**` : ''} ist verknüpft. Du hast jetzt Zugriff auf die Trading-Bereiche.`)] });
+  return replyPrivate(interaction, { embeds: [embeds.success('Konto verknüpft', `Dein Konto${status.minecraftName ? ` **${status.minecraftName}**` : ''} ist verknüpft. Kontoabfragen wie \`/balance\` stehen dir jetzt zur Verfügung.`)] });
 }
 
 async function handle(interaction, deps, [action]) {

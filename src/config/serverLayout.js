@@ -5,8 +5,9 @@ const { ChannelType, PermissionFlagsBits: P } = require('discord.js');
 /*
  * Zentrale, deklarative Beschreibung der Serverstruktur.
  * Das Setup (src/setup/setupServer.js) liest ausschließlich diese Datei.
- * Schlüssel (key) sind stabil und werden im Store auf Discord-IDs abgebildet –
- * Namen dürfen also später angepasst werden, ohne dass Verweise brechen.
+ * Schlüssel (key) sind stabil und werden im Store auf Discord-IDs abgebildet.
+ * `legacy` nennt Schlüssel der früheren Struktur: Solche Channels/Kategorien
+ * werden beim Setup umbenannt und verschoben statt neu angelegt.
  */
 
 // ---------------------------------------------------------------------------
@@ -16,81 +17,77 @@ const { ChannelType, PermissionFlagsBits: P } = require('discord.js');
 const ROLES = [
   {
     key: 'owner',
-    name: '👑 Owner',
-    color: 0xe5c07b,
+    name: 'Inhaber',
+    legacyNames: ['👑 Owner'],
+    color: 0x10b981,
     hoist: true,
     mentionable: false,
-    // Bewusst OHNE Administrator: Das Administrator-Recht ist ausschließlich
-    // der Rolle "🛡️ Administrator" vorbehalten. Der Server-Eigentümer hat
-    // ohnehin uneingeschränkte Rechte.
+    // Bewusst OHNE Administrator: Dieses Recht ist ausschließlich der Rolle
+    // „Administrator“ vorbehalten. Der Server-Eigentümer hat ohnehin alle Rechte.
     permissions: [
       P.ManageGuild, P.ManageRoles, P.ManageChannels, P.ManageWebhooks, P.ManageGuildExpressions,
       P.ManageEvents, P.ViewAuditLog, P.ViewGuildInsights, P.KickMembers, P.BanMembers,
       P.ModerateMembers, P.ManageMessages, P.ManageThreads, P.ManageNicknames, P.MentionEveryone,
-      P.MuteMembers, P.DeafenMembers, P.MoveMembers,
     ],
   },
-  { key: 'admin', name: '🛡️ Administrator', color: 0xc0392b, hoist: true, mentionable: false, permissions: [P.Administrator] },
+  { key: 'admin', name: 'Administrator', legacyNames: ['🛡️ Administrator'], color: 0x0f9f74, hoist: true, mentionable: false, permissions: [P.Administrator] },
   {
     key: 'developer',
-    name: '🛠️ Developer',
-    color: 0x3b82f6,
+    name: 'Entwickler',
+    legacyNames: ['🛠️ Developer'],
+    color: 0x64748b,
     hoist: true,
     mentionable: false,
-    // Technische Rechte (Webhooks, Audit-Log), aber keine Wirtschafts-Logs (siehe Channels).
+    // Technische Rechte, aber kein Zugriff auf das Prüfprotokoll.
     permissions: [P.ManageWebhooks, P.ViewAuditLog],
   },
   {
     key: 'marketMod',
-    name: '⚖️ Market Moderator',
-    color: 0x8b5cf6,
+    name: 'Marktverwaltung',
+    legacyNames: ['⚖️ Market Moderator'],
+    color: 0x34d399,
     hoist: true,
     mentionable: true,
-    // Marktverwaltung erfolgt über Channel-Rechte in MARKETS und Bot-Buttons –
-    // kein Zugriff auf Guthaben-Funktionen.
+    // Verwaltung der Marktübersicht über Channel-Rechte, keine Guthaben-Funktionen.
     permissions: [],
   },
   {
     key: 'moderator',
-    name: '🔨 Moderator',
-    color: 0xe67e22,
+    name: 'Moderator',
+    legacyNames: ['🔨 Moderator'],
+    color: 0x94a3b8,
     hoist: true,
     mentionable: true,
-    permissions: [
-      P.KickMembers, P.ModerateMembers, P.ManageMessages, P.ManageThreads, P.ManageNicknames,
-      P.MuteMembers, P.DeafenMembers, P.MoveMembers, P.ViewAuditLog,
-    ],
+    permissions: [P.KickMembers, P.ModerateMembers, P.ManageMessages, P.ManageThreads, P.ManageNicknames, P.ViewAuditLog],
   },
-  { key: 'support', name: '🎫 Support', color: 0x14b8a6, hoist: true, mentionable: true, permissions: [] },
-  { key: 'diamondTrader', name: '💎 Diamond Trader', color: 0x67e8f9, hoist: true, mentionable: false, permissions: [] },
-  { key: 'trader', name: '📈 Trader', color: 0x10b981, hoist: true, mentionable: false, permissions: [] },
-  { key: 'verified', name: '⛏️ Verified', color: 0x6ee7b7, hoist: false, mentionable: false, permissions: [] },
-  { key: 'member', name: '👤 Member', color: 0x9ca3af, hoist: false, mentionable: false, permissions: [] },
+  { key: 'support', name: 'Kundenservice', legacyNames: ['🎫 Support'], color: 0x6ee7b7, hoist: true, mentionable: true, permissions: [] },
+  { key: 'verified', name: 'Verifiziert', legacyNames: ['⛏️ Verified'], color: 0xa7b4c2, hoist: false, mentionable: false, permissions: [] },
+  { key: 'member', name: 'Mitglied', legacyNames: ['👤 Member'], color: 0x6b7280, hoist: false, mentionable: false, permissions: [] },
   {
     key: 'bots',
-    name: '🤖 Bots',
+    name: 'Bot',
+    legacyNames: ['🤖 Bots'],
     color: 0x4b5563,
-    hoist: true,
+    hoist: false,
     mentionable: false,
-    // Für weitere Bots: nur das Nötigste.
-    permissions: [P.ViewChannel, P.SendMessages, P.EmbedLinks, P.AttachFiles, P.ReadMessageHistory, P.AddReactions],
+    permissions: [P.ViewChannel, P.SendMessages, P.EmbedLinks, P.AttachFiles, P.ReadMessageHistory],
   },
 ];
 
 // Rollengruppen
 const STAFF = ['owner', 'admin', 'developer', 'marketMod', 'moderator', 'support'];
 const LEADERSHIP = ['owner', 'admin'];
-const MEMBER_TIER = ['member', 'verified', 'trader', 'diamondTrader'];
-const VERIFIED_TIER = ['verified', 'trader', 'diamondTrader'];
+const MEMBER_TIER = ['member', 'verified'];
 
 // Rollen, die privilegierte Bot-Aktionen ausführen dürfen
 const PRIVILEGES = {
   setup: ['owner', 'admin'],
+  announce: ['owner', 'admin'],
   marketDecision: ['owner', 'admin', 'marketMod'],
   ticketStaff: ['owner', 'admin', 'moderator', 'support'],
 };
 
-// Rollen, die der Bot selbst vergeben darf (alles andere vergeben nur Menschen)
+// Rollen, die der Bot selbst vergeben darf (alle anderen vergeben nur Menschen)
 const SELF_ASSIGNABLE_VIA_BOT = ['member', 'verified'];
 
 // ---------------------------------------------------------------------------
@@ -100,80 +97,41 @@ const SELF_ASSIGNABLE_VIA_BOT = ['member', 'verified'];
 const READ = [P.ViewChannel, P.ReadMessageHistory];
 const WRITE = [P.SendMessages, P.SendMessagesInThreads, P.AddReactions, P.EmbedLinks, P.AttachFiles, P.UseExternalEmojis];
 const NO_WRITE = [P.SendMessages, P.SendMessagesInThreads, P.CreatePublicThreads, P.CreatePrivateThreads, P.AddReactions];
-const VOICE = [P.ViewChannel, P.Connect, P.Speak, P.Stream, P.UseVAD];
 // Rechte, die der Bot in jedem seiner Channels braucht (als Member-Overwrite)
 const BOT_TEXT = [P.ViewChannel, P.ReadMessageHistory, P.SendMessages, P.EmbedLinks, P.AttachFiles, P.ManageMessages, P.AddReactions];
-const BOT_VOICE = [P.ViewChannel, P.Connect];
 
-/** Überschreibungen als { target, allow, deny }; target = 'everyone' | 'bot' | Rollen-Key */
 function ow(target, allow = [], deny = []) {
   return { target, allow, deny };
 }
-
 const each = (keys, allow, deny) => keys.map((k) => ow(k, allow, deny));
 
 const profiles = {
-  /** Für alle sichtbar, nur lesen (auch für nicht verifizierte Nutzer). */
-  info: ({ writers = LEADERSHIP } = {}) => [
+  /** Für alle sichtbar, nur lesen. Schreiben dürfen nur `writers`. */
+  publicRead: ({ writers = LEADERSHIP, managers = [] } = {}) => [
     ow('everyone', READ, NO_WRITE),
+    ...each(managers, [...READ, P.ManageMessages]),
     ...each(writers, [...READ, ...WRITE]),
     ow('bot', BOT_TEXT),
   ],
-  /** Nur ab Member sichtbar, nur lesen. */
-  memberRead: ({ writers = LEADERSHIP } = {}) => [
-    ow('everyone', [], [P.ViewChannel]),
-    ...each(MEMBER_TIER, READ, NO_WRITE),
-    ...each(STAFF, READ),
-    ...each(writers, [...READ, ...WRITE]),
-    ow('bot', BOT_TEXT),
-  ],
-  /** Ab Member sichtbar und beschreibbar. */
+  /** Ab „Mitglied“ sichtbar und beschreibbar. */
   memberChat: () => [
     ow('everyone', [], [P.ViewChannel]),
     ...each(MEMBER_TIER, [...READ, ...WRITE, P.CreatePublicThreads]),
     ...each(STAFF, [...READ, ...WRITE]),
     ow('bot', BOT_TEXT),
   ],
-  /** Ab Verified sichtbar, nur lesen. */
-  verifiedRead: ({ writers = LEADERSHIP } = {}) => [
-    ow('everyone', [], [P.ViewChannel]),
-    ...each(VERIFIED_TIER, READ, NO_WRITE),
-    ...each(STAFF, READ),
-    ...each(writers, [...READ, ...WRITE]),
-    ow('bot', BOT_TEXT),
-  ],
-  /**
-   * Command-Channel: Verified-Nutzer dürfen Slash-Commands nutzen (Antworten sind
-   * ephemer), aber keine normalen Nachrichten schreiben – private Daten bleiben privat.
-   */
-  verifiedCommands: () => [
-    ow('everyone', [], [P.ViewChannel]),
-    ...each(VERIFIED_TIER, [...READ, P.UseApplicationCommands], NO_WRITE),
-    ...each(STAFF, READ),
-    ow('bot', BOT_TEXT),
-  ],
-  /** Bot-Feed für Märkte: Market Moderatoren dürfen dort moderieren. */
-  marketFeed: () => [
-    ow('everyone', [], [P.ViewChannel]),
-    ...each(MEMBER_TIER, READ, NO_WRITE),
-    ...each(STAFF, READ),
-    ...each(['marketMod', ...LEADERSHIP], [...READ, ...WRITE, P.ManageMessages]),
-    ow('bot', BOT_TEXT),
-  ],
-  voice: () => [
-    ow('everyone', [], [P.ViewChannel, P.Connect]),
-    ...each(MEMBER_TIER, VOICE),
-    ...each(STAFF, VOICE),
-    ow('bot', BOT_VOICE),
-  ],
-  /** Team-Channel: nur die angegebenen Rollen. */
+  /** Interner Channel: nur die angegebenen Rollen. */
   staff: (roles, { readOnly = false } = {}) => [
     ow('everyone', [], [P.ViewChannel]),
     ...each(roles, readOnly ? READ : [...READ, ...WRITE], readOnly ? NO_WRITE : []),
     ow('bot', BOT_TEXT),
   ],
-  /** Kategorie für Tickets: komplett privat, Rechte werden pro Ticket vergeben. */
-  hidden: () => [ow('everyone', [], [P.ViewChannel]), ow('bot', [...BOT_TEXT, P.ManageChannels])],
+  /** Archiv für veraltete Channels: nur Leitung, nur lesen. */
+  archive: () => [
+    ow('everyone', [], [P.ViewChannel]),
+    ...each(LEADERSHIP, READ, NO_WRITE),
+    ow('bot', [...BOT_TEXT, P.ManageChannels]),
+  ],
 };
 
 // ---------------------------------------------------------------------------
@@ -181,159 +139,94 @@ const profiles = {
 // ---------------------------------------------------------------------------
 
 const T = ChannelType.GuildText;
-const V = ChannelType.GuildVoice;
 
 const CATEGORIES = [
   {
-    key: 'startHere',
-    name: '📌 START HERE',
-    permissions: profiles.info(),
+    key: 'info',
+    name: 'INFORMATIONEN',
+    legacy: ['startHere'],
+    permissions: profiles.publicRead(),
     channels: [
-      { key: 'welcome', name: '👋・willkommen', type: T, topic: 'Willkommen bei HugoSMP Market – der Prognoseplattform für HugoSMP.', permissions: profiles.info() },
-      { key: 'rules', name: '📜・regeln', type: T, topic: 'Serverregeln. Mit dem Akzeptieren erhältst du Zugriff auf die Community.', permissions: profiles.info() },
-      { key: 'announcements', name: '📢・ankündigungen', type: T, topic: 'Offizielle Ankündigungen des HugoSMP-Market-Teams.', permissions: profiles.info() },
-      { key: 'status', name: '🟢・status', type: T, topic: 'Live-Status von Bot und Website-Anbindung.', permissions: profiles.info() },
-      { key: 'website', name: '🔗・website', type: T, topic: 'Offizielle Links zur Plattform.', permissions: profiles.info() },
-      { key: 'verification', name: '🔐・account-verifizierung', type: T, topic: 'Verknüpfe deinen Minecraft-Account mit HugoSMP Market.', permissions: profiles.info() },
-    ],
-  },
-  {
-    key: 'markets',
-    name: '📊 MARKETS',
-    permissions: profiles.memberRead(),
-    channels: [
-      { key: 'liveMarkets', name: '📈・live-markets', type: T, topic: 'Automatisch aktualisierte Live-Märkte.', permissions: profiles.marketFeed() },
-      { key: 'topMarkets', name: '🔥・top-markets', type: T, topic: 'Die Märkte mit dem höchsten Handelsvolumen.', permissions: profiles.marketFeed() },
-      { key: 'newMarkets', name: '🆕・neue-märkte', type: T, topic: 'Neu eröffnete Märkte.', permissions: profiles.marketFeed() },
-      { key: 'closingSoon', name: '⏳・bald-entschieden', type: T, topic: 'Märkte, deren Handel bald endet.', permissions: profiles.marketFeed() },
-      { key: 'resolvedMarkets', name: '✅・entschiedene-märkte', type: T, topic: 'Entschiedene Märkte und ihr Ergebnis.', permissions: profiles.marketFeed() },
-      { key: 'rejectedMarkets', name: '❌・abgelehnte-märkte', type: T, topic: 'Abgelehnte Märkte und Vorschläge mit Begründung.', permissions: profiles.marketFeed() },
-      { key: 'marketSuggestions', name: '💡・markt-vorschläge', type: T, topic: 'Reiche hier über den Button einen neuen Markt ein.', permissions: profiles.marketFeed() },
-      { key: 'communityVotes', name: '🗳️・community-votes', type: T, topic: 'Stimme über eingereichte Marktvorschläge ab.', permissions: profiles.marketFeed() },
-    ],
-  },
-  {
-    key: 'trading',
-    name: '💹 TRADING',
-    permissions: profiles.memberRead(),
-    channels: [
-      { key: 'balance', name: '💳・guthaben', type: T, topic: 'Nutze /balance – die Antwort sieht nur du.', permissions: profiles.verifiedCommands() },
-      { key: 'portfolio', name: '📂・portfolio', type: T, topic: 'Nutze /portfolio – die Antwort sieht nur du.', permissions: profiles.verifiedCommands() },
-      { key: 'transactions', name: '🔄・transaktionen', type: T, topic: 'Nutze /history – die Antwort sieht nur du.', permissions: profiles.verifiedCommands() },
-      { key: 'priceMovements', name: '📉・preisbewegungen', type: T, topic: 'Deutliche Preisbewegungen in laufenden Märkten.', permissions: profiles.marketFeed() },
-      { key: 'traderLeaderboard', name: '🏆・trader-leaderboard', type: T, topic: 'Automatische Trader-Rangliste.', permissions: profiles.memberRead() },
-      { key: 'payouts', name: '💸・auszahlungen', type: T, topic: 'Informationen zu Auszahlungen.', permissions: profiles.verifiedRead() },
-      { key: 'dailyRewards', name: '🎁・daily-rewards', type: T, topic: 'Nutze /daily für deinen täglichen Bonus.', permissions: profiles.verifiedCommands() },
-      { key: 'fees', name: '🧾・gebühren', type: T, topic: 'Übersicht über Handelsgebühren.', permissions: profiles.memberRead() },
-    ],
-  },
-  {
-    key: 'hugosmp',
-    name: '⛏️ HUGOSMP',
-    permissions: profiles.memberRead(),
-    channels: [
-      { key: 'hugoNews', name: '📢・hugo-news', type: T, topic: 'Neuigkeiten vom HugoSMP-Server.', permissions: profiles.memberRead({ writers: [...LEADERSHIP, 'moderator'] }) },
-      { key: 'serverEvents', name: '⚔️・server-events', type: T, topic: 'Anstehende Events auf HugoSMP.', permissions: profiles.memberRead({ writers: [...LEADERSHIP, 'moderator', 'marketMod'] }) },
-      { key: 'itemPrices', name: '💎・item-preise', type: T, topic: 'Austausch über Item-Preise auf HugoSMP.', permissions: profiles.memberChat() },
-      { key: 'factions', name: '🏰・fraktionen', type: T, topic: 'Fraktionen, Bündnisse und Konflikte.', permissions: profiles.memberChat() },
-      { key: 'playerPredictions', name: '👥・spieler-prognosen', type: T, topic: 'Prognosen zu Spielern.', permissions: profiles.memberChat() },
-      { key: 'communityPredictions', name: '🎯・community-prognosen', type: T, topic: 'Eure Prognosen für HugoSMP.', permissions: profiles.memberChat() },
+      {
+        key: 'announcements', name: 'ankündigungen', type: T, legacy: ['announcements'],
+        topic: 'Offizielle Mitteilungen des HugoPredict-Teams.',
+        permissions: profiles.publicRead(),
+      },
+      {
+        key: 'marketOverview', name: 'marktübersicht', type: T, legacy: ['liveMarkets'],
+        topic: 'Neue, pausierte und entschiedene Märkte. Wird automatisch aktualisiert.',
+        permissions: profiles.publicRead({ managers: ['marketMod'] }),
+      },
+      {
+        key: 'docs', name: 'dokumentation', type: T, legacy: ['welcome'],
+        topic: 'Plattform, virtuelle HC, Gebühren und Marktregeln.',
+        permissions: profiles.publicRead(),
+      },
     ],
   },
   {
     key: 'community',
-    name: '💬 COMMUNITY',
+    name: 'COMMUNITY',
+    legacy: ['community'],
     permissions: profiles.memberChat(),
     channels: [
-      { key: 'general', name: '💬・allgemeiner-chat', type: T, topic: 'Allgemeiner Austausch.', permissions: profiles.memberChat() },
-      { key: 'tradingTalk', name: '📈・trading-talk', type: T, topic: 'Strategien und Märkte diskutieren. Keine Finanzberatung.', permissions: profiles.memberChat() },
-      { key: 'analyses', name: '🧠・analysen', type: T, topic: 'Ausführliche Marktanalysen.', permissions: profiles.memberChat(), rateLimitPerUser: 30 },
-      { key: 'tradeFlex', name: '📸・trade-flex', type: T, topic: 'Zeig deine besten Trades.', permissions: profiles.memberChat(), rateLimitPerUser: 30 },
-      { key: 'memes', name: '😂・memes', type: T, topic: 'Memes rund um HugoSMP und Trading.', permissions: profiles.memberChat(), rateLimitPerUser: 10 },
-      { key: 'lfg', name: '🤝・suche-mitspieler', type: T, topic: 'Mitspieler für HugoSMP finden.', permissions: profiles.memberChat(), rateLimitPerUser: 60 },
-      { key: 'feedback', name: '💡・ideen-und-feedback', type: T, topic: 'Ideen und Feedback zur Plattform.', permissions: profiles.memberChat(), rateLimitPerUser: 60 },
+      { key: 'discussions', name: 'diskussionen', type: T, legacy: ['general'], topic: 'Sachlicher Austausch rund um Plattform und Märkte.', permissions: profiles.memberChat() },
+      { key: 'analyses', name: 'marktanalysen', type: T, legacy: ['analyses'], topic: 'Fundierte Analysen zu einzelnen Märkten. Keine Anlageberatung.', permissions: profiles.memberChat(), rateLimitPerUser: 30 },
     ],
   },
   {
-    key: 'support',
-    name: '🛟 SUPPORT',
-    permissions: profiles.info({ writers: [...LEADERSHIP, 'support'] }),
+    key: 'service',
+    name: 'KUNDENSERVICE',
+    legacy: ['support'],
+    permissions: profiles.publicRead({ writers: [...LEADERSHIP, 'support'] }),
     channels: [
-      { key: 'faq', name: '❓・faq', type: T, topic: 'Häufige Fragen.', permissions: profiles.info({ writers: [...LEADERSHIP, 'support'] }) },
-      { key: 'ticketCreate', name: '🎫・ticket-erstellen', type: T, topic: 'Öffne hier ein privates Support-Ticket.', permissions: profiles.info() },
-      { key: 'bugReports', name: '🐛・bug-reports', type: T, topic: 'Öffentliche Bug-Meldungen. Keine Kontodaten posten!', permissions: profiles.memberChat(), rateLimitPerUser: 60 },
-      { key: 'transactionIssues', name: '⚠️・probleme-mit-transaktionen', type: T, topic: 'Transaktionsprobleme bitte ausschließlich per privatem Ticket melden.', permissions: profiles.info({ writers: [...LEADERSHIP, 'support'] }) },
-      { key: 'fraudReports', name: '🚨・betrugs-meldungen', type: T, topic: 'Betrugsverdacht bitte ausschließlich per privatem Ticket melden.', permissions: profiles.info({ writers: [...LEADERSHIP, 'moderator'] }) },
+      { key: 'support', name: 'support', type: T, legacy: ['ticketCreate'], topic: 'Private Anfragen an den Kundenservice. Tickets sind nur für dich und das Team sichtbar.', permissions: profiles.publicRead() },
     ],
   },
   {
-    key: 'rankings',
-    name: '🏅 RANKINGS',
-    permissions: profiles.memberRead(),
-    channels: [
-      { key: 'weeklyTop', name: '🥇・wöchentliche-top-trader', type: T, topic: 'Die besten Trader der Woche.', permissions: profiles.memberRead() },
-      { key: 'allTime', name: '👑・all-time-leaderboard', type: T, topic: 'Die besten Trader aller Zeiten.', permissions: profiles.memberRead() },
-      { key: 'accuracy', name: '🎯・höchste-trefferquote', type: T, topic: 'Die höchste Trefferquote.', permissions: profiles.memberRead() },
-      { key: 'biggestWins', name: '💰・größte-gewinne', type: T, topic: 'Die größten Einzelgewinne.', permissions: profiles.memberRead() },
-    ],
-  },
-  {
-    key: 'voice',
-    name: '🔊 VOICE',
-    permissions: profiles.voice(),
-    channels: [
-      { key: 'voiceLobby', name: '🔊・Lobby', type: V, permissions: profiles.voice() },
-      { key: 'voiceTrading', name: '📈・Trading-Talk', type: V, permissions: profiles.voice() },
-      { key: 'voiceHugo', name: '🎮・HugoSMP', type: V, permissions: profiles.voice() },
-    ],
-  },
-  {
-    key: 'team',
-    name: '🔒 TEAM INTERN',
+    key: 'internal',
+    name: 'INTERN · PRIVAT',
+    legacy: ['team'],
     permissions: profiles.staff(STAFF),
     channels: [
-      { key: 'teamChat', name: '💬・team-chat', type: T, topic: 'Interner Team-Chat.', permissions: profiles.staff(STAFF) },
-      { key: 'teamTasks', name: '📋・team-aufgaben', type: T, topic: 'Aufgaben und Zuständigkeiten.', permissions: profiles.staff(STAFF) },
-      { key: 'testChannel', name: '🧪・test-channel', type: T, topic: 'Tests für Bot und Integrationen.', permissions: profiles.staff(['developer', ...LEADERSHIP]) },
-      { key: 'botLogs', name: '🛠️・bot-logs', type: T, topic: 'Technische Bot-Logs.', permissions: profiles.staff(['developer', ...LEADERSHIP], { readOnly: true }) },
-      { key: 'economyLogs', name: '📊・wirtschafts-logs', type: T, topic: 'Wirtschaftsrelevante Ereignisse (nur Leitung).', permissions: profiles.staff(LEADERSHIP, { readOnly: true }) },
-      { key: 'transactionLogs', name: '💸・transaktions-logs', type: T, topic: 'Über den Bot ausgelöste Transaktionen (nur Leitung).', permissions: profiles.staff(LEADERSHIP, { readOnly: true }) },
-      { key: 'marketDecisions', name: '⚖️・markt-entscheidungen', type: T, topic: 'Marktvorschläge prüfen, annehmen oder ablehnen.', permissions: profiles.staff(['marketMod', ...LEADERSHIP]) },
-      { key: 'securityLogs', name: '🚨・sicherheits-logs', type: T, topic: 'Verweigerte Zugriffe und sicherheitsrelevante Ereignisse.', permissions: profiles.staff(LEADERSHIP, { readOnly: true }) },
-      { key: 'ticketLogs', name: '🎫・ticket-logs', type: T, topic: 'Ticket-Verläufe und Abschlussprotokolle.', permissions: profiles.staff(['support', 'moderator', ...LEADERSHIP], { readOnly: true }) },
-      { key: 'modLogs', name: '📝・moderations-logs', type: T, topic: 'Administrative Eingriffe und Moderationsaktionen.', permissions: profiles.staff(['moderator', ...LEADERSHIP], { readOnly: true }) },
-      { key: 'leadership', name: '👑・leitung', type: T, topic: 'Leitungsebene.', permissions: profiles.staff(LEADERSHIP) },
+      { key: 'operations', name: 'betrieb', type: T, legacy: ['marketDecisions'], topic: 'Marktbetrieb: Vorschläge prüfen und Entscheidungen vorbereiten.', permissions: profiles.staff(['marketMod', ...LEADERSHIP]) },
+      { key: 'audit', name: 'prüfprotokoll', type: T, legacy: ['modLogs'], topic: 'Administrative Eingriffe, Transaktionen und Sicherheitsereignisse.', permissions: profiles.staff(LEADERSHIP, { readOnly: true }) },
+      { key: 'system', name: 'systemmeldungen', type: T, legacy: ['botLogs'], topic: 'Systemstatus und technische Meldungen.', permissions: profiles.staff(['developer', ...LEADERSHIP], { readOnly: true }) },
+      { key: 'moderation', name: 'moderation', type: T, legacy: ['ticketLogs'], topic: 'Moderation und Ticket-Protokolle.', permissions: profiles.staff(['moderator', 'support', ...LEADERSHIP]) },
+      { key: 'team', name: 'team', type: T, legacy: ['teamChat'], topic: 'Internes Team.', permissions: profiles.staff(STAFF) },
     ],
   },
-  {
-    // Zusätzliche, private Kategorie für Ticket-Channels.
-    key: 'tickets',
-    name: '🎫 TICKETS',
-    permissions: profiles.hidden(),
-    channels: [],
-  },
 ];
+
+// Archiv (wird nur auf ausdrücklichen Wunsch beim Setup angelegt)
+const ARCHIVE_CATEGORY = { key: 'archive', name: 'ARCHIV', permissions: profiles.archive() };
+
+// Welche Protokolle landen in welchem Channel
+const LOG_ROUTES = {
+  system: 'system', // Fehler, API-Störungen
+  audit: 'audit', // Setup, Panels, Ankündigungen, Daily, Verifizierung, verweigerte Zugriffe
+  tickets: 'moderation', // Ticket-Eröffnung, -Übernahme, -Abschluss mit Transkript
+  operations: 'operations', // Marktvorschläge und Entscheidungen
+};
 
 // ---------------------------------------------------------------------------
 // Tickets
 // ---------------------------------------------------------------------------
 
 const TICKET_TYPES = [
-  { key: 'general', label: 'Allgemeiner Support', description: 'Fragen zur Plattform oder zum Discord', roles: ['support', 'moderator'] },
-  { key: 'balance', label: 'Guthaben & Transaktionen', description: 'Probleme mit Guthaben, Trades oder Auszahlungen', roles: ['support', 'admin'] },
-  { key: 'bug', label: 'Bug melden', description: 'Fehler auf der Website oder im Bot', roles: ['support', 'developer'] },
-  { key: 'fraud', label: 'Betrugsverdacht', description: 'Verdacht auf Betrug oder Manipulation', roles: ['moderator', 'admin'] },
-  { key: 'other', label: 'Sonstiges', description: 'Alles andere', roles: ['support'] },
+  { key: 'general', label: 'Allgemeine Anfrage', description: 'Fragen zur Plattform oder zu deinem Konto', roles: ['support', 'moderator'] },
+  { key: 'balance', label: 'Guthaben und Transaktionen', description: 'Abweichungen bei Guthaben, Trades oder Gutschriften', roles: ['support', 'admin'] },
+  { key: 'bug', label: 'Technisches Problem', description: 'Fehler auf der Website oder im Bot', roles: ['support', 'developer'] },
+  { key: 'fraud', label: 'Meldung oder Betrugsverdacht', description: 'Vertrauliche Meldung von Regelverstößen', roles: ['moderator', 'admin'] },
+  { key: 'other', label: 'Sonstiges', description: 'Alle weiteren Anliegen', roles: ['support'] },
 ];
 
-// Permissions, die der Bot für /setup-server mindestens benötigt.
-// Discord erlaubt in Channel-Überschreibungen nur Rechte, die der Bot selbst besitzt –
-// deshalb tauchen hier auch Voice- und Thread-Rechte auf.
+// Rechte, die der Bot für /setup-server mindestens benötigt. Discord erlaubt
+// in Overwrites nur Rechte, die der Bot selbst besitzt.
 const REQUIRED_BOT_PERMISSIONS = [
   P.ManageRoles, P.ManageChannels, P.ViewChannel, P.SendMessages, P.EmbedLinks, P.AttachFiles,
   P.ReadMessageHistory, P.ManageMessages, P.AddReactions, P.UseExternalEmojis, P.SendMessagesInThreads,
-  P.CreatePublicThreads, P.CreatePrivateThreads, P.UseApplicationCommands,
-  P.Connect, P.Speak, P.Stream, P.UseVAD,
+  P.CreatePublicThreads, P.CreatePrivateThreads,
 ];
 
 function allChannels() {
@@ -343,13 +236,14 @@ function allChannels() {
 module.exports = {
   ROLES,
   CATEGORIES,
+  ARCHIVE_CATEGORY,
   STAFF,
   LEADERSHIP,
   MEMBER_TIER,
-  VERIFIED_TIER,
   PRIVILEGES,
   SELF_ASSIGNABLE_VIA_BOT,
   TICKET_TYPES,
+  LOG_ROUTES,
   REQUIRED_BOT_PERMISSIONS,
   BOT_TEXT,
   allChannels,

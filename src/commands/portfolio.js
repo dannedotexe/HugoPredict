@@ -4,6 +4,8 @@ const { SlashCommandBuilder } = require('discord.js');
 const { embeds, formatAmount, formatPrice, truncate } = require('../lib/embeds');
 const { replyPrivate, replyApiError, EPHEMERAL } = require('../lib/respond');
 
+const SIDES = { yes: 'Ja', no: 'Nein' };
+
 module.exports = {
   data: new SlashCommandBuilder().setName('portfolio').setDescription('Zeigt deine offenen Positionen (nur für dich sichtbar)'),
   rateLimit: 'portfolio',
@@ -17,7 +19,7 @@ module.exports = {
       } else {
         for (const p of positions.slice(0, 15)) {
           e.addFields({
-            name: truncate(`${p.side.toUpperCase()} · ${p.marketTitle}`, 256),
+            name: truncate(`${SIDES[p.side.toLowerCase()] ?? p.side} · ${p.marketTitle}`, 256),
             value: [
               `Anteile: ${p.shares ?? '—'}`,
               `Ø Einstieg: ${formatPrice(p.avgPrice)} · Aktuell: ${formatPrice(p.currentPrice)}`,

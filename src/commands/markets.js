@@ -7,6 +7,7 @@ const { STATUS_LABELS } = require('../services/marketFeed');
 
 const STATUS_CHOICES = [
   { name: 'Offen', value: 'open' },
+  { name: 'Pausiert', value: 'paused' },
   { name: 'Handel beendet', value: 'closed' },
   { name: 'Entschieden', value: 'resolved' },
 ];
@@ -16,13 +17,13 @@ function listPayload(markets, status, currency) {
   const e = embeds.brand().setTitle(`Märkte · ${STATUS_LABELS[status]}`);
   if (!shown.length) return { embeds: [e.setDescription('Aktuell gibt es keine Märkte in dieser Ansicht.')], components: [] };
   e.setDescription(truncate(shown.map((m, i) =>
-    `**${i + 1}. ${truncate(m.title, 90)}**\nYES ${formatPrice(m.yesPrice)} · NO ${formatPrice(m.noPrice)} · Volumen ${formatAmount(m.volume, currency)} · Schluss ${discordTime(m.closesAt, 'R')}`,
+    `**${i + 1}. ${truncate(m.title, 90)}**\nJa ${formatPrice(m.yesPrice)} · Nein ${formatPrice(m.noPrice)} · Volumen ${formatAmount(m.volume, currency)} · Schluss ${discordTime(m.closesAt, 'R')}`,
   ).join('\n\n'), 4000));
-  if (markets.length > shown.length) e.addFields({ name: 'Hinweis', value: `${markets.length - shown.length} weitere Märkte findest du auf der Website.`, inline: false });
+  if (markets.length > shown.length) e.addFields({ name: 'Weitere Märkte', value: `${markets.length - shown.length} weitere Märkte findest du auf der Website.`, inline: false });
   const menu = new StringSelectMenuBuilder()
     .setCustomId(`hm:markets:view:${status}`)
     .setPlaceholder('Markt für Details auswählen')
-    .addOptions(shown.map((m) => ({ label: truncate(m.title, 100), value: truncate(m.id, 100), description: `YES ${formatPrice(m.yesPrice)}` })));
+    .addOptions(shown.map((m) => ({ label: truncate(m.title, 100), value: truncate(m.id, 100), description: `Ja ${formatPrice(m.yesPrice)}` })));
   return { embeds: [e], components: [new ActionRowBuilder().addComponents(menu)] };
 }
 

@@ -33,7 +33,7 @@ module.exports = {
     }
 
     if (interaction.guild) {
-      await deps.ctx.audit(interaction.guild, 'transactionLogs', {
+      await deps.ctx.audit(interaction.guild, 'audit', {
         title: 'Daily-Reward (von Website bestätigt)',
         fields: [
           { name: 'Nutzer', value: `<@${interaction.user.id}> (${interaction.user.id})` },

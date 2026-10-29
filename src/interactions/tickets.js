@@ -30,12 +30,12 @@ function isResponsible(member, ticket, ctx) {
 function ticketButtons({ disabled = false } = {}) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('hm:ticket:claim').setLabel('Übernehmen').setStyle(ButtonStyle.Secondary).setDisabled(disabled),
-    new ButtonBuilder().setCustomId('hm:ticket:close').setLabel('Ticket schließen').setStyle(ButtonStyle.Danger).setDisabled(disabled),
+    new ButtonBuilder().setCustomId('hm:ticket:close').setLabel('Anfrage schließen').setStyle(ButtonStyle.Secondary).setDisabled(disabled),
   );
 }
 
 function ticketModal(type) {
-  return new ModalBuilder().setCustomId(`hm:ticket:create:${type.key}`).setTitle(truncate(`Ticket: ${type.label}`, 45)).addComponents(
+  return new ModalBuilder().setCustomId(`hm:ticket:create:${type.key}`).setTitle(truncate(type.label, 45)).addComponents(
     new ActionRowBuilder().addComponents(
       new TextInputBuilder().setCustomId('subject').setLabel('Betreff').setStyle(TextInputStyle.Short).setMaxLength(100).setRequired(true),
     ),
@@ -49,11 +49,11 @@ function ticketModal(type) {
 
 async function openTicket(interaction, deps, type) {
   const g = deps.store.guild(interaction.guild.id);
-  if (!g.categories.tickets) {
-    return replyPrivate(interaction, { embeds: [embeds.error('Nicht eingerichtet', 'Das Ticket-System ist noch nicht eingerichtet.')] });
+  if (!g.categories.service) {
+    return replyPrivate(interaction, { embeds: [embeds.error('Nicht eingerichtet', 'Der Kundenservice ist noch nicht eingerichtet.')] });
   }
   if (openTicketsOf(g, interaction.user.id).length >= deps.env.maxOpenTicketsPerUser) {
-    return replyPrivate(interaction, { embeds: [embeds.warning('Zu viele offene Tickets', `Du hast bereits ${deps.env.maxOpenTicketsPerUser} offene Ticket(s). Bitte nutze diese oder schließe sie zuerst.`)] });
+    return replyPrivate(interaction, { embeds: [embeds.warning('Offene Anfragen vorhanden', `Du hast bereits ${deps.env.maxOpenTicketsPerUser} offene Anfrage(n). Bitte nutze diese oder schließe sie zuerst.`)] });
   }
   if (!deps.checkRate(interaction, 'ticket')) return;
   return interaction.showModal(ticketModal(type));
@@ -64,7 +64,7 @@ async function createTicket(interaction, deps, type) {
   const { guild, user } = interaction;
   const { locked, value } = await deps.locks.run(`ticket-create:${user.id}`, async () => {
     const g = deps.store.guild(guild.id);
-    if (openTicketsOf(g, user.id).length >= deps.env.maxOpenTicketsPerUser) return { error: 'Du hast bereits zu viele offene Tickets.' };
+    if (openTicketsOf(g, user.id).length >= deps.env.maxOpenTicketsPerUser) return { error: 'Du hast bereits zu viele offene Anfragen.' };
 
     const subject = interaction.fields.getTextInputValue('subject').trim();
     const details = interaction.fields.getTextInputValue('details').trim();
@@ -74,9 +74,10 @@ async function createTicket(interaction, deps, type) {
     deps.store.save();
 
     const channel = await guild.channels.create({
-      name: `ticket-${String(number).padStart(4, '0')}-${slug(user.username)}`,
+      name: `anfrage-${String(number).padStart(4, '0')}-${slug(user.username)}`,
       type: ChannelType.GuildText,
-      parent: g.categories.tickets,
+      // Tickets liegen im Bereich KUNDENSERVICE, sind aber nur für Ersteller und Team sichtbar.
+      parent: g.categories.service,
       topic: truncate(`${type.label} · ${subject} · Ersteller: ${user.id}`, 1024),
       permissionOverwrites: [
         { id: guild.roles.everyone.id, type: OverwriteType.Role, deny: [P.ViewChannel] },
@@ -94,18 +95,19 @@ async function createTicket(interaction, deps, type) {
     await channel.send({
       content: [`<@${user.id}>`, ...roleIds.map((id) => `<@&${id}>`)].join(' '),
       embeds: [
-        embeds.brand().setTitle(`Ticket #${number} · ${type.label}`).setDescription(truncate(details, 4000)).addFields(
+        embeds.brand().setTitle(`Anfrage #${number} · ${type.label}`).setDescription(truncate(details, 4000)).addFields(
           { name: 'Betreff', value: truncate(subject, 1024), inline: false },
           { name: 'Erstellt von', value: `<@${user.id}>`, inline: true },
           { name: 'Zuständig', value: roleIds.map((id) => `<@&${id}>`).join(' ') || 'Team', inline: true },
-        ).addFields({ name: 'Hinweis', value: 'Das Team fragt dich niemals nach deinem Passwort. Guthaben werden ausschließlich über die Website korrigiert.', inline: false }),
+          { name: 'Hinweis', value: 'Das Team fragt niemals nach Passwörtern. Korrekturen von Guthaben erfolgen ausschließlich über die Website.', inline: false },
+        ),
       ],
       components: [ticketButtons()],
       allowedMentions: { users: [user.id], roles: roleIds },
     });
 
-    await deps.ctx.audit(guild, 'ticketLogs', {
-      title: `Ticket #${number} eröffnet`,
+    await deps.ctx.audit(guild, 'tickets', {
+      title: `Anfrage #${number} eröffnet`,
       fields: [
         { name: 'Typ', value: type.label },
         { name: 'Ersteller', value: `<@${user.id}> (${user.id})` },
@@ -116,12 +118,12 @@ async function createTicket(interaction, deps, type) {
     return { channel };
   }).catch((err) => ({ locked: false, value: { error: err.message } }));
 
-  if (locked) return replyPrivate(interaction, { embeds: [embeds.warning('Bitte warten', 'Dein Ticket wird bereits erstellt.')] });
+  if (locked) return replyPrivate(interaction, { embeds: [embeds.warning('Bitte warten', 'Deine Anfrage wird bereits erstellt.')] });
   if (value.error) {
     deps.logger.warn('Ticket-Erstellung:', value.error);
-    return replyPrivate(interaction, { embeds: [embeds.error('Ticket konnte nicht erstellt werden', truncate(value.error, 500))] });
+    return replyPrivate(interaction, { embeds: [embeds.error('Anfrage konnte nicht erstellt werden', truncate(value.error, 500))] });
   }
-  return replyPrivate(interaction, { embeds: [embeds.success('Ticket erstellt', `Dein Ticket: <#${value.channel.id}>`)] });
+  return replyPrivate(interaction, { embeds: [embeds.success('Anfrage erstellt', `Deine Anfrage: <#${value.channel.id}>`)] });
 }
 
 async function buildTranscript(channel) {
@@ -151,18 +153,18 @@ async function closeTicket(interaction, deps, ticket) {
     ticket.status = 'closing';
     deps.store.save();
 
-    await channel.send({ embeds: [embeds.warning('Ticket wird geschlossen', `Geschlossen von <@${user.id}>. Der Channel wird in wenigen Sekunden gelöscht.`)], allowedMentions: { parse: [] } });
+    await channel.send({ embeds: [embeds.info('Anfrage wird geschlossen', `Geschlossen von <@${user.id}>. Der Verlauf wird protokolliert, der Channel in wenigen Sekunden entfernt.`)], allowedMentions: { parse: [] } });
     let transcript = { text: '', count: 0 };
     try {
       transcript = await buildTranscript(channel);
     } catch (err) {
       deps.logger.warn('Transkript:', err.message);
     }
-    const header = `Ticket #${ticket.number} · Typ: ${ticket.type} · Betreff: ${ticket.subject}\nErsteller: ${ticket.ownerId} · Eröffnet: ${ticket.createdAt} · Geschlossen: ${new Date().toISOString()} von ${user.id}\n\n`;
-    const file = new AttachmentBuilder(Buffer.from(header + transcript.text, 'utf8'), { name: `ticket-${String(ticket.number).padStart(4, '0')}.txt` });
+    const header = `Anfrage #${ticket.number} · Typ: ${ticket.type} · Betreff: ${ticket.subject}\nErsteller: ${ticket.ownerId} · Eröffnet: ${ticket.createdAt} · Geschlossen: ${new Date().toISOString()} von ${user.id}\n\n`;
+    const file = new AttachmentBuilder(Buffer.from(header + transcript.text, 'utf8'), { name: `anfrage-${String(ticket.number).padStart(4, '0')}.txt` });
 
-    await deps.ctx.audit(guild, 'ticketLogs', {
-      title: `Ticket #${ticket.number} geschlossen`,
+    await deps.ctx.audit(guild, 'tickets', {
+      title: `Anfrage #${ticket.number} geschlossen`,
       color: theme.colors.neutral,
       fields: [
         { name: 'Typ', value: typeOf(ticket.type)?.label ?? ticket.type },
@@ -184,18 +186,23 @@ async function closeTicket(interaction, deps, ticket) {
     deps.store.save();
 
     setTimeout(() => {
-      channel.delete(`Ticket #${ticket.number} geschlossen`).catch(async (err) => {
+      channel.delete(`Anfrage #${ticket.number} geschlossen`).catch(async (err) => {
         deps.logger.warn('Ticket-Channel konnte nicht gelöscht werden:', err.message);
         await channel.permissionOverwrites.edit(ticket.ownerId, { ViewChannel: false }).catch(() => {});
       });
     }, 5000).unref?.();
   });
-  if (locked) return replyPrivate(interaction, { embeds: [embeds.info('Bereits in Bearbeitung', 'Das Ticket wird bereits geschlossen.')] });
+  if (locked) return replyPrivate(interaction, { embeds: [embeds.info('Bereits in Bearbeitung', 'Die Anfrage wird bereits geschlossen.')] });
 }
 
 async function handle(interaction, deps, [action, arg]) {
   if (!interaction.inGuild()) return;
 
+  // Auswahlmenü im Ticket-Panel (und Buttons älterer Panels)
+  if (action === 'select' && interaction.isStringSelectMenu()) {
+    const type = typeOf(interaction.values[0]);
+    return type ? openTicket(interaction, deps, type) : undefined;
+  }
   if (action === 'open' && interaction.isButton()) {
     const type = typeOf(arg);
     return type ? openTicket(interaction, deps, type) : undefined;
@@ -209,31 +216,31 @@ async function handle(interaction, deps, [action, arg]) {
   const g = deps.store.guild(interaction.guild.id);
   const ticket = g.tickets[interaction.channelId];
   if (!ticket || ticket.status !== 'open') {
-    return replyPrivate(interaction, { embeds: [embeds.error('Kein aktives Ticket', 'Dieser Channel ist kein offenes Ticket.')] });
+    return replyPrivate(interaction, { embeds: [embeds.error('Keine offene Anfrage', 'Dieser Channel gehört zu keiner offenen Anfrage.')] });
   }
   const responsible = isResponsible(interaction.member, ticket, deps.ctx);
   const owner = interaction.user.id === ticket.ownerId;
 
   if (action === 'claim') {
-    if (!responsible) return deps.deny(interaction, 'Ticket übernehmen');
+    if (!responsible) return deps.deny(interaction, 'Anfrage übernehmen');
     if (ticket.claimedBy) {
-      return replyPrivate(interaction, { embeds: [embeds.info('Bereits übernommen', `Dieses Ticket wird von <@${ticket.claimedBy}> bearbeitet.`)] });
+      return replyPrivate(interaction, { embeds: [embeds.info('Bereits übernommen', `Diese Anfrage wird von <@${ticket.claimedBy}> bearbeitet.`)] });
     }
     ticket.claimedBy = interaction.user.id;
     deps.store.save();
-    await deps.ctx.audit(interaction.guild, 'ticketLogs', { title: `Ticket #${ticket.number} übernommen`, fields: [{ name: 'Von', value: `<@${interaction.user.id}>` }] });
-    return interaction.reply({ embeds: [embeds.info('Ticket übernommen', `<@${interaction.user.id}> kümmert sich um dein Anliegen.`)], allowedMentions: { parse: [] } });
+    await deps.ctx.audit(interaction.guild, 'tickets', { title: `Anfrage #${ticket.number} übernommen`, fields: [{ name: 'Von', value: `<@${interaction.user.id}>` }] });
+    return interaction.reply({ embeds: [embeds.info('Anfrage übernommen', `<@${interaction.user.id}> bearbeitet dein Anliegen.`)], allowedMentions: { parse: [] } });
   }
 
   if (action === 'close') {
-    if (!responsible && !owner) return deps.deny(interaction, 'Ticket schließen');
+    if (!responsible && !owner) return deps.deny(interaction, 'Anfrage schließen');
     if (!deps.env.ticketCloseConfirmation) {
       await interaction.deferReply({ flags: EPHEMERAL });
       await closeTicket(interaction, deps, ticket);
-      return interaction.editReply({ embeds: [embeds.success('Ticket geschlossen')] }).catch(() => {});
+      return interaction.editReply({ embeds: [embeds.success('Anfrage geschlossen')] }).catch(() => {});
     }
     return replyPrivate(interaction, {
-      embeds: [embeds.warning('Ticket schließen?', 'Das Ticket wird protokolliert und anschließend gelöscht.')],
+      embeds: [embeds.warning('Anfrage schließen?', 'Der Verlauf wird protokolliert und der Channel anschließend entfernt.')],
       components: [new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('hm:ticket:confirmclose').setLabel('Endgültig schließen').setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId('hm:ticket:cancelclose').setLabel('Abbrechen').setStyle(ButtonStyle.Secondary),
@@ -242,12 +249,12 @@ async function handle(interaction, deps, [action, arg]) {
   }
 
   if (action === 'confirmclose') {
-    if (!responsible && !owner) return deps.deny(interaction, 'Ticket schließen');
-    await interaction.update({ embeds: [embeds.info('Ticket wird geschlossen …')], components: [] });
+    if (!responsible && !owner) return deps.deny(interaction, 'Anfrage schließen');
+    await interaction.update({ embeds: [embeds.info('Anfrage wird geschlossen …')], components: [] });
     return closeTicket(interaction, deps, ticket);
   }
   if (action === 'cancelclose') {
-    return interaction.update({ embeds: [embeds.info('Abgebrochen', 'Das Ticket bleibt geöffnet.')], components: [] });
+    return interaction.update({ embeds: [embeds.info('Abgebrochen', 'Die Anfrage bleibt geöffnet.')], components: [] });
   }
 }
 

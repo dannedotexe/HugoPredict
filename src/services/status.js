@@ -28,18 +28,18 @@ function createStatusService({ api, store, env, logger }) {
   }
 
   async function buildEmbed() {
-    const dot = (ok) => (ok === null ? '○ Unbekannt' : ok ? '● Betriebsbereit' : '● Gestört');
+    const dot = (ok) => (ok === null ? 'Unbekannt' : ok ? 'Betriebsbereit' : 'Gestört');
     const allOk = state.apiOk === true;
     return embeds.base(allOk ? theme.colors.success : api.configured ? theme.colors.warning : theme.colors.neutral)
       .setTitle('Systemstatus')
       .addFields(
-        { name: 'Discord-Bot', value: `● Online seit ${discordTime(startedAt, 'R')}`, inline: false },
+        { name: 'Discord-Bot', value: `Betriebsbereit · gestartet ${discordTime(startedAt, 'R')}`, inline: false },
         {
           name: 'Website-API',
-          value: api.configured ? `${dot(state.apiOk)}${state.apiError ? `\n${state.apiError}` : ''}` : '○ Nicht verbunden',
+          value: api.configured ? `${dot(state.apiOk)}${state.apiError ? `\n${state.apiError}` : ''}` : 'Nicht verbunden',
           inline: false,
         },
-        { name: 'Markt-Feed', value: state.lastSyncAt ? `${dot(state.lastSyncOk)} · ${discordTime(state.lastSyncAt, 'R')}` : '○ Noch keine Synchronisierung', inline: false },
+        { name: 'Marktübersicht', value: state.lastSyncAt ? `${dot(state.lastSyncOk)} · ${discordTime(state.lastSyncAt, 'R')}` : 'Noch keine Synchronisierung', inline: false },
         { name: 'Website', value: env.websiteUrl || '—', inline: false },
       )
       .setFooter({ text: `${theme.brand} · Zuletzt geprüft` });

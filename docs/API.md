@@ -40,7 +40,7 @@ Implementiert ist der Client in `src/lib/hugoApi.js`.
 ### `GET /health`
 `{ "status": "ok" }`, wird im Status-Channel angezeigt.
 
-### `GET /markets?status=open|closed|resolved|rejected&limit=N`
+### `GET /markets?status=open|paused|closed|resolved|rejected&limit=N`
 ```json
 { "markets": [{
   "id": "m_123", "title": "Gewinnt Fraktion X das Event?", "description": "…",
@@ -51,6 +51,10 @@ Implementiert ist der Client in `src/lib/hugoApi.js`.
 }] }
 ```
 Pflichtfelder: `id`, `title`. Fehlende optionale Werte zeigt der Bot als „—“ an.
+
+Status: `open` (Handel läuft), `paused` (Handel vorübergehend ausgesetzt), `closed` (Handel beendet,
+Entscheidung ausstehend), `resolved` (entschieden, `outcome` gesetzt, optional `resolvedAt`), `rejected`.
+#marktübersicht fragt `open`, `paused`, `closed` und die letzten 25 `resolved` ab.
 
 ### `GET /users/discord/{discordId}/balance`
 `{ "balance": 1250, "available": 1000, "locked": 250, "username": "Steve" }`
@@ -93,12 +97,12 @@ Antwort: `{ "code": "A1B2C3", "instructions": "Gib auf HugoSMP /link A1B2C3 ein.
 Die Rolle **Verified** vergibt der Bot erst bei `verified === true`.
 
 ### `POST /markets/proposals`
-Nur aktiv bei `MARKET_CREATION_ENABLED=true`. Wird erst aufgerufen, wenn ein Market Moderator einen Vorschlag annimmt, nie durch Community-Stimmen.
+Nur aktiv bei `MARKET_CREATION_ENABLED=true`. Wird erst aufgerufen, wenn die Marktverwaltung einen Vorschlag annimmt.
 Header `Idempotency-Key: discord-suggestion:<id>`.
 ```json
 { "title": "…", "description": "…", "outcomes": ["Ja", "Nein"], "resolutionSource": "…",
   "requestedCloseAt": "31.12.2026 20:00", "proposedByDiscordId": "…", "approvedByDiscordId": "…",
-  "discordSuggestionId": "…", "votes": { "up": 12, "down": 3 } }
+  "discordSuggestionId": "…" }
 ```
 Antwort: `{ "id": "m_456", "url": "https://…", "status": "draft" }` (Pflicht: `id`).
 Die Website sollte selbst prüfen, ob `approvedByDiscordId` dazu berechtigt ist.

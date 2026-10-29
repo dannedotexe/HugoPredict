@@ -5,87 +5,103 @@ const { embeds, truncate } = require('../lib/embeds');
 const { replyPrivate, EPHEMERAL } = require('../lib/respond');
 const { planSetup, runSetup } = require('../setup/setupServer');
 
-const list = (items, max = 15) =>
+const list = (items, max = 12) =>
   items.length ? truncate(items.slice(0, max).join('\n') + (items.length > max ? `\n… und ${items.length - max} weitere` : ''), 1024) : '—';
 
+function previewEmbed(plan, { sync, archive }) {
+  const renames = [...plan.categoriesRenamed, ...plan.channelsMigrated, ...plan.rolesRenamed];
+  const e = embeds.warning('Einrichtung bestätigen', [
+    `**Neu:** ${plan.rolesNew} Rollen · ${plan.categoriesNew} Kategorien · ${plan.channelsNew.length} Channels`,
+    `**Migration:** ${renames.length} Umbenennungen bzw. Verschiebungen`,
+    `**Unverändert:** ${plan.unchanged}`,
+    '',
+    'Migrierte Channels behalten ihren Nachrichtenverlauf und erhalten die neuen Berechtigungen.',
+    sync ? 'Bestehende Elemente werden zusätzlich auf das Standard-Layout zurückgesetzt.' : null,
+    archive
+      ? `**Archiv:** ${plan.obsoleteChannels} veraltete Channels werden in die versteckte Kategorie „ARCHIV“ verschoben. Gelöscht wird nichts.`
+      : 'Es wird nichts gelöscht. Veraltete Elemente werden nur aufgelistet.',
+  ].filter((l) => l !== null).join('\n'));
+  if (renames.length) e.addFields({ name: 'Migration', value: list(renames), inline: false });
+  if (plan.channelsNew.length) e.addFields({ name: 'Neue Channels', value: list(plan.channelsNew), inline: false });
+  if (plan.obsolete.length) e.addFields({ name: `Veraltet (${plan.obsolete.length})`, value: list(plan.obsolete), inline: false });
+  return e;
+}
+
 function resultEmbed(result) {
-  const color = result.errors.length ? 'warning' : 'success';
-  const e = embeds[color](result.errors.length ? 'Setup mit Fehlern abgeschlossen' : 'Setup abgeschlossen',
-    `Erstellt: **${result.created.length}** · Aktualisiert: **${result.updated.length}** · Unverändert: **${result.existing.length}**`);
-  e.addFields(
-    { name: 'Neu erstellt', value: list(result.created), inline: false },
-    { name: 'Aktualisiert', value: list(result.updated), inline: false },
-  );
+  const failed = result.errors.length > 0;
+  const e = embeds[failed ? 'warning' : 'success'](failed ? 'Einrichtung mit Fehlern abgeschlossen' : 'Einrichtung abgeschlossen',
+    `Erstellt: **${result.created.length}** · Aktualisiert: **${result.updated.length}** · Unverändert: **${result.existing.length}**${result.archived.length ? ` · Archiviert: **${result.archived.length}**` : ''}`);
+  if (result.created.length) e.addFields({ name: 'Erstellt', value: list(result.created), inline: false });
+  if (result.updated.length) e.addFields({ name: 'Aktualisiert', value: list(result.updated), inline: false });
+  if (result.archived.length) e.addFields({ name: 'Archiviert', value: list(result.archived), inline: false });
+  if (result.obsolete.length) {
+    e.addFields({ name: 'Veraltet (nicht verändert)', value: list(result.obsolete), inline: false });
+  }
   if (result.warnings.length) e.addFields({ name: 'Hinweise', value: list(result.warnings, 8), inline: false });
   if (result.errors.length) e.addFields({ name: 'Fehler', value: list(result.errors, 8), inline: false });
-  e.addFields({ name: 'Nächster Schritt', value: 'Führe `/setup-panels` aus, um Willkommens-, Regel-, Ticket- und Verifizierungs-Panels zu veröffentlichen.', inline: false });
+  e.addFields({ name: 'Nächster Schritt', value: '`/setup-panels` veröffentlicht Dokumentation, Kundenservice-Panel und Systemstatus.', inline: false });
   return e;
 }
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('setup-server')
-    .setDescription('Richtet Rollen, Kategorien, Channels und Berechtigungen ein')
+    .setDescription('Richtet Rollen, Kategorien, Channels und Berechtigungen ein bzw. migriert die Struktur')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addBooleanOption((o) => o.setName('veraltete_archivieren')
+      .setDescription('Veraltete Channels in die versteckte Kategorie „ARCHIV“ verschieben (Standard: nein)'))
     .addBooleanOption((o) => o.setName('berechtigungen_synchronisieren')
-      .setDescription('Auch bestehende Channels/Rollen auf das Standard-Layout zurücksetzen (Standard: nein)')),
+      .setDescription('Auch unveränderte Channels und Rollen auf das Standard-Layout zurücksetzen (Standard: nein)')),
   privilege: 'setup',
   rateLimit: 'setup',
   async execute(interaction, deps) {
     const sync = interaction.options.getBoolean('berechtigungen_synchronisieren') ?? false;
+    const archive = interaction.options.getBoolean('veraltete_archivieren') ?? false;
+    await interaction.guild.channels.fetch();
+    await interaction.guild.roles.fetch();
     const plan = planSetup(interaction.guild, deps.store);
 
     if (plan.missingPermissions.length) {
       return replyPrivate(interaction, {
-        embeds: [embeds.error('Fehlende Bot-Berechtigungen', `Dem Bot fehlen folgende Rechte:\n\`${plan.missingPermissions.join('`, `')}\`\n\nErgänze sie in den Servereinstellungen bei der Bot-Rolle und versuche es erneut.`)],
+        embeds: [embeds.error('Fehlende Bot-Berechtigungen', `Dem Bot fehlen folgende Rechte:\n\`${plan.missingPermissions.join('`, `')}\`\n\nBitte ergänze sie bei der Bot-Rolle in den Servereinstellungen und versuche es erneut.`)],
       });
     }
 
-    const preview = embeds.warning('Setup bestätigen', [
-      `**Rollen:** ${plan.rolesNew.length} neu, ${plan.rolesExisting.length} vorhanden`,
-      `**Kategorien:** ${plan.categoriesNew.length} neu, ${plan.categoriesExisting.length} vorhanden`,
-      `**Channels:** ${plan.channelsNew.length} neu, ${plan.channelsExisting.length} vorhanden`,
-      '',
-      sync ? '**Achtung:** Bestehende Rollen und Channels werden auf das Standard-Layout zurückgesetzt. Manuell geänderte Berechtigungen gehen dabei verloren.'
-        : 'Vorhandene Rollen und Channels werden erkannt und nicht verändert oder dupliziert.',
-      'Nichts wird gelöscht.',
-    ].join('\n'));
-    if (plan.channelsNew.length) preview.addFields({ name: 'Neue Channels (Auszug)', value: list(plan.channelsNew, 10), inline: false });
-
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('confirm').setLabel('Setup starten').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('confirm').setLabel('Einrichtung starten').setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId('cancel').setLabel('Abbrechen').setStyle(ButtonStyle.Secondary),
     );
-    const response = await interaction.reply({ embeds: [preview], components: [row], flags: EPHEMERAL, withResponse: true });
+    const response = await interaction.reply({ embeds: [previewEmbed(plan, { sync, archive })], components: [row], flags: EPHEMERAL, withResponse: true });
 
     let click;
     try {
       click = await response.resource.message.awaitMessageComponent({
         componentType: ComponentType.Button,
         filter: (i) => i.user.id === interaction.user.id,
-        time: 60_000,
+        time: 120_000,
       });
     } catch {
-      return interaction.editReply({ embeds: [embeds.info('Setup abgebrochen', 'Keine Bestätigung innerhalb von 60 Sekunden.')], components: [] });
+      return interaction.editReply({ embeds: [embeds.info('Einrichtung abgebrochen', 'Keine Bestätigung innerhalb von zwei Minuten.')], components: [] });
     }
     if (click.customId === 'cancel') {
-      return click.update({ embeds: [embeds.info('Setup abgebrochen', 'Es wurden keine Änderungen vorgenommen.')], components: [] });
+      return click.update({ embeds: [embeds.info('Einrichtung abgebrochen', 'Es wurden keine Änderungen vorgenommen.')], components: [] });
     }
 
-    await click.update({ embeds: [embeds.info('Setup läuft …', 'Das kann ein bis zwei Minuten dauern.')], components: [] });
+    await click.update({ embeds: [embeds.info('Einrichtung läuft …', 'Das kann ein bis zwei Minuten dauern.')], components: [] });
     const { locked, value: result } = await deps.locks.run(`setup:${interaction.guild.id}`, () =>
-      runSetup(interaction.guild, deps.store, { syncPermissions: sync, logger: deps.logger }));
-    if (locked) return interaction.editReply({ embeds: [embeds.warning('Setup läuft bereits', 'Bitte warte, bis das laufende Setup abgeschlossen ist.')] });
+      runSetup(interaction.guild, deps.store, { syncPermissions: sync, archiveObsolete: archive, logger: deps.logger }));
+    if (locked) return interaction.editReply({ embeds: [embeds.warning('Einrichtung läuft bereits', 'Bitte warte, bis die laufende Einrichtung abgeschlossen ist.')] });
 
-    await deps.ctx.audit(interaction.guild, 'modLogs', {
-      title: 'Server-Setup ausgeführt',
+    await deps.ctx.audit(interaction.guild, 'audit', {
+      title: 'Servereinrichtung ausgeführt',
       fields: [
         { name: 'Ausgeführt von', value: `<@${interaction.user.id}>` },
-        { name: 'Synchronisierung', value: sync ? 'Ja' : 'Nein' },
-        { name: 'Ergebnis', value: `${result.created.length} erstellt, ${result.updated.length} aktualisiert, ${result.errors.length} Fehler` },
+        { name: 'Optionen', value: `Archivieren: ${archive ? 'ja' : 'nein'} · Synchronisieren: ${sync ? 'ja' : 'nein'}` },
+        { name: 'Ergebnis', value: `${result.created.length} erstellt, ${result.updated.length} aktualisiert, ${result.archived.length} archiviert, ${result.errors.length} Fehler` },
       ],
     });
     return interaction.editReply({ embeds: [resultEmbed(result)] });
   },
+  previewEmbed,
   resultEmbed,
 };
