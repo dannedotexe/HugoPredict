@@ -56,13 +56,13 @@ function createStatusService({ api, store, env, logger, minecraft = null }) {
   }
 
   /**
-   * Öffentliche Statusseite für #status: nur „läuft / gestört / noch nicht
-   * verfügbar“, ohne technische Fehlermeldungen.
+   * Öffentliche Statusseite für #status (Website, Discord-Bot, Minecraft-Bot):
+   * nur „läuft / gestört / kommt bald“, ohne technische Fehlermeldungen.
    */
   async function buildPublicPayload() {
     const website = !api.configured ? null : state.apiOk === true;
     const mcOk = minecraft ? minecraft.state.online : null;
-    const problems = [website === false, mcOk === false, state.lastSyncOk === false].some(Boolean);
+    const problems = [website === false, mcOk === false].some(Boolean);
     const pub = (ok, okText, badText, noneText) => line(ok, ok === null ? noneText : ok ? okText : badText);
     return card({
       title: 'Status',
@@ -75,7 +75,6 @@ function createStatusService({ api, store, env, logger, minecraft = null }) {
         { heading: 'Website', body: pub(website, 'Online', 'Gestört', 'Kommt bald') },
         { heading: 'Discord-Bot', body: line(true, `Online · seit ${discordTime(startedAt, 'R')}`) },
         { heading: 'Minecraft-Bot', body: pub(mcOk, 'Auf HugoSMP online', 'Gerade nicht verbunden', 'Kommt bald') },
-        { heading: 'Prognosen', body: pub(api.configured ? state.lastSyncOk : null, `Aktuell${state.lastSyncAt ? ` · ${discordTime(state.lastSyncAt, 'R')}` : ''}`, 'Werden gerade nicht aktualisiert', 'Starten mit der Website') },
       ],
       footer: `Wird alle 5 Minuten aktualisiert · zuletzt ${discordTime(new Date(), 't')}`,
     });
