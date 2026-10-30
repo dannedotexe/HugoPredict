@@ -5,6 +5,7 @@ import express from 'express';
 import { db } from './db.js';
 import * as svc from './services.js';
 import { botState, startBot } from './bot.js';
+import { botApi } from './botApi.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -25,6 +26,7 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json({ limit: '20kb' }));
+app.use('/api/bot', botApi);
 app.get('/api/health', (req, res) => res.json({ ok: true, uptime: Math.round(process.uptime()), bot: botState.online }));
 app.use(express.static(path.join(root, '..', 'public')));
 app.get('/lmsr.js', (req, res) => res.sendFile(path.join(root, 'lmsr.js')));
@@ -76,6 +78,7 @@ app.get('/api/status', handle(() => ({
   botOnline: botState.online,
   botEnabled: botState.enabled,
   botName: botState.username,
+  payoutsNeedApproval: !!process.env.HUGO_API_KEY,
   fee: svc.FEE,
   minWithdraw: svc.MIN_WITHDRAW,
   payCommand: (process.env.PAY_COMMAND || '/pay {player} {amount}').replace('{player}', botState.username).replace('{amount}', '<Betrag>'),
@@ -128,6 +131,7 @@ app.post('/api/admin/markets/:id/close', handle((req) => (admin(req), svc.closeM
 app.post('/api/admin/markets/:id/resolve', handle((req) =>
   (admin(req), svc.resolveMarket(Number(req.params.id), Number(req.body.outcomeId)))));
 app.post('/api/admin/markets/:id/cancel', handle((req) => (admin(req), svc.cancelMarket(Number(req.params.id)))));
+app.post('/api/admin/withdrawals/:id/approve', handle((req) => (admin(req), svc.approveWithdrawal(Number(req.params.id)))));
 app.post('/api/admin/credit', handle((req) => (admin(req), svc.adminCredit(req.body.username, req.body.amount, req.body.note))));
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Nicht gefunden' }));

@@ -114,13 +114,26 @@ export function completeLink(mcName, code) {
 
 // ---------- Deposits & withdrawals ----------
 
-export function recordDeposit(mcName, amount, raw) {
+export function saveDiscordLink(discordId, discordUsername, mcName, mcUuid) {
+  tx(() => {
+    const taken = db.prepare('SELECT discord_id FROM discord_links WHERE mc_uuid = ? AND discord_id <> ?').get(mcUuid, discordId);
+    if (taken) throw new AppError('Dieses Minecraft-Konto ist schon mit einem anderen Discord-Konto verknüpft', 409);
+    db.prepare(`INSERT INTO discord_links (discord_id, discord_username, mc_name, mc_uuid, created_at) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT (discord_id) DO UPDATE SET discord_username = excluded.discord_username, mc_name = excluded.mc_name, mc_uuid = excluded.mc_uuid`)
+      .run(discordId, String(discordUsername ?? '').slice(0, 64), mcName, mcUuid, now());
+  });
+}
+
+// extId comes from the external bot: a repeated report must not credit twice.
+export function recordDeposit(mcName, amount, raw, extId = null) {
   amount = r2(amount);
   if (!(amount > 0)) return null;
   return tx(() => {
+    const seen = extId && db.prepare('SELECT amount, user_id FROM deposits WHERE ext_id = ?').get(extId);
+    if (seen) return { credited: seen.user_id !== null, amount: seen.amount };
     const u = db.prepare('SELECT id FROM users WHERE mc_name = ?').get(mcName);
-    const r = db.prepare('INSERT INTO deposits (mc_name, amount, user_id, raw, created_at) VALUES (?, ?, ?, ?, ?)')
-      .run(mcName, amount, u?.id ?? null, raw, now());
+    const r = db.prepare('INSERT INTO deposits (mc_name, amount, user_id, raw, ext_id, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(mcName, amount, u?.id ?? null, raw, extId, now());
     if (u) changeBalance(u.id, amount, 'deposit', `dep#${r.lastInsertRowid}`);
     return { credited: !!u, amount };
   });
@@ -132,7 +145,7 @@ export function requestWithdrawal(userId, amount) {
   return tx(() => {
     const u = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
     if (!u.mc_name) throw new AppError('Verknüpfe zuerst deinen Minecraft-Account');
-    const open = db.prepare("SELECT COUNT(*) n FROM withdrawals WHERE user_id = ? AND status IN ('pending', 'processing')").get(userId).n;
+    const open = db.prepare("SELECT COUNT(*) n FROM withdrawals WHERE user_id = ? AND status IN ('pending', 'approved', 'processing')").get(userId).n;
     if (open >= 3) throw new AppError('Du hast schon 3 offene Auszahlungen');
     const r = db.prepare('INSERT INTO withdrawals (user_id, mc_name, amount, created_at) VALUES (?, ?, ?, ?)')
       .run(userId, u.mc_name, amount, now());
@@ -161,6 +174,46 @@ export function markWithdrawal(id, status, error = null) {
       const w = db.prepare('SELECT * FROM withdrawals WHERE id = ?').get(id);
       changeBalance(w.user_id, w.amount, 'withdraw_refund', `wd#${id}`);
     }
+  });
+}
+
+// ---------- Payouts through the external bot ----------
+// The team approves each withdrawal; the bot only ever sees approved ones.
+
+export function approveWithdrawal(id) {
+  const r = db.prepare("UPDATE withdrawals SET status = 'approved' WHERE id = ? AND status = 'pending'").run(id);
+  if (!r.changes) throw new AppError('Auszahlung wartet nicht auf Freigabe');
+}
+
+export function approvedPayouts() {
+  return db.prepare("SELECT id, mc_name, amount FROM withdrawals WHERE status = 'approved' ORDER BY id").all()
+    .map((w) => ({ id: String(w.id), minecraftName: w.mc_name, amount: w.amount }));
+}
+
+function payoutById(id) {
+  const w = db.prepare('SELECT * FROM withdrawals WHERE id = ?').get(id);
+  if (!w) throw new AppError('Auszahlung nicht gefunden', 404);
+  return w;
+}
+
+export function completePayout(id) {
+  tx(() => {
+    const w = payoutById(id);
+    if (w.status === 'done') return;
+    if (!['approved', 'uncertain'].includes(w.status)) throw new AppError('Auszahlung ist nicht freigegeben', 409);
+    db.prepare("UPDATE withdrawals SET status = 'done', error = NULL, processed_at = ? WHERE id = ?").run(now(), id);
+  });
+}
+
+// uncertain: the money may have moved, so nothing is refunded until the team has checked in game.
+export function failPayout(id, reason, uncertain) {
+  tx(() => {
+    const w = payoutById(id);
+    if (w.status === (uncertain ? 'uncertain' : 'failed')) return;
+    if (w.status !== 'approved') throw new AppError('Auszahlung ist nicht freigegeben', 409);
+    db.prepare('UPDATE withdrawals SET status = ?, error = ?, processed_at = ? WHERE id = ?')
+      .run(uncertain ? 'uncertain' : 'failed', reason, now(), id);
+    if (!uncertain) changeBalance(w.user_id, w.amount, 'withdraw_refund', `wd#${id}`);
   });
 }
 
@@ -390,7 +443,7 @@ export function adminOverview() {
     totalBalance: r2(db.prepare('SELECT COALESCE(SUM(balance), 0) s FROM users').get().s),
     fees: r2(db.prepare('SELECT COALESCE(SUM(fee), 0) s FROM trades').get().s),
     withdrawals: db.prepare(`SELECT w.*, u.username FROM withdrawals w JOIN users u ON u.id = w.user_id
-      ORDER BY (w.status IN ('pending','processing','failed')) DESC, w.id DESC LIMIT 30`).all(),
+      ORDER BY (w.status IN ('pending','approved','processing','uncertain','failed')) DESC, w.id DESC LIMIT 30`).all(),
     deposits: db.prepare('SELECT d.*, u.username FROM deposits d LEFT JOIN users u ON u.id = d.user_id ORDER BY d.id DESC LIMIT 30').all(),
   };
 }

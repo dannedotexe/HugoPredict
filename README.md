@@ -25,9 +25,20 @@ npm start                # http://localhost:3000
 
 Wer in `ADMIN_USERS` steht, sieht nach dem Registrieren den **Admin**-Tab: Märkte erstellen, schließen, auflösen (zahlt Gewinner automatisch aus), stornieren (erstattet Einsätze) und Guthaben manuell anpassen.
 
-## Bot einrichten
+## Externen Minecraft-Bot verbinden
 
-In `.env`:
+Der Minecraft-Bot aus dem Discord-Bot-Branch `claude/hugosmp-market-discord-kyruph` spricht mit der Website über `/api/bot` (Vertrag: `docs/API.md` im Bot-Branch).
+
+1. Schlüssel erzeugen: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+2. Website-`.env`: `HUGO_API_KEY=<Schlüssel>` und `WEBSITE_URL=https://<domain>`, außerdem `COOKIE_SECURE=true`.
+3. Bot-`.env`: `HUGO_API_KEY=<Schlüssel>`, `HUGO_API_URL=https://<domain>/api/bot`, `WEBSITE_URL=https://<domain>`, `MC_PAYOUTS_ENABLED=true`, `MC_PAYOUT_MAX=<Limit>`.
+4. `docs/mc-bot-website-link.patch` auf den Bot-Branch anwenden. Erst damit nimmt der Bot `/msg <Bot> verify <CODE>` an und meldet seinen Online-Status.
+
+Auszahlungen muss in diesem Modus ein Admin im Admin-Tab freigeben. Meldet der Bot ein unklares Ergebnis, bleibt die Auszahlung auf „Wird vom Team geprüft“; nach der Prüfung ingame lässt sie sich bei Bedarf über die Admin-Gutschrift erstatten.
+
+## Eingebauten Bot einrichten
+
+Nur ohne `HUGO_API_KEY`. In `.env`:
 
 ```
 BOT_ENABLED=true

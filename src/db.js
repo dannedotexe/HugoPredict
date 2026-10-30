@@ -103,10 +103,24 @@ db.exec(`
     created_at INTEGER NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS discord_links (
+    discord_id TEXT PRIMARY KEY,
+    discord_username TEXT,
+    mc_name TEXT NOT NULL COLLATE NOCASE,
+    mc_uuid TEXT NOT NULL UNIQUE,
+    created_at INTEGER NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS idx_trades_market ON trades(market_id, id);
   CREATE INDEX IF NOT EXISTS idx_positions_market ON positions(market_id);
   CREATE INDEX IF NOT EXISTS idx_ledger_user ON ledger(user_id, id);
 `);
+
+// Databases created before the bot API lack the id that makes deposit reports idempotent.
+if (!db.prepare('PRAGMA table_info(deposits)').all().some((c) => c.name === 'ext_id')) {
+  db.exec('ALTER TABLE deposits ADD COLUMN ext_id TEXT');
+}
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_deposits_ext ON deposits(ext_id) WHERE ext_id IS NOT NULL');
 
 export function tx(fn) {
   db.exec('BEGIN IMMEDIATE');

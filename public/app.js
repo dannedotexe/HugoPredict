@@ -435,7 +435,7 @@ async function viewWallet() {
   await refreshMe();
   const me = state.me, s = state.status;
   const { withdrawals } = me.mcName ? await api('/withdrawals') : { withdrawals: [] };
-  const wStatus = { pending: ['Wartet', 'warn'], processing: ['Wird ausgezahlt', 'warn'], done: ['Ausgezahlt', 'live'], failed: ['Fehlgeschlagen, zurückgebucht', 'bad'], cancelled: ['Storniert', ''] };
+  const wStatus = { pending: [s.payoutsNeedApproval ? 'Wartet auf Freigabe' : 'Wartet', 'warn'], approved: ['Freigegeben', 'warn'], processing: ['Wird ausgezahlt', 'warn'], uncertain: ['Wird vom Team geprüft', 'warn'], done: ['Ausgezahlt', 'live'], failed: ['Fehlgeschlagen, zurückgebucht', 'bad'], cancelled: ['Storniert', ''] };
   const verifyCmd = `/msg ${s.botName} verify ${me.verifyCode}`;
 
   app.innerHTML = `
@@ -470,7 +470,7 @@ async function viewWallet() {
               <div style="display:flex;gap:8px"><button class="btn btn-gold" style="flex:1">Auszahlung anfordern</button>
                 <button class="btn" type="button" id="wd-all">Alles</button></div>
             </form>
-            <p class="muted" style="font-size:14px;margin-top:12px">Der Bot zahlt an <b style="color:var(--text)">${esc(me.mcName)}</b> aus${s.botOnline ? ', meist innerhalb weniger Sekunden' : ', sobald er wieder online ist'}.</p>`
+            <p class="muted" style="font-size:14px;margin-top:12px">Der Bot zahlt an <b style="color:var(--text)">${esc(me.mcName)}</b> aus${s.payoutsNeedApproval ? ', sobald das Team die Auszahlung freigegeben hat' : s.botOnline ? ', meist innerhalb weniger Sekunden' : ', sobald er wieder online ist'}.</p>`
           : '<p class="muted">Verknüpfe zuerst deinen Minecraft-Account.</p>'}
         </section>
         ${withdrawals.length ? `<section class="panel"><h2>Deine Auszahlungen</h2><div class="table-wrap"><table class="table"><tbody>
@@ -590,7 +590,8 @@ async function viewAdmin() {
     <div class="split-2" style="margin-top:20px">
       <section class="panel"><h2>Auszahlungen</h2><div class="table-wrap"><table class="table"><tbody>
         ${ov.withdrawals.map((w) => `<tr><td>${esc(w.username)} an ${esc(w.mc_name)}</td><td>${money(w.amount)}</td>
-          <td><span class="tag ${w.status === 'done' ? 'live' : w.status === 'failed' ? 'bad' : 'warn'}">${w.status}</span></td><td class="muted">${ago(w.created_at)}</td></tr>`).join('') || '<tr><td class="muted">Noch keine Auszahlungen</td></tr>'}
+          <td><span class="tag ${w.status === 'done' ? 'live' : w.status === 'failed' ? 'bad' : 'warn'}">${w.status}</span></td><td class="muted">${ago(w.created_at)}</td>
+          <td class="r">${w.status === 'pending' && state.status?.payoutsNeedApproval ? `<button class="btn btn-sm btn-ja" type="button" data-approve="${w.id}">Freigeben</button>` : ''}</td></tr>`).join('') || '<tr><td class="muted">Noch keine Auszahlungen</td></tr>'}
       </tbody></table></div></section>
       <section class="panel"><h2>Einzahlungen</h2><div class="table-wrap"><table class="table"><tbody>
         ${ov.deposits.map((d) => `<tr><td>${esc(d.mc_name)}</td><td class="ja">+${money(d.amount)}</td>
@@ -616,6 +617,7 @@ async function viewAdmin() {
     if (!confirm(`Markt mit „${sel.selectedOptions[0].text}“ als Gewinner entscheiden? Das lässt sich nicht rückgängig machen.`)) return;
     run(() => api(`/admin/markets/${b.dataset.resolve}/resolve`, { outcomeId: Number(sel.value) }), 'Markt entschieden, Gewinne ausgezahlt');
   });
+  app.querySelectorAll('[data-approve]').forEach((b) => b.onclick = () => run(() => api(`/admin/withdrawals/${b.dataset.approve}/approve`, {}), 'Auszahlung freigegeben'));
   app.querySelectorAll('[data-close]').forEach((b) => b.onclick = () => run(() => api(`/admin/markets/${b.dataset.close}/close`, {}), 'Handel gestoppt'));
   app.querySelectorAll('[data-cancelm]').forEach((b) => b.onclick = () => {
     if (!confirm('Markt stornieren und alle Einsätze erstatten?')) return;

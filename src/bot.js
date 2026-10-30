@@ -34,6 +34,12 @@ export function matchDeposit(message, patterns) {
 }
 
 export function startBot() {
+  // With the external bot connected, this one would pay out withdrawals without team approval.
+  if (process.env.HUGO_API_KEY) {
+    botState.enabled = true;
+    if (process.env.BOT_ENABLED === 'true') console.warn('BOT_ENABLED wird ignoriert: HUGO_API_KEY ist gesetzt, der externe Minecraft-Bot übernimmt.');
+    return;
+  }
   if (process.env.BOT_ENABLED !== 'true') {
     console.log('Bot deaktiviert (BOT_ENABLED=false) – Einzahlungen laufen nur über Admin-Gutschriften.');
     return;
