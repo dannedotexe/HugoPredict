@@ -471,3 +471,18 @@ test('Öffentlicher Status: ohne Fehlerdetails, Website „Kommt bald“ solange
   const off = createStatusService({ api, store, env: {}, logger: console, minecraft: null });
   assert.match(JSON.stringify(await off.buildPublicPayload()), /Minecraft-Bot.*Kommt bald/, 'ausgeschaltet: „Kommt bald“');
 });
+
+test('Bot-Rolle: andere Bots bekommen „| Bots“, der eigene Bot und Menschen nicht', async () => {
+  const { createBotRoleService } = require('../src/services/botRole');
+  const svc = createBotRoleService({ ctx: { roleId: (g, k) => (k === 'otherBots' ? 'BR' : null) }, logger: console });
+  const member = (id, bot) => {
+    const roles = new Set();
+    return { id, user: { bot, username: id }, guild: { id: 'G' }, client: { user: { id: 'SELF' } }, roles: { cache: { has: (r) => roles.has(r) }, add: async (r) => roles.add(r) }, _roles: roles };
+  };
+  const disboard = member('DISBOARD', true);
+  assert.equal(await svc.assign(disboard), true);
+  assert.ok(disboard._roles.has('BR'));
+  assert.equal(await svc.assign(disboard), false, 'nicht doppelt');
+  assert.equal(await svc.assign(member('SELF', true)), false, 'eigener Bot nicht');
+  assert.equal(await svc.assign(member('steve', false)), false, 'Menschen nicht');
+});

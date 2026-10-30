@@ -43,6 +43,7 @@ API an.
 | `\| Verifiziert` | Minecraft-Konto erfolgreich verknüpft |
 | `\| Mitglied` | Standardrolle für Community-Mitglieder |
 | `ping:Neue Prognosen`, `ping:Ankündigungen` | Freiwillige Benachrichtigungen |
+| `\| Bots` | Für andere Bots (z. B. Disboard), wird beim Beitritt und bei `/aktualisieren` automatisch vergeben |
 | `\| Hugo Predict` (optional) | Technische Rolle für den Discord-Bot |
 
 Optionale Rollen legt `/aktualisieren` nicht neu an, wenn sie auf dem Server gelöscht wurden.

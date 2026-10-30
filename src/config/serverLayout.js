@@ -76,6 +76,17 @@ const ROLES = [
   // Benachrichtigungs-Rollen: freiwillig per Button in #regeln, nur der Bot pingt sie.
   { key: 'notifyMarkets', name: 'ping:Neue Prognosen', legacyNames: ['Neue Märkte', 'Neue Prognosen'], description: 'Benachrichtigung bei neuen Prognosen', icon: 'open', notify: true, color: 0x4b5563, hoist: false, mentionable: false, permissions: [] },
   { key: 'notifyNews', name: 'ping:Ankündigungen', legacyNames: ['Ankündigungen'], description: 'Benachrichtigung bei Ankündigungen', icon: 'announce', notify: true, color: 0x4b5563, hoist: false, mentionable: false, permissions: [] },
+  // Für andere Bots (z. B. Disboard): wird beim Beitritt automatisch vergeben.
+  {
+    key: 'otherBots',
+    name: '| Bots',
+    description: 'Rolle für andere Bots auf dem Server',
+    icon: 'bot',
+    color: 0x99aab5,
+    hoist: true,
+    mentionable: false,
+    permissions: [P.ViewChannel, P.SendMessages, P.EmbedLinks, P.AttachFiles, P.ReadMessageHistory, P.AddReactions, P.UseExternalEmojis],
+  },
   {
     key: 'bots',
     name: '| Hugo Predict',

@@ -28,6 +28,7 @@ const { createWelcomeService } = require('./services/welcome');
 const { createSupportVoiceService } = require('./services/supportVoice');
 const { createIdeasForumService } = require('./services/ideasForum');
 const { createStaffNamesService } = require('./services/staffNames');
+const { createBotRoleService } = require('./services/botRole');
 const { resolveIntents, membersIntentAllowed } = require('./lib/intents');
 const { createMinecraftService } = require('./minecraft/service');
 const { syncRoleIcons } = require('./setup/setupServer');
@@ -175,6 +176,11 @@ function wire({ stats, welcome, membersIntent }) {
   const staffNames = createStaffNamesService({ ctx, logger });
   deps.services.staffNames = staffNames;
   if (membersIntent) client.on(Events.GuildMemberUpdate, (oldMember, newMember) => staffNames.onMemberUpdate(oldMember, newMember).catch((err) => logger.warn('Teamnamen:', err.message)));
+
+  // Andere Bots bekommen die Rolle „| Bots“
+  const botRole = createBotRoleService({ ctx, logger });
+  deps.services.botRole = botRole;
+  if (membersIntent) client.on(Events.GuildMemberAdd, (member) => { if (member.user.bot) botRole.assign(member).catch(() => {}); });
 
   // Begrüßung neuer Mitglieder per Direktnachricht (nur mit „Server Members Intent“)
   if (membersIntent) client.on(Events.GuildMemberAdd, (member) => welcome.onMemberAdd(member).catch((err) => logger.warn('Begrüßung:', err.message)));
