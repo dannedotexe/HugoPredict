@@ -87,7 +87,7 @@ test('Kontoverknüpfung vergibt nur Mitglied und Verifiziert und setzt den Minec
   const ids = { member: 'M', verified: 'V', notifyMarkets: 'N1', notifyNews: 'N2' };
   const deps = {
     api: { getVerificationStatus: async () => ({ verified: true, minecraftName: 'Steve' }) },
-    ctx: { roleId: (g, k) => ids[k], audit: async () => {} }, logger: console,
+    ctx: { roleId: (g, k) => ids[k], audit: async () => {}, hasRoleKey: () => false }, logger: console,
   };
   await checkVerification(interaction, deps);
   assert.deepEqual(added.sort(), ['M', 'V']);
@@ -110,7 +110,7 @@ test('Minecraft-Code in Discord: falscher Code meldet Versuche, richtiger vergib
   const results = [{ error: 'wrong', attemptsLeft: 4 }, { player: { username: 'Steve', uuid: 'u' } }];
   const deps = {
     minecraft: { confirmLinkCode: () => results.shift(), saveLink: async () => ({ synced: false }), forgetLink: () => {} },
-    ctx: { roleId: (g, k) => ({ member: 'M', verified: 'V' })[k], audit: async () => {} }, logger: console,
+    ctx: { roleId: (g, k) => ({ member: 'M', verified: 'V' })[k], audit: async () => {}, hasRoleKey: () => false }, logger: console,
   };
   await confirmMinecraftCode(makeInteraction(), 'XXXXXX', deps);
   assert.match(JSON.stringify(replies.at(-1)), /Noch 4 Versuch/);
@@ -427,4 +427,31 @@ test('Channel-Namen in Ankündigungen werden zu Links', () => {
   const out = linkChannelNames('Bewirb dich in #bewerben! Lies #regeln. #gibtsnicht bleibt, <#999> auch.', (k) => ids[k]);
   assert.equal(out, 'Bewirb dich in <#111>! Lies <#222>. #gibtsnicht bleibt, <#999> auch.');
   assert.equal(linkChannelNames('## Überschrift #bewerben', (k) => ids[k]), '## Überschrift <#111>');
+});
+
+test('Teamnamen: höchste Teamrolle als Zusatz, Entfernen beim Rollenverlust, Länge max. 32', async () => {
+  const { desiredNickname, createStaffNamesService } = require('../src/services/staffNames');
+  const has = new Set();
+  const ctx = { hasRoleKey: (m, key) => has.has(key) };
+  const member = (nickname) => {
+    const m = { id: '9', guild: { ownerId: '1' }, user: { username: 'steve99', globalName: 'Steve' }, nickname, manageable: true };
+    m.setNickname = async (n) => { m.nickname = n; };
+    return m;
+  };
+  assert.equal(desiredNickname(member(null), ctx), 'Steve');
+  has.add('support');
+  assert.equal(desiredNickname(member('Steve'), ctx), 'Supporter | Steve');
+  has.add('admin');
+  assert.equal(desiredNickname(member('Supporter | Steve'), ctx), 'Admin | Steve', 'höchste Rolle zählt, alter Zusatz weg');
+  assert.ok(desiredNickname(member('A'.repeat(40)), ctx).length <= 32);
+
+  const svc = createStaffNamesService({ ctx, logger: console });
+  const m = member('Admin | Steve');
+  has.clear();
+  assert.equal(await svc.apply(m), true);
+  assert.equal(m.nickname, 'Steve', 'Zusatz entfernt');
+  const owner = member(null);
+  owner.id = '1';
+  has.add('owner');
+  assert.equal(await svc.apply(owner), false, 'Eigentümer wird nicht umbenannt');
 });

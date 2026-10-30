@@ -27,6 +27,7 @@ const { createStatsService } = require('./services/stats');
 const { createWelcomeService } = require('./services/welcome');
 const { createSupportVoiceService } = require('./services/supportVoice');
 const { createIdeasForumService } = require('./services/ideasForum');
+const { createStaffNamesService } = require('./services/staffNames');
 const { resolveIntents, membersIntentAllowed } = require('./lib/intents');
 const { createMinecraftService } = require('./minecraft/service');
 const { syncRoleIcons } = require('./setup/setupServer');
@@ -169,6 +170,11 @@ function wire({ stats, welcome, membersIntent }) {
   const ideasForum = createIdeasForumService({ store, logger });
   client.on(Events.ThreadCreate, (thread, newlyCreated) => ideasForum.onThreadCreate(thread, newlyCreated).catch((err) => logger.warn('Vorschläge:', err.message)));
   client.on(Events.ThreadUpdate, (oldThread, newThread) => ideasForum.onThreadUpdate(oldThread, newThread).catch((err) => logger.warn('Vorschläge:', err.message)));
+
+  // Teamrolle im Server-Namen („Supporter | Steve“), nur mit „Server Members Intent“
+  const staffNames = createStaffNamesService({ ctx, logger });
+  deps.services.staffNames = staffNames;
+  if (membersIntent) client.on(Events.GuildMemberUpdate, (oldMember, newMember) => staffNames.onMemberUpdate(oldMember, newMember).catch((err) => logger.warn('Teamnamen:', err.message)));
 
   // Begrüßung neuer Mitglieder per Direktnachricht (nur mit „Server Members Intent“)
   if (membersIntent) client.on(Events.GuildMemberAdd, (member) => welcome.onMemberAdd(member).catch((err) => logger.warn('Begrüßung:', err.message)));

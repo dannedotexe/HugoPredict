@@ -27,6 +27,10 @@ module.exports = {
     const icons = await syncRoleIcons(interaction.guild, deps.store);
     // Mitglieder dürfen ihren Server-Namen nicht selbst ändern.
     const nicknames = await lockNicknames(interaction.guild, deps.store);
+    // Teamrollen im Namen („Supporter | Steve“) für alle abgleichen
+    const staffRenamed = deps.membersIntent && deps.services.staffNames
+      ? await deps.services.staffNames.sweep(interaction.guild).catch((err) => { deps.logger.warn('Teamnamen:', err.message); return 0; })
+      : null;
     // Neue Channels des Layouts anlegen (nur fehlende, Bestehendes bleibt unverändert).
     await interaction.guild.channels.fetch();
     // Channels mit neuem Typ ersetzen (z. B. #vorschläge wird ein Forum).
@@ -56,6 +60,8 @@ module.exports = {
     if (icons.set.length) e.addFields({ name: 'Rollen-Icons gesetzt', value: icons.set.join(', ').slice(0, 1024), inline: false });
     if (icons.warnings.length) e.addFields({ name: 'Hinweise (Rollen-Icons)', value: icons.warnings.join('\n').slice(0, 1024), inline: false });
     if (icons.unavailable) e.addFields({ name: 'Rollen-Icons', value: 'Rollen-Icons gibt es erst ab Server-Boost Stufe 2.', inline: false });
+    if (staffRenamed) e.addFields({ name: 'Teamnamen', value: `${staffRenamed} Name(n) an die Teamrolle angepasst (z. B. „Supporter | Name“).`, inline: false });
+    if (staffRenamed === null) e.addFields({ name: 'Teamnamen', value: 'Für „Supporter | Name“ braucht der Bot den „Server Members Intent“ im Developer Portal.', inline: false });
     if (nicknames.changed.length) e.addFields({ name: 'Umbenennen gesperrt', value: `„Nickname ändern“ entfernt bei: ${nicknames.changed.join(', ')}`.slice(0, 1024), inline: false });
     if (nicknames.warnings.length) e.addFields({ name: 'Hinweise (Nicknames)', value: nicknames.warnings.join('\n').slice(0, 1024), inline: false });
     if (newRoles.errors.length) e.addFields({ name: 'Rollen-Fehler', value: newRoles.errors.join('\n').slice(0, 1024), inline: false });

@@ -7,6 +7,7 @@ const { ApiError } = require('../lib/hugoApi');
 const { withEmoji } = require('../lib/emojis');
 const { card } = require('../lib/ui');
 const { CODE_LENGTH } = require('../minecraft/linkCodes');
+const { desiredNickname } = require('../services/staffNames');
 
 const MC_NAME = /^[A-Za-z0-9_]{3,16}$/;
 
@@ -88,13 +89,15 @@ async function grantVerified(interaction, minecraftName, deps, { note = '' } = {
     await deps.ctx.audit(interaction.guild, 'system', { title: 'Rolle nicht vergeben', description: `Verifiziert für <@${interaction.user.id}>: ${err.message}` });
     return replyPrivate(interaction, { embeds: [embeds.error('Rolle nicht vergeben', 'Deine Verknüpfung ist gültig, die Rolle konnte jedoch nicht vergeben werden. Das Team wurde informiert.')] });
   }
-  // Server-Name = Minecraft-Name. Klappt nicht bei Personen über der Bot-Rolle
-  // (z. B. Server-Eigentümer) oder ohne das Recht „Nicknames verwalten“.
+  // Server-Name = Minecraft-Name (bei Teamrollen mit Zusatz, z. B. „Supporter | Steve“).
+  // Klappt nicht bei Personen über der Bot-Rolle (z. B. Server-Eigentümer)
+  // oder ohne das Recht „Nicknames verwalten“.
   let nickNote = '';
-  if (minecraftName && member.nickname !== minecraftName) {
+  const nick = minecraftName && desiredNickname(member, deps.ctx, minecraftName);
+  if (nick && member.nickname !== nick) {
     try {
-      await member.setNickname(minecraftName, 'Minecraft-Name aus der Kontoverknüpfung');
-      nickNote = `\nDein Name auf diesem Server ist jetzt **${minecraftName}**.`;
+      await member.setNickname(nick, 'Minecraft-Name aus der Kontoverknüpfung');
+      nickNote = `\nDein Name auf diesem Server ist jetzt **${nick}**.`;
     } catch (err) {
       deps.logger.warn('Nickname nicht gesetzt:', err.message);
     }
