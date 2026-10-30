@@ -470,5 +470,5 @@ test('Öffentlicher Status: ohne Fehlerdetails, Website „Kommt bald“ solange
   assert.ok(!text.includes('Prognosen'), 'keine Prognosen-Zeile');
   assert.match(text, /Störung/);
   const off = createStatusService({ api, store, env: {}, logger: console, minecraft: null });
-  assert.match(JSON.stringify(await off.buildPublicPayload()), /Minecraft-Bot.*Kommt bald/, 'ausgeschaltet: „Kommt bald“');
+  assert.match(JSON.stringify(await off.buildPublicPayload()), /Predict Minecraft Bot.*Kommt bald/, 'ausgeschaltet: „Kommt bald“');
 });
