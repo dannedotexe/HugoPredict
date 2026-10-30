@@ -220,20 +220,9 @@ async function runSetup(guild, store, { syncPermissions = false, archiveObsolete
     result.warnings.push(`Rollen-Reihenfolge konnte nicht gesetzt werden: ${err.message}`);
   }
 
-  // Rollen-Icons (nur mit Server-Boost Stufe 2; vorhandene Icons bleiben unangetastet)
-  if (guild.features?.includes('ROLE_ICONS')) {
-    for (const def of ROLES) {
-      const role = guild.roles.cache.get(g.roles[def.key]);
-      const file = def.icon && emojis.filePath(def.icon);
-      if (!role || role.icon || !file || !fs.existsSync(file) || role.position >= me.roles.highest.position) continue;
-      try {
-        await role.setIcon(fs.readFileSync(file), REASON);
-        result.updated.push(`Rollen-Icon ${def.name}`);
-      } catch (err) {
-        result.warnings.push(`Rollen-Icon ${def.name}: ${err.message}`);
-      }
-    }
-  }
+  const icons = await syncRoleIcons(guild, store);
+  result.updated.push(...icons.set.map((n) => `Rollen-Icon ${n}`));
+  result.warnings.push(...icons.warnings);
 
   const botRole = guild.roles.cache.get(g.roles.bots);
   if (botRole && !me.roles.cache.has(botRole.id) && botRole.position < me.roles.highest.position) {
@@ -385,6 +374,34 @@ async function ensureMissingChannels(guild, store) {
 }
 
 /**
+ * Rollen-Icons (ab Server-Boost Stufe 2). Rollen, die schon ein Icon oder Emoji
+ * haben, bleiben unangetastet. Rollen über der Bot-Rolle kann der Bot nicht ändern.
+ */
+async function syncRoleIcons(guild, store) {
+  const g = store.guild(guild.id);
+  const me = guild.members.me;
+  const set = [];
+  const warnings = [];
+  if (!guild.features?.includes('ROLE_ICONS')) return { set, warnings, unavailable: true };
+  for (const def of ROLES) {
+    const role = guild.roles.cache.get(g.roles[def.key]);
+    const file = def.icon && emojis.filePath(def.icon);
+    if (!role || role.icon || role.unicodeEmoji || !file || !fs.existsSync(file)) continue;
+    if (role.position >= me.roles.highest.position) {
+      if (role.id !== me.roles.highest.id) warnings.push(`Rollen-Icon „${role.name}“: Rolle liegt über der Bot-Rolle.`);
+      continue;
+    }
+    try {
+      await role.setIcon(fs.readFileSync(file), REASON);
+      set.push(role.name);
+    } catch (err) {
+      warnings.push(`Rollen-Icon „${role.name}“: ${err.message}`);
+    }
+  }
+  return { set, warnings, unavailable: false };
+}
+
+/**
  * Ein Layout-Channel hat einen neuen Typ bekommen (z. B. #vorschläge: Text → Forum).
  * Der alte Channel wird gelöscht, wenn außer dem Bot niemand darin geschrieben hat,
  * sonst als „…-alt“ umbenannt, damit nichts verloren geht. Danach legt
@@ -517,4 +534,4 @@ async function lockNicknames(guild, store) {
   return { changed, warnings };
 }
 
-module.exports = { planSetup, runSetup, buildPlan, resolveOverwrites, missingBotPermissions, syncRoleNames, syncChannelNames, ensureMissingChannels, ensureMissingRoles, lockNicknames, retireChangedChannels };
+module.exports = { planSetup, runSetup, buildPlan, resolveOverwrites, missingBotPermissions, syncRoleNames, syncChannelNames, ensureMissingChannels, ensureMissingRoles, lockNicknames, retireChangedChannels, syncRoleIcons };

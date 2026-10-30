@@ -395,3 +395,22 @@ test('retireChangedChannels: leerer alter Channel wird ersetzt, benutzter umbena
     else assert.ok(!old.deleted && old.name === '💡┃vorschläge-alt' && res.kept.length === 1, 'Inhalte bleiben erhalten');
   }
 });
+
+test('syncRoleIcons: setzt fehlende Icons, lässt vorhandene und höhere Rollen in Ruhe', async () => {
+  const { syncRoleIcons } = require('../src/setup/setupServer');
+  const store = tmpStore();
+  const g = store.guild('G');
+  const set = [];
+  const role = (id, name, position, extra = {}) => ({ id, name, position, icon: null, unicodeEmoji: null, setIcon: async () => set.push(name), ...extra });
+  const roles = new Collection([
+    ['O', role('O', '| Inhaber', 5)],
+    ['S', role('S', '| Supporter', 3, { icon: 'abc' })],
+    ['M', role('M', '| Mitglied', 2)],
+  ]);
+  Object.assign(g.roles, { owner: 'O', support: 'S', member: 'M' });
+  const guild = { id: 'G', features: ['ROLE_ICONS'], roles: { cache: roles }, members: { me: { roles: { highest: { id: 'B', position: 4 } } } } };
+  const res = await syncRoleIcons(guild, store);
+  assert.deepEqual(set, ['| Mitglied']);
+  assert.match(res.warnings[0], /Inhaber.*über der Bot-Rolle/);
+  assert.equal((await syncRoleIcons({ ...guild, features: [] }, store)).unavailable, true);
+});
