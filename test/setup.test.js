@@ -427,6 +427,18 @@ test('syncRoleIcons: Icons in Rollenfarbe, Nachfärben bei Farbwechsel, fremde I
   assert.equal((await syncRoleIcons(guild, store)).set.length, 0, 'gleiche Farbe: nichts zu tun');
   roles.get('M').color = 0x4a90e2;
   assert.deepEqual((await syncRoleIcons(guild, store)).set, ['| Mitglied'], 'neue Farbe: nachgefärbt');
+  roles.get('M').colors = { primaryColor: 0x3cc51c, secondaryColor: 0xe3201b };
+  assert.deepEqual((await syncRoleIcons(guild, store)).set, ['| Mitglied'], 'Farbverlauf: nachgefärbt');
+  const grad = decodePng(set.at(-1)[1]);
+  const row = [];
+  for (let x = 0; x < grad.width; x++) {
+    for (let y = 0; y < grad.height; y++) {
+      const i = (y * grad.width + x) * 4;
+      if (grad.pixels[i + 3] > 200) { row.push(grad.pixels.subarray(i, i + 3)); break; }
+    }
+  }
+  assert.ok(row[0][1] > row[0][0], 'links grün');
+  assert.ok(row.at(-1)[0] > row.at(-1)[1], 'rechts rot');
   roles.get('M').icon = 'vom-team';
   roles.get('M').color = 0x00ff00;
   assert.equal((await syncRoleIcons(guild, store)).set.length, 0, 'vom Team ersetztes Icon bleibt');

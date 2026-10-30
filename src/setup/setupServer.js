@@ -396,7 +396,10 @@ async function syncRoleIcons(guild, store) {
     const role = guild.roles.cache.get(g.roles[def.key]);
     const file = def.icon && emojis.filePath(def.icon);
     if (!role || !file || !fs.existsSync(file)) continue;
-    const color = role.colors?.primaryColor || role.color || DEFAULT_ICON_COLOR;
+    // Bei Farbverläufen erste und zweite Farbe der Rolle
+    const first = role.colors?.primaryColor || role.color || DEFAULT_ICON_COLOR;
+    const second = role.colors?.secondaryColor || null;
+    const color = second ? `${first}-${second}` : first;
     const mine = g.roleIcons[def.key];
     const ownIcon = role.icon && ((mine && mine.icon === role.icon) || (!mine && adoptExisting));
     if (role.unicodeEmoji || (role.icon && !ownIcon) || (ownIcon && mine?.color === color)) continue;
@@ -405,7 +408,7 @@ async function syncRoleIcons(guild, store) {
       continue;
     }
     try {
-      const updated = await role.setIcon(tintIcon(fs.readFileSync(file), color), REASON);
+      const updated = await role.setIcon(tintIcon(fs.readFileSync(file), first, second), REASON);
       g.roleIcons[def.key] = { icon: updated?.icon ?? role.icon, color };
       set.push(role.name);
     } catch (err) {

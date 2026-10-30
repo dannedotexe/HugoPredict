@@ -160,7 +160,8 @@ function wire({ stats, welcome, membersIntent }) {
 
   // Rollenfarbe geändert → Rollen-Icon in der neuen Farbe
   client.on(Events.GuildRoleUpdate, (oldRole, newRole) => {
-    const changed = oldRole.color !== newRole.color || oldRole.colors?.primaryColor !== newRole.colors?.primaryColor;
+    const changed = oldRole.color !== newRole.color || oldRole.colors?.primaryColor !== newRole.colors?.primaryColor
+      || oldRole.colors?.secondaryColor !== newRole.colors?.secondaryColor;
     if (changed) syncRoleIcons(newRole.guild, store).catch((err) => logger.warn('Rollen-Icons:', err.message));
   });
 

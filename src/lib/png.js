@@ -92,12 +92,14 @@ function encodePng({ width, height, pixels }) {
  * Färbt ein Icon (heller Strich auf dunkler Kachel) in eine Farbe um, macht die
  * Kachel samt Rand durchsichtig und schneidet quadratisch auf das Symbol zu,
  * damit es auch als winziges Rollen-Icon gut erkennbar ist. Kanten bleiben weich.
+ * Mit zwei Farben entsteht ein Verlauf von links nach rechts (wie bei
+ * Discord-Rollen mit Farbverlauf).
  */
-function tintIcon(buf, color) {
+function tintIcon(buf, color, secondColor = null) {
   const img = decodePng(buf);
-  const r = (color >> 16) & 0xff;
-  const g = (color >> 8) & 0xff;
-  const b = color & 0xff;
+  const rgb = (c) => [(c >> 16) & 0xff, (c >> 8) & 0xff, c & 0xff];
+  const from = rgb(color);
+  const to = rgb(secondColor ?? color);
   const p = img.pixels;
   let minX = img.width;
   let minY = img.height;
@@ -113,9 +115,6 @@ function tintIcon(buf, color) {
     const level = Math.max(p[i], p[i + 1], p[i + 2]);
     // Halbtransparente Pixel gehören zum Kachelrand, nicht zum Symbol.
     const weight = inside && p[i + 3] === 255 ? Math.min(1, Math.max(0, (level - 80) / (180 - 80))) : 0;
-    p[i] = r;
-    p[i + 1] = g;
-    p[i + 2] = b;
     p[i + 3] = Math.round(p[i + 3] * weight);
     if (p[i + 3] > 8) {
       minX = Math.min(minX, px);
@@ -125,6 +124,11 @@ function tintIcon(buf, color) {
     }
   }
   if (maxX < 0) return encodePng(img);
+  // Farbe bzw. Verlauf über die Breite des Symbols
+  for (let i = 0; i < p.length; i += 4) {
+    const t = maxX > minX ? Math.min(1, Math.max(0, ((i / 4) % img.width - minX) / (maxX - minX))) : 0;
+    for (let k = 0; k < 3; k++) p[i + k] = Math.round(from[k] + (to[k] - from[k]) * t);
+  }
   const size = Math.max(maxX - minX, maxY - minY) + 1;
   const side = Math.min(Math.max(img.width, img.height), Math.ceil(size * 1.12));
   const offX = Math.round(minX - (side - (maxX - minX + 1)) / 2);
