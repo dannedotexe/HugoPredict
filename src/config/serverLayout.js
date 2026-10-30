@@ -196,7 +196,7 @@ const F = ChannelType.GuildForum;
 // (mit Strich ohne Emoji bzw. ganz ohne) werden von /aktualisieren umbenannt.
 const SEPARATOR = '┃';
 const ICONS = {
-  willkommen: '👋', bewerben: '📝', bewerbungen: '📨', ankündigungen: '📢', prognosen: '📈', regeln: '📜', pings: '🔔',
+  willkommen: '👋', status: '📶', bewerben: '📝', bewerbungen: '📨', ankündigungen: '📢', prognosen: '📈', regeln: '📜', pings: '🔔',
   diskussionen: '💬', analysen: '📊', medien: '📸', vorschläge: '💡', 'Voice 1': '🔊', 'Voice 2': '🔊', 'Voice 3': '🔊', support: '🎫', 'support-steuerung': '📋', 'support-warteraum': '⏳', 'Support Raum 1': '🛠️', 'Support Raum 2': '🛠️',
   betrieb: '🔧', prüfprotokoll: '🧾', systemmeldungen: '📡', moderation: '🔨', team: '👥',
 };
@@ -235,6 +235,11 @@ const CATEGORIES = [
       {
         key: 'pings', ...named('pings'), type: T,
         topic: 'Wähle, worüber du per Ping informiert wirst.',
+        permissions: profiles.publicRead(),
+      },
+      {
+        key: 'publicStatus', ...named('status'), type: T,
+        topic: 'Läuft alles? Hier siehst du den aktuellen Status von Website und Bots.',
         permissions: profiles.publicRead(),
       },
       {

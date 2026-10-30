@@ -272,6 +272,13 @@ async function publishPanels(guild, { store, env, statusService, statsService })
   } catch (err) {
     result.errors.push(`status: ${err.message}`);
   }
+  if (statusService.buildPublicPayload && g.channels.publicStatus) {
+    try {
+      await publish('publicStatus', g.channels.publicStatus, await statusService.buildPublicPayload());
+    } catch (err) {
+      result.errors.push(`publicStatus: ${err.message}`);
+    }
+  }
   try {
     const template = await publishIdeasTemplate(guild, g);
     if (template) (template.created ? result.created : result.updated).push('ideasTemplate');

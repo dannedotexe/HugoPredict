@@ -455,3 +455,16 @@ test('Teamnamen: höchste Teamrolle als Zusatz, Entfernen beim Rollenverlust, L�
   has.add('owner');
   assert.equal(await svc.apply(owner), false, 'Eigentümer wird nicht umbenannt');
 });
+
+test('Öffentlicher Status: ohne Fehlerdetails, Website „Kommt bald“ solange nicht verbunden', async () => {
+  const { createStatusService } = require('../src/services/status');
+  const store = tmpStore();
+  const api = { configured: false };
+  const svc = createStatusService({ api, store, env: {}, logger: console, minecraft: { state: { online: false, lastError: 'ECONNREFUSED 1.2.3.4' } } });
+  await svc.checkApi();
+  const text = JSON.stringify(await svc.buildPublicPayload());
+  assert.match(text, /Kommt bald/);
+  assert.match(text, /Gerade nicht verbunden/);
+  assert.ok(!text.includes('ECONNREFUSED'), 'keine technischen Details');
+  assert.match(text, /Störung/);
+});

@@ -53,28 +53,60 @@ function createStatusService({ api, store, env, logger, minecraft = null }) {
     });
   }
 
-  async function tick(client) {
-    await checkApi();
-    const payload = await buildPayload();
-    for (const guild of client.guilds.cache.values()) {
-      const g = store.guild(guild.id);
-      const ref = g.panels.status;
-      if (!ref) continue;
-      try {
-        const channel = guild.channels.cache.get(ref.channelId) ?? (await guild.channels.fetch(ref.channelId).catch(() => null));
-        if (!channel?.isTextBased()) continue;
-        const msg = await upsert(channel, ref, payload);
-        if (msg.id !== ref.messageId) {
-          g.panels.status = { channelId: channel.id, messageId: msg.id };
-          store.save();
-        }
-      } catch (err) {
-        logger.warn('Status-Panel:', err.message);
+  /**
+   * Öffentliche Statusseite für #status: nur „läuft / gestört / noch nicht
+   * verfügbar“, ohne technische Fehlermeldungen.
+   */
+  async function buildPublicPayload() {
+    const website = !api.configured ? null : state.apiOk === true;
+    const mcOk = minecraft ? minecraft.state.online : undefined;
+    const problems = [website === false, mcOk === false, state.lastSyncOk === false].some(Boolean);
+    const pub = (ok, okText, badText, noneText) => line(ok, ok === null ? noneText : ok ? okText : badText);
+    return card({
+      title: 'Status',
+      icon: 'open',
+      intro: problems
+        ? 'Gerade gibt es eine Störung. Wir kümmern uns darum, du musst nichts tun.'
+        : 'Alles läuft. Hier siehst du jederzeit, ob Website und Bots erreichbar sind.',
+      accent: problems ? theme.colors.warning : theme.colors.success,
+      blocks: [
+        { heading: 'Website', body: pub(website, 'Online', 'Gestört', 'Kommt bald') },
+        { heading: 'Discord-Bot', body: line(true, `Online · seit ${discordTime(startedAt, 'R')}`) },
+        ...(minecraft ? [{ heading: 'Minecraft-Bot', body: pub(mcOk, 'Auf HugoSMP online', 'Gerade nicht verbunden', '') }] : []),
+        { heading: 'Prognosen', body: pub(api.configured ? state.lastSyncOk : null, `Aktuell${state.lastSyncAt ? ` · ${discordTime(state.lastSyncAt, 'R')}` : ''}`, 'Werden gerade nicht aktualisiert', 'Starten mit der Website') },
+      ],
+      footer: `Wird alle 5 Minuten aktualisiert · zuletzt ${discordTime(new Date(), 't')}`,
+    });
+  }
+
+  async function updatePanel(guild, key, payload) {
+    const g = store.guild(guild.id);
+    const ref = g.panels[key];
+    if (!ref) return;
+    try {
+      const channel = guild.channels.cache.get(ref.channelId) ?? (await guild.channels.fetch(ref.channelId).catch(() => null));
+      if (!channel?.isTextBased()) return;
+      const msg = await upsert(channel, ref, payload);
+      if (msg.id !== ref.messageId) {
+        g.panels[key] = { channelId: channel.id, messageId: msg.id };
+        store.save();
       }
+    } catch (err) {
+      logger.warn(`Status-Panel (${key}):`, err.message);
     }
   }
 
-  return { tick, buildPayload, recordSync, checkApi, state, env };
+  async function tick(client) {
+    await checkApi();
+    const payload = await buildPayload();
+    const publicPayload = await buildPublicPayload();
+    for (const guild of client.guilds.cache.values()) {
+      await updatePanel(guild, 'status', payload);
+      await updatePanel(guild, 'publicStatus', publicPayload);
+    }
+  }
+
+  return { tick, buildPayload, buildPublicPayload, recordSync, checkApi, state, env };
 }
 
 module.exports = { createStatusService };
