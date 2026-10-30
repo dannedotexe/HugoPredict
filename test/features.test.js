@@ -465,6 +465,7 @@ test('Öffentlicher Status: ohne Fehlerdetails, Website „Kommt bald“ solange
   const text = JSON.stringify(await svc.buildPublicPayload());
   assert.match(text, /Kommt bald/);
   assert.match(text, /Gerade nicht verbunden/);
+  for (const name of ['hugopredict.de', 'Hugo Predict Helper', 'Predict Minecraft Bot']) assert.ok(text.includes(name), name);
   assert.ok(!text.includes('ECONNREFUSED'), 'keine technischen Details');
   assert.ok(!text.includes('Prognosen'), 'keine Prognosen-Zeile');
   assert.match(text, /Störung/);

@@ -59,6 +59,15 @@ function createStatusService({ api, store, env, logger, minecraft = null }) {
    * Öffentliche Statusseite für #status (Website, Discord-Bot, Minecraft-Bot):
    * nur „läuft / gestört / kommt bald“, ohne technische Fehlermeldungen.
    */
+  // Name der Website, wie ihn Mitglieder kennen (aus WEBSITE_URL, sonst hugopredict.de)
+  const websiteName = () => {
+    try {
+      return env.websiteUrl ? new URL(env.websiteUrl).hostname.replace(/^www\./, '') : 'hugopredict.de';
+    } catch {
+      return 'hugopredict.de';
+    }
+  };
+
   async function buildPublicPayload() {
     const website = !api.configured ? null : state.apiOk === true;
     const mcOk = minecraft ? minecraft.state.online : null;
@@ -72,9 +81,9 @@ function createStatusService({ api, store, env, logger, minecraft = null }) {
         : 'Alles läuft. Hier siehst du jederzeit, ob Website und Bots erreichbar sind.',
       accent: problems ? theme.colors.warning : theme.colors.success,
       blocks: [
-        { heading: 'Website', body: pub(website, 'Online', 'Gestört', 'Kommt bald') },
-        { heading: 'Discord-Bot', body: line(true, `Online · seit ${discordTime(startedAt, 'R')}`) },
-        { heading: 'Minecraft-Bot', body: pub(mcOk, 'Auf HugoSMP online', 'Gerade nicht verbunden', 'Kommt bald') },
+        { heading: websiteName(), body: pub(website, 'Online', 'Gestört', 'Kommt bald') },
+        { heading: 'Hugo Predict Helper', body: line(true, `Online · seit ${discordTime(startedAt, 'R')}`) },
+        { heading: 'Predict Minecraft Bot', body: pub(mcOk, 'Auf HugoSMP online', 'Gerade nicht verbunden', 'Kommt bald') },
       ],
       footer: `Wird alle 5 Minuten aktualisiert · zuletzt ${discordTime(new Date(), 't')}`,
     });
