@@ -207,7 +207,7 @@ const F = ChannelType.GuildForum;
 // (mit Strich ohne Emoji bzw. ganz ohne) werden von /aktualisieren umbenannt.
 const SEPARATOR = '┃';
 const ICONS = {
-  willkommen: '👋', status: '📶', bewerben: '📝', bewerbungen: '📨', ankündigungen: '📢', prognosen: '📈', regeln: '📜', pings: '🔔',
+  willkommen: '👋', 'so-gehts': '📖', status: '📶', bewerben: '📝', bewerbungen: '📨', ankündigungen: '📢', prognosen: '📈', regeln: '📜', pings: '🔔',
   diskussionen: '💬', analysen: '📊', medien: '📸', vorschläge: '💡', 'Voice 1': '🔊', 'Voice 2': '🔊', 'Voice 3': '🔊', support: '🎫', 'support-steuerung': '📋', 'support-warteraum': '⏳', 'Support Raum 1': '🛠️', 'Support Raum 2': '🛠️',
   betrieb: '🔧', prüfprotokoll: '🧾', systemmeldungen: '📡', moderation: '🔨', team: '👥',
 };
@@ -226,6 +226,11 @@ const CATEGORIES = [
       {
         key: 'greeting', ...named('willkommen'), type: T,
         topic: 'Begrüßung neuer Mitglieder.',
+        permissions: profiles.publicRead(),
+      },
+      {
+        key: 'howto', ...named('so-gehts'), type: T,
+        topic: 'Was ist HugoPredict und wie funktioniert es? Hier in einer Minute erklärt.',
         permissions: profiles.publicRead(),
       },
       {

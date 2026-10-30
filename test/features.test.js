@@ -63,8 +63,8 @@ test('Benachrichtigungs-Karte zieht nach #pings um; alte Nachricht wird entfernt
       messages: { fetch: async (mid) => msgs.get(mid) ?? null },
     };
   };
-  const channels = new Collection(['docs', 'pings', 'support', 'mo', 'sys', 'ctl', 'apply'].map((id) => [id, makeChannel(id)]));
-  Object.assign(g.channels, { docs: 'docs', pings: 'pings', support: 'support', marketOverview: 'mo', system: 'sys', supportControl: 'ctl', apply: 'apply' });
+  const channels = new Collection(['docs', 'pings', 'support', 'mo', 'sys', 'ctl', 'apply', 'howto'].map((id) => [id, makeChannel(id)]));
+  Object.assign(g.channels, { docs: 'docs', pings: 'pings', support: 'support', marketOverview: 'mo', system: 'sys', supportControl: 'ctl', apply: 'apply', howto: 'howto' });
   const oldMsg = await channels.get('docs').send();
   g.panels.notify = { channelId: 'docs', messageId: oldMsg.id };
   const guild = { id: 'G', client: { user: { id: BOT } }, channels: { cache: channels, fetch: async (id) => channels.get(id) } };
@@ -485,4 +485,14 @@ test('Bot-Rolle: andere Bots bekommen „| Bots“, der eigene Bot und Menschen 
   assert.equal(await svc.assign(disboard), false, 'nicht doppelt');
   assert.equal(await svc.assign(member('SELF', true)), false, 'eigener Bot nicht');
   assert.equal(await svc.assign(member('steve', false)), false, 'Menschen nicht');
+});
+
+test('So-gehts-Karte: erklärt Prognosen und verlinkt die Channels', () => {
+  const { panelDefinitions } = require('../src/setup/panels');
+  const { textLength, TEXT_LIMIT } = require('../src/lib/ui');
+  const payload = panelDefinitions().find((d) => d.key === 'howto').build({ env: { currency: 'HugoCoins', websiteUrl: '' }, channelIds: { docs: '1', pings: '2', marketOverview: '3', support: '4' } });
+  const text = JSON.stringify(payload);
+  for (const id of ['<#1>', '<#2>', '<#3>', '<#4>']) assert.ok(text.includes(id), id);
+  assert.match(text, /Echtgeld/);
+  assert.ok(textLength(payload) <= TEXT_LIMIT);
 });

@@ -12,6 +12,50 @@ const theme = require('../config/theme');
 function panelDefinitions() {
   return [
     {
+      key: 'howto',
+      channelKey: 'howto',
+      build: ({ env, channelIds = {} }) => {
+        const ref = (key, fallback) => (channelIds[key] ? `<#${channelIds[key]}>` : fallback);
+        const buttons = [];
+        if (env.websiteUrl) buttons.push(withEmoji(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Zur Website').setURL(env.websiteUrl), 'external'));
+        return card({
+          size: 'lg',
+          icon: 'logo',
+          title: 'So funktioniert HugoPredict',
+          intro: `Bei **${theme.brand}** sagst du voraus, was auf **HugoSMP** passiert – mit virtuellen ${env.currency}, ganz ohne Echtgeld.`,
+          blocks: [
+            {
+              heading: 'Eine Prognose',
+              icon: 'platform',
+              body: 'Jede Prognose ist eine Frage zu HugoSMP, zum Beispiel:\n**„Gewinnt Team Nord das Event am Samstag?“**\nJa **62 %** · Nein **38 %**\nDie Prozente zeigen, wie wahrscheinlich die Community das Ergebnis findet.',
+            },
+            {
+              heading: 'So tippst du',
+              icon: 'open',
+              body: 'Du setzt auf **Ja** oder **Nein**. Liegst du richtig, gewinnst du – und zwar umso mehr, je weniger andere daran geglaubt haben. Liegst du falsch, ist dein Einsatz weg.',
+            },
+            {
+              heading: `Virtuelle ${env.currency}`,
+              icon: 'coin',
+              body: `${env.currency} sind reines Spielgeld. Man kann sie nicht mit Echtgeld kaufen und nicht in Echtgeld auszahlen.`,
+            },
+            {
+              heading: 'Los geht’s',
+              icon: 'check',
+              body: [
+                `1. Regeln in ${ref('docs', '#regeln')} akzeptieren`,
+                `2. In ${ref('pings', '#pings')} auswählen, worüber du informiert wirst`,
+                `3. Prognosen in ${ref('marketOverview', '#prognosen')} ansehen oder selbst eine vorschlagen`,
+                `Fragen? Wir helfen dir in ${ref('support', '#support')}.`,
+              ].join('\n'),
+            },
+          ],
+          footer: `Die Website ist im Aufbau – Neuigkeiten gibt es zuerst in ${ref('announcements', '#ankündigungen')}`,
+          actions: buttons.length ? [new ActionRowBuilder().addComponents(buttons)] : [],
+        });
+      },
+    },
+    {
       key: 'docs',
       channelKey: 'docs',
       build: ({ env, channelIds = {} }) => {
