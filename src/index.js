@@ -29,6 +29,7 @@ const { createSupportVoiceService } = require('./services/supportVoice');
 const { createIdeasForumService } = require('./services/ideasForum');
 const { resolveIntents, membersIntentAllowed } = require('./lib/intents');
 const { createMinecraftService } = require('./minecraft/service');
+const { syncRoleIcons } = require('./setup/setupServer');
 
 const logger = createLogger(env.logLevel);
 const store = new Store(env.dataDir);
@@ -156,6 +157,12 @@ function wire({ stats, welcome, membersIntent }) {
   const supportVoice = createSupportVoiceService({ store, ctx, logger });
   deps.services.supportVoice = supportVoice;
   client.on(Events.VoiceStateUpdate, (oldState, newState) => supportVoice.onVoiceStateUpdate(oldState, newState).catch((err) => logger.warn('Warteraum:', err.message)));
+
+  // Rollenfarbe geändert → Rollen-Icon in der neuen Farbe
+  client.on(Events.GuildRoleUpdate, (oldRole, newRole) => {
+    const changed = oldRole.color !== newRole.color || oldRole.colors?.primaryColor !== newRole.colors?.primaryColor;
+    if (changed) syncRoleIcons(newRole.guild, store).catch((err) => logger.warn('Rollen-Icons:', err.message));
+  });
 
   // Forum #vorschläge: Status-Tags automatisch pflegen
   const ideasForum = createIdeasForumService({ store, logger });

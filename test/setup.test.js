@@ -396,21 +396,51 @@ test('retireChangedChannels: leerer alter Channel wird ersetzt, benutzter umbena
   }
 });
 
-test('syncRoleIcons: setzt fehlende Icons, lässt vorhandene und höhere Rollen in Ruhe', async () => {
+test('syncRoleIcons: Icons in Rollenfarbe, Nachfärben bei Farbwechsel, fremde Icons bleiben', async () => {
   const { syncRoleIcons } = require('../src/setup/setupServer');
+  const { decodePng } = require('../src/lib/png');
   const store = tmpStore();
   const g = store.guild('G');
+  g.roleIconsColored = true; // nach der einmaligen Übernahme
   const set = [];
-  const role = (id, name, position, extra = {}) => ({ id, name, position, icon: null, unicodeEmoji: null, setIcon: async () => set.push(name), ...extra });
+  const role = (id, name, position, extra = {}) => {
+    const r = { id, name, position, color: 0xff0000, icon: null, unicodeEmoji: null, ...extra };
+    r.setIcon = async (buf) => { set.push([name, buf]); r.icon = `hash-${set.length}`; return r; };
+    return r;
+  };
   const roles = new Collection([
     ['O', role('O', '| Inhaber', 5)],
-    ['S', role('S', '| Supporter', 3, { icon: 'abc' })],
-    ['M', role('M', '| Mitglied', 2)],
+    ['S', role('S', '| Supporter', 3, { icon: 'eigenes' })],
+    ['M', role('M', '| Mitglied', 2, { color: 0xf2c94c })],
   ]);
   Object.assign(g.roles, { owner: 'O', support: 'S', member: 'M' });
   const guild = { id: 'G', features: ['ROLE_ICONS'], roles: { cache: roles }, members: { me: { roles: { highest: { id: 'B', position: 4 } } } } };
+
   const res = await syncRoleIcons(guild, store);
-  assert.deepEqual(set, ['| Mitglied']);
+  assert.deepEqual(set.map((x) => x[0]), ['| Mitglied'], 'nur die Rolle ohne Icon unter der Bot-Rolle');
   assert.match(res.warnings[0], /Inhaber.*über der Bot-Rolle/);
+  const { pixels } = decodePng(set[0][1]);
+  const opaque = [];
+  for (let i = 0; i < pixels.length; i += 4) if (pixels[i + 3] > 200) opaque.push([pixels[i], pixels[i + 1], pixels[i + 2]]);
+  assert.ok(opaque.length > 50 && opaque.every(([r, gg, b]) => r === 0xf2 && gg === 0xc9 && b === 0x4c), 'Icon in Rollenfarbe');
+
+  assert.equal((await syncRoleIcons(guild, store)).set.length, 0, 'gleiche Farbe: nichts zu tun');
+  roles.get('M').color = 0x4a90e2;
+  assert.deepEqual((await syncRoleIcons(guild, store)).set, ['| Mitglied'], 'neue Farbe: nachgefärbt');
+  roles.get('M').icon = 'vom-team';
+  roles.get('M').color = 0x00ff00;
+  assert.equal((await syncRoleIcons(guild, store)).set.length, 0, 'vom Team ersetztes Icon bleibt');
   assert.equal((await syncRoleIcons({ ...guild, features: [] }, store)).unavailable, true);
+});
+
+test('syncRoleIcons: Icons der ersten Version ohne Farben werden einmalig übernommen', async () => {
+  const { syncRoleIcons } = require('../src/setup/setupServer');
+  const store = tmpStore();
+  const g = store.guild('G');
+  const r = { id: 'M', name: '| Mitglied', position: 2, color: 0xf2c94c, icon: 'smaragd', unicodeEmoji: null };
+  r.setIcon = async () => { r.icon = 'gelb'; return r; };
+  g.roles.member = 'M';
+  const guild = { id: 'G', features: ['ROLE_ICONS'], roles: { cache: new Collection([['M', r]]) }, members: { me: { roles: { highest: { id: 'B', position: 4 } } } } };
+  assert.deepEqual((await syncRoleIcons(guild, store)).set, ['| Mitglied']);
+  assert.equal(g.roleIconsColored, true);
 });

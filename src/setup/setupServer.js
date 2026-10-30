@@ -4,6 +4,10 @@ const { ChannelType, OverwriteType, PermissionsBitField, PermissionFlagsBits } =
 const { ROLES, CATEGORIES, ARCHIVE_CATEGORY, REQUIRED_BOT_PERMISSIONS, NICKNAME_LOCKED_ROLES } = require('../config/serverLayout');
 const { LEGACY_CATEGORIES, LEGACY_ROLES } = require('../config/legacyLayout');
 const { emojis } = require('../lib/emojis');
+const { tintIcon } = require('../lib/png');
+
+// Farbe für Icons von Rollen ohne eigene Farbe (Smaragd wie im Bot)
+const DEFAULT_ICON_COLOR = 0x34d399;
 const fs = require('node:fs');
 
 const permNames = (bits) => new PermissionsBitField(bits).toArray();
@@ -374,8 +378,10 @@ async function ensureMissingChannels(guild, store) {
 }
 
 /**
- * Rollen-Icons (ab Server-Boost Stufe 2). Rollen, die schon ein Icon oder Emoji
- * haben, bleiben unangetastet. Rollen über der Bot-Rolle kann der Bot nicht ändern.
+ * Rollen-Icons (ab Server-Boost Stufe 2) in der Farbe der jeweiligen Rolle.
+ * Der Bot merkt sich, welche Icons er gesetzt hat: Ändert sich die Rollenfarbe,
+ * färbt er sein Icon nach. Eigene Icons oder Emojis des Teams bleiben unangetastet.
+ * Rollen über der Bot-Rolle (und die eigene Bot-Rolle) kann der Bot nicht ändern.
  */
 async function syncRoleIcons(guild, store) {
   const g = store.guild(guild.id);
@@ -383,21 +389,31 @@ async function syncRoleIcons(guild, store) {
   const set = [];
   const warnings = [];
   if (!guild.features?.includes('ROLE_ICONS')) return { set, warnings, unavailable: true };
+  g.roleIcons ??= {};
+  // Icons, die die erste Version ohne Farben gesetzt hat, gelten einmalig als eigene.
+  const adoptExisting = !g.roleIconsColored;
   for (const def of ROLES) {
     const role = guild.roles.cache.get(g.roles[def.key]);
     const file = def.icon && emojis.filePath(def.icon);
-    if (!role || role.icon || role.unicodeEmoji || !file || !fs.existsSync(file)) continue;
+    if (!role || !file || !fs.existsSync(file)) continue;
+    const color = role.colors?.primaryColor || role.color || DEFAULT_ICON_COLOR;
+    const mine = g.roleIcons[def.key];
+    const ownIcon = role.icon && ((mine && mine.icon === role.icon) || (!mine && adoptExisting));
+    if (role.unicodeEmoji || (role.icon && !ownIcon) || (ownIcon && mine?.color === color)) continue;
     if (role.position >= me.roles.highest.position) {
       if (role.id !== me.roles.highest.id) warnings.push(`Rollen-Icon „${role.name}“: Rolle liegt über der Bot-Rolle.`);
       continue;
     }
     try {
-      await role.setIcon(fs.readFileSync(file), REASON);
+      const updated = await role.setIcon(tintIcon(fs.readFileSync(file), color), REASON);
+      g.roleIcons[def.key] = { icon: updated?.icon ?? role.icon, color };
       set.push(role.name);
     } catch (err) {
       warnings.push(`Rollen-Icon „${role.name}“: ${err.message}`);
     }
   }
+  g.roleIconsColored = true;
+  store.save();
   return { set, warnings, unavailable: false };
 }
 
