@@ -45,7 +45,7 @@ API an.
 | `ping:Neue Prognosen`, `ping:Ankündigungen` | Freiwillige Benachrichtigungen |
 | `\| Hugo Predict` (optional) | Technische Rolle für den Discord-Bot |
 
-Optionale Rollen legt `/setup-panels` nicht neu an, wenn sie auf dem Server gelöscht wurden.
+Optionale Rollen legt `/aktualisieren` nicht neu an, wenn sie auf dem Server gelöscht wurden.
 Fehlen sie, übernehmen Inhaber und Administrator ihre Aufgaben.
 
 - **Administrator** ist die **einzige** Rolle mit dem Administrator-Recht. **Inhaber** hat
@@ -77,7 +77,7 @@ Standard-Emoji ersetzt.
 | Bereich | Umsetzung |
 |---|---|
 | ~~`/setup-server`~~ | **Entfernt**, weil die Struktur eingerichtet ist. Die Einrichtungslogik (`src/setup/setupServer.js`) bleibt erhalten. Den Befehl stellst du bei Bedarf aus der Git-Historie wieder her (`git checkout 599f0f9 -- src/commands/setup-server.js`) |
-| `/setup-panels` | Regeln & Infos (mit „Regeln akzeptieren“ und „Konto verknüpfen“), Kundenservice-Panel mit Auswahlmenü, Systemstatus und Statistik in `systemmeldungen`. Ein erneuter Aufruf **bearbeitet** die Panels, statt neue zu posten. Außerdem legt der Befehl **fehlende** Channels des Layouts an (z. B. `willkommen`) und benennt Rollen mit früherem Namen um. Bestehende Channels und Rollenrechte bleiben dabei unverändert |
+| `/aktualisieren` | Regeln & Infos (mit „Regeln akzeptieren“ und „Konto verknüpfen“), Kundenservice-Panel mit Auswahlmenü, Systemstatus und Statistik in `systemmeldungen`. Ein erneuter Aufruf **bearbeitet** die Panels, statt neue zu posten. Außerdem legt der Befehl **fehlende** Channels des Layouts an (z. B. `willkommen`) und benennt Rollen mit früherem Namen um. Bestehende Channels und Rollenrechte bleiben dabei unverändert |
 | `prognosen` | Jede Prognose erhält **genau eine Nachricht**. Sie entsteht beim ersten Erscheinen und wird bei Statuswechseln (offen, pausiert, Handel beendet, entschieden) bearbeitet. Kleinstschwankungen lösen keine Bearbeitung aus, Folgenachrichten gibt es nicht |
 | Konto (privat) | `/verify`, `/balance`, `/portfolio`, `/history`, `/daily`, `/leaderboard`. Alle Antworten sind nur für die anfragende Person sichtbar |
 | Kundenservice | Fünf Anliegen. Jede Anfrage wird ein privater Channel nur für Ersteller und zuständiges Team. Es gibt „Übernehmen“ und „Anfrage schließen“ (mit Bestätigung). Das Abschlussprotokoll mit `.txt`-Transkript landet in `moderation` |
@@ -163,10 +163,10 @@ npm start        # startet den Bot
 3. Das Ergebnis lesen. Unter **Hinweise** steht, was manuell ergänzt werden muss: Discord erlaubt
    Bots nur, Rechte zu vergeben, die sie selbst besitzen. Das **Administrator**-Recht der Rolle
    Administrator sowie z. B. *Mitglieder bannen* für Inhaber setzt du deshalb einmal selbst.
-4. `/setup-panels` ausführen.
+4. `/aktualisieren` ausführen.
 5. Dir selbst die Rolle **Inhaber** geben und dem Team die passenden Rollen zuweisen.
 
-`/setup-panels` kann beliebig oft ausgeführt werden.
+`/aktualisieren` kann beliebig oft ausgeführt werden.
 
 ### 4. Website anbinden
 
@@ -293,7 +293,7 @@ src/
   setup/
     setupServer.js         Einrichtung und Migration (idempotent)
     cleanup.js             /aufräumen
-    panels.js              /setup-panels-Inhalte
+    panels.js              /aktualisieren-Inhalte
   services/
     marketFeed.js          #prognosen (eine Nachricht pro Prognose)
     leaderboards.js        Ranglisten-Embed für /leaderboard

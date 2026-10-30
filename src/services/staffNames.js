@@ -56,7 +56,7 @@ function createStaffNamesService({ ctx, logger }) {
     if (before !== after) await apply(newMember);
   }
 
-  /** Alle Mitglieder abgleichen (z. B. bei /setup-panels). Braucht den „Server Members Intent“. */
+  /** Alle Mitglieder abgleichen (z. B. bei /aktualisieren). Braucht den „Server Members Intent“. */
   async function sweep(guild) {
     const members = await guild.members.fetch();
     let changed = 0;

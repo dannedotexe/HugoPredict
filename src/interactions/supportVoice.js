@@ -17,7 +17,7 @@ async function handle(interaction, deps, [action]) {
   await interaction.deferReply({ flags: EPHEMERAL });
   try {
     if (!(await setSupportOpen(interaction.guild, deps.store, open))) {
-      return replyPrivate(interaction, { embeds: [embeds.error('Nicht eingerichtet', 'Der Support-Warteraum existiert noch nicht. Führe `/setup-panels` aus.')] });
+      return replyPrivate(interaction, { embeds: [embeds.error('Nicht eingerichtet', 'Der Support-Warteraum existiert noch nicht. Führe `/aktualisieren` aus.')] });
     }
   } catch (err) {
     deps.logger.warn('Support-Warteraum:', err.message);
@@ -46,7 +46,7 @@ async function empty(interaction, deps) {
     return replyPrivate(interaction, { embeds: [embeds.error('Nicht möglich', 'Der Bot konnte nicht alle trennen. Die Bot-Rolle braucht „Mitglieder verschieben“.')] });
   }
   if (removed === null) {
-    return replyPrivate(interaction, { embeds: [embeds.error('Nicht eingerichtet', 'Der Support-Warteraum existiert noch nicht. Führe `/setup-panels` aus.')] });
+    return replyPrivate(interaction, { embeds: [embeds.error('Nicht eingerichtet', 'Der Support-Warteraum existiert noch nicht. Führe `/aktualisieren` aus.')] });
   }
   if (removed) {
     await deps.ctx.audit(interaction.guild, 'tickets', {
@@ -62,7 +62,7 @@ async function empty(interaction, deps) {
 }
 
 const NEXT_ERRORS = {
-  not_setup: ['Nicht eingerichtet', 'Die Support-Räume existieren noch nicht. Führe `/setup-panels` aus.'],
+  not_setup: ['Nicht eingerichtet', 'Die Support-Räume existieren noch nicht. Führe `/aktualisieren` aus.'],
   no_room: ['Kein Raum frei', 'Alle Support-Räume sind belegt. Setz dich selbst in einen Support-Raum oder beende erst ein Gespräch.'],
   room_busy: ['Raum belegt', 'In deinem Support-Raum ist noch jemand. Beende zuerst das Gespräch.'],
   empty: ['Niemand wartet', 'Die Warteschlange ist leer.'],

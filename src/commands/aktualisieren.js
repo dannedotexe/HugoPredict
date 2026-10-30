@@ -10,8 +10,8 @@ const { syncRoleNames, syncChannelNames, ensureMissingChannels, ensureMissingRol
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('setup-panels')
-    .setDescription('Veröffentlicht oder aktualisiert alle Bot-Panels')
+    .setName('aktualisieren')
+    .setDescription('Bringt Server, Panels, Rollen-Icons und Teamnamen auf den neuesten Stand')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   privilege: 'setup',
   rateLimit: 'setup',

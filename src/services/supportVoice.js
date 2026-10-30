@@ -155,7 +155,7 @@ function createSupportVoiceService({ store, ctx, logger, now = Date.now, renderD
   function init(client) {
     for (const guild of client.guilds.cache.values()) {
       if (!waitingChannel(guild)) continue;
-      // Limit und Schreibsperre auch ohne /setup-panels sicherstellen.
+      // Limit und Schreibsperre auch ohne /aktualisieren sicherstellen.
       syncWaitingRoom(guild, store).catch((err) => logger.warn('Warteraum einrichten:', err.message));
       scheduleRender(guild);
     }

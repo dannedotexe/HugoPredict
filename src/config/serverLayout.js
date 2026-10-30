@@ -193,7 +193,7 @@ const T = ChannelType.GuildText;
 const V = ChannelType.GuildVoice;
 const F = ChannelType.GuildForum;
 // Channel-Namen: Emoji + Strich + Name, z. B. „📜┃regeln“. Frühere Schreibweisen
-// (mit Strich ohne Emoji bzw. ganz ohne) werden von /setup-panels umbenannt.
+// (mit Strich ohne Emoji bzw. ganz ohne) werden von /aktualisieren umbenannt.
 const SEPARATOR = '┃';
 const ICONS = {
   willkommen: '👋', bewerben: '📝', bewerbungen: '📨', ankündigungen: '📢', prognosen: '📈', regeln: '📜', pings: '🔔',
