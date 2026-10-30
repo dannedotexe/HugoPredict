@@ -273,7 +273,7 @@ const CATEGORIES = [
     channels: [
       { key: 'discussions', ...named('diskussionen'), type: T, legacy: ['general'], topic: 'Sachlicher Austausch rund um Plattform und Prognosen.', permissions: profiles.memberChat() },
       { key: 'analyses', ...named('analysen', '📊┃marktanalysen', '┃marktanalysen', 'marktanalysen'), type: T, legacy: ['analyses'], topic: 'Fundierte Analysen zu einzelnen Prognosen. Keine Anlageberatung.', permissions: profiles.memberChat(), rateLimitPerUser: 30 },
-      { key: 'media', ...named('medien'), type: T, topic: 'Bilder, Screenshots und Clips rund um HugoSMP und die Prognosen. Bitte nur eigene Inhalte.', permissions: profiles.memberChat(), rateLimitPerUser: 30 },
+      { key: 'media', ...named('medien'), type: T, topic: 'Bilder, Screenshots und Clips rund um HugoSMP, Minecraft und die Prognosen. Bitte nur eigene Inhalte.', permissions: profiles.memberChat(), rateLimitPerUser: 30 },
       {
         key: 'ideas',
         ...named('vorschläge'),

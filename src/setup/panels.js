@@ -22,12 +22,12 @@ function panelDefinitions() {
           size: 'lg',
           icon: 'logo',
           title: 'So funktioniert HugoPredict',
-          intro: `Bei **${theme.brand}** sagst du voraus, was auf **HugoSMP** passiert – mit virtuellen ${env.currency}, ganz ohne Echtgeld.`,
+          intro: `Bei **${theme.brand}** sagst du voraus, was passiert – auf **HugoSMP** und darüber hinaus, mit virtuellen ${env.currency} und ganz ohne Echtgeld.`,
           blocks: [
             {
               heading: 'Eine Prognose',
               icon: 'platform',
-              body: 'Jede Prognose ist eine Frage zu HugoSMP, zum Beispiel:\n**„Gewinnt Team Nord das Event am Samstag?“**\nJa **62 %** · Nein **38 %**\nDie Prozente zeigen, wie wahrscheinlich die Community das Ergebnis findet.',
+              body: 'Jede Prognose ist eine Frage zu einem Ereignis – rund um HugoSMP, Minecraft, Streams, Sport und mehr. Zum Beispiel:\n**„Gewinnt Team Nord das Event am Samstag?“**\nJa **62 %** · Nein **38 %**\nDie Prozente zeigen, wie wahrscheinlich die Community das Ergebnis findet.',
             },
             {
               heading: 'So tippst du',

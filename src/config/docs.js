@@ -18,7 +18,7 @@ function sections({ currency, websiteUrl }) {
       title: 'Die Plattform',
       icon: 'platform',
       body: [
-        `HugoPredict ist eine Prognose-Plattform für Ereignisse rund um den Minecraft-Server HugoSMP. Jede Prognose stellt eine klar formulierte Frage mit festgelegten Ergebnissen.`,
+        `HugoPredict ist eine Prognose-Plattform für Ereignisse rund um den Minecraft-Server HugoSMP und darüber hinaus. Jede Prognose stellt eine klar formulierte Frage mit festgelegten Ergebnissen.`,
         '',
         'Der Preis eines Ergebnisses liegt zwischen 0 und 100 % und spiegelt die aktuelle Einschätzung aller Teilnehmenden wider. Wird eine Prognose entschieden, erhalten Anteile am eingetretenen Ergebnis den vollen Wert, alle übrigen verfallen.',
         '',
