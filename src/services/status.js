@@ -41,12 +41,14 @@ function createStatusService({ api, store, env, logger, minecraft = null }) {
       blocks: [
         { heading: 'Discord-Bot', body: line(true, `Betriebsbereit · gestartet ${discordTime(startedAt, 'R')}`) },
         { heading: 'Website-API', body: api.configured ? line(state.apiOk, state.apiOk ? 'Betriebsbereit' : `Gestört${state.apiError ? ` · ${state.apiError}` : ''}`) : line(null, 'Nicht verbunden') },
-        ...(minecraft ? [{
+        {
           heading: 'Minecraft-Bot',
-          body: minecraft.state.online
-            ? line(true, `Auf HugoSMP · seit ${discordTime(minecraft.state.since, 'R')}`)
-            : line(false, `Nicht verbunden${minecraft.state.lastError ? ` · ${String(minecraft.state.lastError).slice(0, 120)}` : ''}`),
-        }] : []),
+          body: !minecraft
+            ? line(null, 'Nicht eingeschaltet (MC_ENABLED)')
+            : minecraft.state.online
+              ? line(true, `Auf HugoSMP · seit ${discordTime(minecraft.state.since, 'R')}`)
+              : line(false, `Nicht verbunden${minecraft.state.lastError ? ` · ${String(minecraft.state.lastError).slice(0, 120)}` : ''}`),
+        },
         { heading: 'Prognosen', body: state.lastSyncAt ? line(state.lastSyncOk, `${state.lastSyncOk ? 'Synchron' : 'Gestört'} · ${discordTime(state.lastSyncAt, 'R')}`) : line(null, 'Noch keine Synchronisierung') },
       ],
       footer: `Zuletzt geprüft ${discordTime(new Date(), 't')}`,
@@ -59,7 +61,7 @@ function createStatusService({ api, store, env, logger, minecraft = null }) {
    */
   async function buildPublicPayload() {
     const website = !api.configured ? null : state.apiOk === true;
-    const mcOk = minecraft ? minecraft.state.online : undefined;
+    const mcOk = minecraft ? minecraft.state.online : null;
     const problems = [website === false, mcOk === false, state.lastSyncOk === false].some(Boolean);
     const pub = (ok, okText, badText, noneText) => line(ok, ok === null ? noneText : ok ? okText : badText);
     return card({
@@ -72,7 +74,7 @@ function createStatusService({ api, store, env, logger, minecraft = null }) {
       blocks: [
         { heading: 'Website', body: pub(website, 'Online', 'Gestört', 'Kommt bald') },
         { heading: 'Discord-Bot', body: line(true, `Online · seit ${discordTime(startedAt, 'R')}`) },
-        ...(minecraft ? [{ heading: 'Minecraft-Bot', body: pub(mcOk, 'Auf HugoSMP online', 'Gerade nicht verbunden', '') }] : []),
+        { heading: 'Minecraft-Bot', body: pub(mcOk, 'Auf HugoSMP online', 'Gerade nicht verbunden', 'Kommt bald') },
         { heading: 'Prognosen', body: pub(api.configured ? state.lastSyncOk : null, `Aktuell${state.lastSyncAt ? ` · ${discordTime(state.lastSyncAt, 'R')}` : ''}`, 'Werden gerade nicht aktualisiert', 'Starten mit der Website') },
       ],
       footer: `Wird alle 5 Minuten aktualisiert · zuletzt ${discordTime(new Date(), 't')}`,

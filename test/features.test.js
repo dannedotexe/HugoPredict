@@ -467,4 +467,6 @@ test('Öffentlicher Status: ohne Fehlerdetails, Website „Kommt bald“ solange
   assert.match(text, /Gerade nicht verbunden/);
   assert.ok(!text.includes('ECONNREFUSED'), 'keine technischen Details');
   assert.match(text, /Störung/);
+  const off = createStatusService({ api, store, env: {}, logger: console, minecraft: null });
+  assert.match(JSON.stringify(await off.buildPublicPayload()), /Minecraft-Bot.*Kommt bald/, 'ausgeschaltet: „Kommt bald“');
 });
