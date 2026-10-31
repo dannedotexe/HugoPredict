@@ -114,6 +114,9 @@ main.wrap { flex: 1; padding-top: 20px; padding-bottom: 56px; outline: none; }
 .input:focus { border-color: var(--blue); }
 .input::placeholder { color: var(--faint); }
 textarea.input { resize: vertical; min-height: 84px; }
+/* iPhone: Datumsfelder halten sonst ihre eigene Breite und ragen über den Rand */
+input.input[type='datetime-local'], input.input[type='date'] { -webkit-appearance: none; appearance: none; display: block; min-width: 0; max-width: 100%; text-align: left; }
+input.input::-webkit-date-and-time-value { text-align: left; }
 .row-gap { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
 /* ---------- Panels ---------- */
