@@ -4,8 +4,8 @@ const { MessageFlags } = require('discord.js');
 const { embeds } = require('../lib/embeds');
 const { replyPrivate } = require('../lib/respond');
 const { parseAmount, formatAmount } = require('../minecraft/amount');
-const { mainView, payConfirmView, settingsView, commandModal, payModal, limitModal, joinModal } = require('../panel/minecraftPanel');
-const { canUsePanel, stateOf } = require('../panel/access');
+const { mainView, payConfirmView, settingsView: settingsViewFor, commandModal, payModal, limitModal, joinModal, webLoginModal } = require('../panel/minecraftPanel');
+const { canUsePanel, isPanelAdmin, stateOf } = require('../panel/access');
 
 /* Steuerung von /panel. Jede Interaktion prüft erneut die Discord-ID. */
 
@@ -42,6 +42,8 @@ async function handle(interaction, deps, [action, arg]) {
   if (!deps.checkRate(interaction, 'default')) return;
   const mc = deps.minecraft;
   const state = stateOf(interaction.user.id);
+  const owner = isPanelAdmin(deps, interaction.user.id);
+  const settingsView = (m, notice = null) => settingsViewFor(m, notice, { owner });
 
   if (action === 'refresh' && interaction.isButton()) {
     state.pay = null;
@@ -76,6 +78,26 @@ async function handle(interaction, deps, [action, arg]) {
     mc.reconnect();
     await audit(interaction, deps, 'Minecraft-Bot neu verbunden über /panel', 'Neu verbinden');
     return show(interaction, async () => settingsView(mc, { ok: true, text: 'Der Bot trennt sich und verbindet sich in etwa 15 Sekunden neu.' }));
+  }
+
+  // Nur Inhaber: Browser auf der Website mit dem Bot-Konto anmelden (Code von der Login-Seite)
+  if (action === 'weblogin' && interaction.isButton() && owner) return interaction.showModal(webLoginModal());
+  if (action === 'webloginmodal' && interaction.isModalSubmit() && owner) {
+    const code = interaction.fields.getTextInputValue('code').trim();
+    return show(interaction, async () => {
+      const name = mc.info().username;
+      if (!name || !/^[A-Za-z0-9]{5,12}$/.test(code)) return settingsView(mc, { ok: false, text: 'Ungültiger Code oder Bot nicht verbunden.' });
+      let ok = false;
+      try {
+        ok = await deps.api.confirmLogin({ minecraftName: name, code });
+      } catch (err) {
+        return settingsView(mc, { ok: false, text: `Website nicht erreichbar: ${err.message}` });
+      }
+      if (ok) await audit(interaction, deps, 'Website-Login als Bot über /panel', name);
+      return settingsView(mc, ok
+        ? { ok: true, text: `Der Browser ist jetzt als **${name}** auf der Website angemeldet.` }
+        : { ok: false, text: 'Code ungültig oder abgelaufen. Lade die Login-Seite neu und versuch es nochmal.' });
+    });
   }
 
   if (action === 'cmd' && interaction.isButton()) return interaction.showModal(commandModal());

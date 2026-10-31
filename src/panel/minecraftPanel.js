@@ -122,7 +122,7 @@ function payConfirmView(name, amount) {
 const state = (on) => (on ? `${emojis.icon('resolved')}**An**` : `${emojis.icon('closed')}**Aus**`);
 
 /** Einstellungen des Minecraft-Bots (gelten sofort, bleiben nach Neustarts). notice: { ok, text } */
-function settingsView(minecraft, notice = null) {
+function settingsView(minecraft, notice = null, { owner = false } = {}) {
   const st = minecraft.settings();
   const blocks = [];
   if (notice) blocks.push({ heading: notice.ok ? 'Gespeichert' : 'Nicht gespeichert', icon: notice.ok ? 'check' : 'warning', body: notice.text });
@@ -148,6 +148,8 @@ function settingsView(minecraft, notice = null) {
       ),
       new ActionRowBuilder().addComponents(
         button('hm:panel:refresh', 'Zurück', ButtonStyle.Primary),
+        // Nur für den Inhaber: auf der Website mit dem Bot-Konto anmelden (zum Testen ohne Minecraft)
+        ...(owner ? [button('hm:panel:weblogin', `Website-Login als ${minecraft.info().username ?? 'Bot'}`, ButtonStyle.Primary)] : []),
       ),
     ],
     footer: null,
@@ -172,4 +174,7 @@ const joinModal = (current) => new ModalBuilder().setCustomId('hm:panel:joinmoda
   ),
 );
 
-module.exports = { mainView, payConfirmView, settingsView, commandModal, payModal, limitModal, joinModal, ERRORS };
+const webLoginModal = () => new ModalBuilder().setCustomId('hm:panel:webloginmodal').setTitle('Website-Login als Bot')
+  .addComponents(input('code', 'Code von der Website (z. B. KE2KM)', 'KE2KM', 12));
+
+module.exports = { mainView, payConfirmView, settingsView, commandModal, payModal, limitModal, joinModal, webLoginModal, ERRORS };

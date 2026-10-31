@@ -129,3 +129,21 @@ test('Festes Panel: nutzbar für alle, die #minecraft-panel sehen – Antwort pr
   assert.deepEqual(mc.calls, ['/money']);
   assert.ok(ok.out[0].deferred, 'privat geantwortet statt das feste Panel zu bearbeiten');
 });
+
+test('Website-Login als Bot: nur der Inhaber', async () => {
+  const mc = fakeMc();
+  const seen = [];
+  const d = { ...deps(mc), api: { confirmLogin: async (l) => { seen.push(l); return l.code === 'KE2KM'; } } };
+  const own = interaction(OWNER);
+  await panelInteraction.handle(own, d, ['settings']);
+  assert.match(json(own.out.at(-1)), /hm:panel:weblogin/);
+  const other = interaction('42', { channelId: 'mcp', canView: true });
+  await panelInteraction.handle(other, d, ['settings']);
+  assert.doesNotMatch(json(other.out.at(-1)), /hm:panel:weblogin/);
+  await panelInteraction.handle(interaction('42', { button: false, fields: { code: 'KE2KM' }, channelId: 'mcp', canView: true }), d, ['webloginmodal']);
+  assert.equal(seen.length, 0, 'andere können sich nicht als Bot anmelden');
+  const ok = interaction(OWNER, { button: false, fields: { code: 'KE2KM' } });
+  await panelInteraction.handle(ok, d, ['webloginmodal']);
+  assert.deepEqual(seen, [{ minecraftName: 'HugoPredict', code: 'KE2KM' }]);
+  assert.match(json(ok.out.at(-1)), /angemeldet/);
+});
