@@ -43,6 +43,11 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
   let settleTimer = null;
   let balanceWaiter = null;
   const recentSystem = [];
+  // Zeilen, die nach Kontostand/Geld aussehen – helfen beim Einstellen der Erkennung.
+  // Spieler-Chat („Name: …“) wird ausgelassen, damit die Meldung nicht im Spam untergeht.
+  const MONEY_HINT = /(kontostand|guthaben|balance|money|geld|münzen|coins|[$€⛃])/i;
+  const PLAYER_CHAT = /^(?:\[[^\]]{1,24}\]\s*)*(?:[A-Z]{2,12}\s+)?(?!(?:kontostand|guthaben|balance|money|geld)\b)[A-Za-z0-9_.]{3,16}\s*(?::|»|>)\s/i;
+  const moneyLines = [];
   const throttle = new Map();
 
   // --- Hilfsfunktionen ----------------------------------------------------
@@ -90,8 +95,8 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
         balanceWaiter = null;
         notify('system', {
           title: 'Minecraft: Kontostand nicht erkannt',
-          description: `Auf \`${config.balanceCommand}\` kam keine erkannte Antwort. Letzte Servernachrichten:\n${recentSystem.map((l) => `\`${l}\``).join('\n') || '—'}\nGgf. MC_BALANCE_COMMAND oder MC_BALANCE_PATTERN anpassen.`,
-        }, 'balance-unknown');
+          description: `Auf \`${config.balanceCommand}\` kam keine erkannte Antwort.\nServerzeilen mit Geldbezug (ohne Spieler-Chat):\n${moneyLines.map((l) => `\`${l}\``).join('\n') || '— keine –'}\nBitte im Spiel \`${config.balanceCommand}\` eingeben und die Antwort als Screenshot schicken.`,
+        }, 'balance-unknown', 6 * 60 * 60_000);
         reject(new Error('Kontostand nicht erkannt'));
       }, timeoutMs);
       balanceWaiter = (value) => {
@@ -299,6 +304,10 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
     if (!line) return;
     recentSystem.push(line.slice(0, 200));
     if (recentSystem.length > 6) recentSystem.shift();
+    if (/\d/.test(line) && MONEY_HINT.test(line) && !PLAYER_CHAT.test(line)) {
+      moneyLines.push(line.slice(0, 200));
+      if (moneyLines.length > 8) moneyLines.shift();
+    }
 
     if (balanceWaiter) {
       const g = matchFirst(patterns.balance, line);
