@@ -92,6 +92,27 @@ function marketCard(market, { currency }, { ephemeral = false, pingRoleId = null
   return payload;
 }
 
+/** DM an eine Person nach der Entscheidung. */
+function resultDm(market, data, r) {
+  const won = r.pnl > 0;
+  return card({
+    eyebrow: `${emojis.icon('resolved')}Prognose entschieden`,
+    title: truncate(`${market.emoji ? `${market.emoji} ` : ''}${data.title || market.title}`, 200),
+    intro: `Ergebnis: **${truncate(data.result ?? market.outcome ?? '—', 100)}**`,
+    accent: won ? theme.colors.success : theme.colors.danger,
+    logo: false,
+    blocks: [{
+      heading: won ? 'Glückwunsch!' : r.pnl < 0 ? 'Diesmal nicht' : 'Ausgeglichen',
+      icon: won ? 'coin' : 'info',
+      body: won
+        ? `Du hast **+${formatAmount(r.pnl, '$')}** gewonnen${r.payout ? ` (Auszahlung ${formatAmount(r.payout, '$')})` : ''}. Das Geld ist schon auf deinem Konto.`
+        : r.pnl < 0 ? `Du hast **${formatAmount(r.pnl, '$')}** verloren. Beim nächsten Mal!` : 'Gewinn und Einsatz gleichen sich aus.',
+    }],
+    actions: marketActions(market),
+    footer: null,
+  });
+}
+
 /** Änderungen unter einem Prozentpunkt bzw. einem $ lösen keine Bearbeitung aus. */
 function marketHash(m) {
   const r = (v, f) => (Number.isFinite(v) ? Math.round(v * f) : null);
@@ -145,6 +166,34 @@ function createMarketFeed({ api, store, env, ctx, logger, statusService }) {
     ctx.audit(guild, 'system', { title: 'Störung bei den Prognosen', description: `**${step}:** ${err.message}`, color: theme.colors.warning });
   }
 
+  /**
+   * Nach der Entscheidung: jede Person mit verknüpftem Konto bekommt eine DM mit ihrem Ergebnis.
+   * Beim ersten Lauf werden bereits entschiedene Prognosen nur vorgemerkt (keine alten DMs).
+   */
+  async function notifyResults(guild, feed, resolved) {
+    if (!feed.dmDone) {
+      feed.dmDone = resolved.map((m) => m.id);
+      return;
+    }
+    const done = new Set(feed.dmDone);
+    for (const market of resolved.filter((m) => !done.has(m.id))) {
+      let data;
+      try {
+        data = await api.marketResults(market.id);
+      } catch (err) {
+        reportError(guild, `Ergebnisse ${market.id}`, err);
+        continue; // später erneut versuchen
+      }
+      for (const r of data.results) {
+        const member = await guild.members.fetch(r.discordId).catch(() => null);
+        if (!member) continue;
+        await member.send(resultDm(market, data, r)).catch(() => {}); // DMs können geschlossen sein
+      }
+      done.add(market.id);
+    }
+    feed.dmDone = [...done].slice(-SEEN_LIMIT);
+  }
+
   async function syncGuild(guild) {
     const feed = store.guild(guild.id).marketFeed;
     const channel = await ctx.channel(guild, 'marketOverview');
@@ -182,6 +231,8 @@ function createMarketFeed({ api, store, env, ctx, logger, statusService }) {
         reportError(guild, `Prognose ${market.id}`, err);
       }
     }
+
+    await notifyResults(guild, feed, resolved);
 
     for (const m of resolved) seenResolved.add(m.id);
     feed.seen.resolved = [...seenResolved].slice(-SEEN_LIMIT);

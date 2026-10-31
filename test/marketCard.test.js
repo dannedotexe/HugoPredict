@@ -25,3 +25,39 @@ test('Prognose-Karte zeigt echte Ausgänge, Kategorie und Emoji', () => {
   assert.notEqual(marketHash(m), marketHash({ ...m, outcomes: [{ label: 'über 120kg', price: 0.5 }, m.outcomes[1]] }));
   assert.notEqual(marketHash(m), marketHash({ ...m, title: 'Wie viel wiegt Lutscha77' }));
 });
+
+test('Nach der Entscheidung: DM mit Ergebnis an verknüpfte Spieler, nur einmal, keine alten', async () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { Store } = require('../src/lib/store');
+  const { createMarketFeed } = require('../src/services/marketFeed');
+  const store = new Store(fs.mkdtempSync(path.join(os.tmpdir(), 'hm-dm-')));
+  const g = store.guild('G');
+  g.channels.marketOverview = 'C';
+  g.layoutVersion = 2;
+  const old = { id: '1', title: 'Alt?', status: 'resolved', outcome: 'Ja', outcomes: [] };
+  const fresh = { id: '2', title: 'Neu?', status: 'resolved', outcome: 'Nein', outcomes: [], emoji: '🐋' };
+  let resolved = [old];
+  const api = {
+    configured: true,
+    listMarkets: async ({ status }) => (status === 'resolved' ? resolved : []),
+    marketResults: async (id) => ({ title: id === '2' ? 'Neu?' : 'Alt?', result: 'Nein', results: [{ discordId: '111111111111111111', pnl: 120, payout: 220, won: true }, { discordId: '222222222222222222', pnl: -50, payout: 0, won: false }] }),
+  };
+  const dms = [];
+  const member = (id) => ({ id, send: async (p) => dms.push({ id, text: JSON.stringify(p.components.map((c) => c.toJSON())) }) });
+  const channel = { id: 'C', isTextBased: () => true, messages: { fetch: async () => null }, send: async () => ({ id: 'm' }) };
+  const guild = { id: 'G', members: { fetch: async (id) => member(id) } };
+  const ctx = { channel: async () => channel, roleId: () => null, audit: async () => {} };
+  const feed = createMarketFeed({ api, store, env: { currency: '$', marketFeedMaxMarkets: 25 }, ctx, logger: { warn() {} }, statusService: { recordSync() {} } });
+
+  await feed.syncGuild(guild);
+  assert.equal(dms.length, 0, 'beim ersten Lauf keine DMs für alte Entscheidungen');
+  resolved = [old, fresh];
+  await feed.syncGuild(guild);
+  assert.equal(dms.length, 2);
+  assert.match(dms.find((d) => d.id === '111111111111111111').text, /Glückwunsch[\s\S]*\+120/);
+  assert.match(dms.find((d) => d.id === '222222222222222222').text, /verloren/);
+  await feed.syncGuild(guild);
+  assert.equal(dms.length, 2, 'nur einmal');
+});

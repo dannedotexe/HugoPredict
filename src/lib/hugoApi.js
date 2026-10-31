@@ -327,6 +327,17 @@ class HugoApi {
     return { linked: body.linked === true, credited: isNum(body.credited) ? body.credited : null };
   }
 
+  /** Ergebnis einer entschiedenen Prognose pro verknüpftem Discord-Konto. */
+  async marketResults(marketId) {
+    const body = await this.request('GET', `/markets/${encodeURIComponent(marketId)}/results`);
+    if (!isObj(body) || !Array.isArray(body.results)) throw new ApiError('invalid_response', 'Ergebnisse fehlen.', { body });
+    return {
+      status: body.status, title: typeof body.title === 'string' ? body.title : '', result: typeof body.result === 'string' ? body.result : null,
+      results: body.results.filter((r) => isObj(r) && SNOWFLAKE.test(String(r.discordId)) && isNum(r.pnl))
+        .map((r) => ({ discordId: String(r.discordId), mcName: r.mcName, pnl: r.pnl, payout: isNum(r.payout) ? r.payout : 0, won: r.won === true })),
+    };
+  }
+
   /** Ein Spieler hat dem Bot den Code von der Website geflüstert. false: Code unbekannt oder abgelaufen. */
   async confirmLogin({ minecraftName, code }) {
     try {
