@@ -296,3 +296,32 @@ test('Panel: Befehl mit Serverantwort, /pay führt den Kontostand nach', async (
   assert.equal(bal.balance, 900);
   assert.equal(mc.info().online, true);
 });
+
+test('Panel-Einstellungen: geprüft, gespeichert, nach Neustart wirksam', async (t) => {
+  const { mc, dataDir, world, api } = setup({ balanceCheck: false, payoutMax: 0, payoutsEnabled: false });
+  t.after(() => mc.stop());
+  assert.match(mc.setSetting('payoutsEnabled', true).error, /Kontostand-Prüfung/);
+  assert.match(mc.setSetting('joinCommands', ['server smp']).error, /beginnt mit \//);
+  assert.equal(mc.setSetting('evil', 1).error, 'Unbekannte Einstellung.');
+  assert.ok(mc.setSetting('joinCommands', ['/server smp']).ok);
+  assert.ok(mc.setSetting('balanceCheck', true).ok);
+  assert.match(mc.setSetting('payoutsEnabled', true).error, /Limit/);
+  assert.ok(mc.setSetting('payoutMax', 5000).ok);
+  assert.ok(mc.setSetting('payoutsEnabled', true).ok);
+  // Prüfung aus → Auszahlungen gehen mit aus
+  const off = mc.setSetting('balanceCheck', false);
+  assert.match(off.note, /Auszahlungen/);
+  assert.equal(mc.settings().payoutsEnabled, false);
+  mc.stop();
+
+  // Neuer Dienst mit derselben Datenablage übernimmt die Einstellungen vor der .env
+  const again = createMinecraftService({
+    config: { ...config, balanceCheck: true, joinCommands: [] }, api, dataDir, createBot: world.createBot, report: () => {},
+    logger: { info() {}, warn() {}, error() {} }, chatDelayMs: 0, commandWaitMs: 20,
+  });
+  t.after(() => again.stop());
+  assert.deepEqual(again.settings().joinCommands, ['/server smp']);
+  assert.equal(again.settings().balanceCheck, false);
+  again.start();
+  await until(() => world.sent.includes('/server smp'));
+});

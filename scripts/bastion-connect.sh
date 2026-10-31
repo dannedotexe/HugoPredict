@@ -86,6 +86,9 @@ elif [ "$MODE" = "alte-website-loeschen" ]; then
   REMOTE="$UPDATE_BOT && bash ~/HugoPredict/scripts/remove-old-website.sh"
 elif [ "$MODE" = "kontostand-aus" ] || [ "$MODE" = "kontostand-an" ]; then
   REMOTE="$UPDATE_BOT && bash ~/HugoPredict/scripts/enable-minecraft.sh --$MODE"
+elif [ "$MODE" = "fernzugriff" ]; then
+  # Claude Code Remote Control auf dem Server (danach kein Oracle mehr nötig)
+  REMOTE="$UPDATE_BOT && bash ~/HugoPredict/scripts/setup-remote-control.sh"
 elif [ "$MODE" = "minecraft" ]; then
   REMOTE="$UPDATE_BOT && bash ~/HugoPredict/scripts/enable-minecraft.sh"
 elif [ "$MODE" = "pruefen" ]; then

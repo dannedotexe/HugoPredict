@@ -27,10 +27,13 @@ const { LinkCodes } = require('./linkCodes');
 const fill = (template, vars) => template.replace(/\{(\w+)\}/g, (all, k) => (vars[k] === undefined ? all : String(vars[k])));
 const plain = (v) => (typeof v === 'string' ? v : JSON.stringify(v ?? '')).slice(0, 300);
 
-function createMinecraftService({ config, api, logger, report, dataDir, createBot, chatDelayMs = 1100, settleMs = 1500, payoutCheckMs = 2500, reconnectMs = 15_000, commandWaitMs = 2500 }) {
-  const patterns = buildPatterns(config);
+function createMinecraftService({ config: baseConfig, api, logger, report, dataDir, createBot, chatDelayMs = 1100, settleMs = 1500, payoutCheckMs = 2500, reconnectMs = 15_000, commandWaitMs = 2500 }) {
   const persisted = new Store(dataDir, { fileName: 'minecraft.json' });
   const db = (persisted.data.minecraft ??= { outbox: {}, payouts: {}, links: {}, lastBalance: null });
+  // Im /panel geänderte Einstellungen gelten vor der .env und bleiben nach Neustarts erhalten.
+  db.settings ??= {};
+  const config = { ...baseConfig, ...pickSettings(db.settings) };
+  const patterns = buildPatterns(config);
   const codes = new LinkCodes();
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -618,6 +621,46 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
     return { ...confirm, lines: [...res.lines, ...(confirm.lines ?? [])], amount };
   }
 
+  /** Ändert eine Einstellung aus /panel. Ergebnis: { ok, note? } oder { error }. */
+  function setSetting(key, value) {
+    const check = SETTINGS[key];
+    if (!check) return { error: 'Unbekannte Einstellung.' };
+    const err = check(value, config);
+    if (err) return { error: err };
+    db.settings[key] = value;
+    config[key] = value;
+    let note = null;
+    // Auszahlungen brauchen den Kontostand – ohne Prüfung werden sie mit abgeschaltet.
+    if (key === 'balanceCheck' && !value && config.payoutsEnabled) {
+      db.settings.payoutsEnabled = false;
+      config.payoutsEnabled = false;
+      note = 'Auszahlungen wurden mit ausgeschaltet (sie brauchen die Kontostand-Prüfung).';
+    }
+    persisted.flush();
+    return { ok: true, note };
+  }
+
+  /** Trennt und verbindet neu (z. B. nach geänderten Join-Befehlen). */
+  function reconnect() {
+    if (bot) {
+      try {
+        bot.quit();
+      } catch {
+        // egal
+      }
+    } else {
+      connect();
+    }
+  }
+
+  const settings = () => ({
+    balanceCheck: Boolean(config.balanceCheck),
+    payoutsEnabled: Boolean(config.payoutsEnabled),
+    payoutMax: config.payoutMax ?? 0,
+    joinCommands: [...(config.joinCommands ?? [])],
+    changed: Object.keys(db.settings),
+  });
+
   const info = () => ({
     online: state.online,
     connecting: state.connecting,
@@ -637,6 +680,9 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
     info,
     runCommand,
     pay,
+    settings,
+    setSetting,
+    reconnect,
     start,
     stop,
     sendLinkCode,
@@ -650,4 +696,22 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
   };
 }
 
-module.exports = { createMinecraftService, fill };
+// Einstellungen, die /panel ändern darf, mit Prüfung (Rückgabe: Fehlertext oder null).
+const SETTINGS = {
+  balanceCheck: (v) => (typeof v === 'boolean' ? null : 'Ungültiger Wert.'),
+  payoutsEnabled: (v, cfg) => {
+    if (typeof v !== 'boolean') return 'Ungültiger Wert.';
+    if (v && !cfg.balanceCheck) return 'Auszahlungen brauchen die Kontostand-Prüfung – die ist aus, weil HugoSMP /balance für den Bot nicht beantwortet.';
+    if (v && !(cfg.payoutMax > 0)) return 'Erst ein Auszahlungs-Limit setzen.';
+    return null;
+  },
+  payoutMax: (v) => (Number.isFinite(v) && v > 0 && v <= 1e12 ? null : 'Das Limit muss eine Zahl über 0 sein.'),
+  joinCommands: (v) => {
+    if (!Array.isArray(v) || v.length > 5) return 'Höchstens 5 Join-Befehle.';
+    if (v.some((c) => typeof c !== 'string' || !c.startsWith('/') || c.length > 100 || /[\r\n]/.test(c))) return 'Jeder Join-Befehl beginnt mit / und ist höchstens 100 Zeichen lang.';
+    return null;
+  },
+};
+const pickSettings = (saved) => Object.fromEntries(Object.entries(saved ?? {}).filter(([k, v]) => SETTINGS[k] && !SETTINGS[k](v, { balanceCheck: true, payoutMax: saved.payoutMax ?? 1 })));
+
+module.exports = { createMinecraftService, fill, SETTINGS };

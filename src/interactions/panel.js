@@ -4,7 +4,7 @@ const { MessageFlags } = require('discord.js');
 const { embeds } = require('../lib/embeds');
 const { replyPrivate } = require('../lib/respond');
 const { parseAmount, formatAmount } = require('../minecraft/amount');
-const { mainView, payConfirmView, commandModal, payModal } = require('../panel/minecraftPanel');
+const { mainView, payConfirmView, settingsView, commandModal, payModal, limitModal, joinModal } = require('../panel/minecraftPanel');
 const { isPanelAdmin, stateOf } = require('../panel/access');
 
 /* Steuerung von /panel. Jede Interaktion prüft erneut die Discord-ID. */
@@ -26,7 +26,7 @@ async function audit(interaction, deps, title, value) {
   });
 }
 
-async function handle(interaction, deps, [action]) {
+async function handle(interaction, deps, [action, arg]) {
   if (!isPanelAdmin(deps, interaction.user.id)) {
     return replyPrivate(interaction, { embeds: [embeds.error('Keine Berechtigung', 'Das Panel ist nur für den Inhaber von HugoPredict.')] });
   }
@@ -39,6 +39,35 @@ async function handle(interaction, deps, [action]) {
     return show(interaction, async () => mainView(mc));
   }
   if (!mc) return show(interaction, async () => mainView(null));
+
+  // --- Einstellungen ---
+  const saved = async (title, res) => {
+    if (res.ok) await audit(interaction, deps, 'Minecraft-Einstellung über /panel', title);
+    return settingsView(mc, res.ok ? { ok: true, text: [title, res.note].filter(Boolean).join('\n') } : { ok: false, text: res.error });
+  };
+  if (action === 'settings' && interaction.isButton()) return show(interaction, async () => settingsView(mc));
+  if (action === 'toggle' && interaction.isButton() && ['balanceCheck', 'payoutsEnabled'].includes(arg)) {
+    const value = !mc.settings()[arg];
+    const label = arg === 'balanceCheck' ? 'Kontostand-Prüfung' : 'Auszahlungen';
+    return show(interaction, () => saved(`${label}: ${value ? 'an' : 'aus'}`, mc.setSetting(arg, value)));
+  }
+  if (action === 'limit' && interaction.isButton()) return interaction.showModal(limitModal());
+  if (action === 'limitmodal' && interaction.isModalSubmit()) {
+    const amount = parseAmount(interaction.fields.getTextInputValue('amount').trim());
+    return show(interaction, () => (amount === null || amount === undefined
+      ? settingsView(mc, { ok: false, text: 'Ungültiger Betrag. Beispiele: 5000, 50k' })
+      : saved(`Auszahlungs-Limit: ${formatAmount(amount)}`, mc.setSetting('payoutMax', amount))));
+  }
+  if (action === 'join' && interaction.isButton()) return interaction.showModal(joinModal(mc.settings().joinCommands));
+  if (action === 'joinmodal' && interaction.isModalSubmit()) {
+    const cmds = interaction.fields.getTextInputValue('cmds').split('\n').map((c) => c.trim()).filter(Boolean);
+    return show(interaction, () => saved(`Join-Befehle: ${cmds.join(' · ') || 'keine'}\nGilt ab dem nächsten Verbinden („Neu verbinden“).`, mc.setSetting('joinCommands', cmds)));
+  }
+  if (action === 'reconnect' && interaction.isButton()) {
+    mc.reconnect();
+    await audit(interaction, deps, 'Minecraft-Bot neu verbunden über /panel', 'Neu verbinden');
+    return show(interaction, async () => settingsView(mc, { ok: true, text: 'Der Bot trennt sich und verbindet sich in etwa 15 Sekunden neu.' }));
+  }
 
   if (action === 'cmd' && interaction.isButton()) return interaction.showModal(commandModal());
   if (action === 'pay' && interaction.isButton()) return interaction.showModal(payModal());

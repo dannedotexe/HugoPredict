@@ -16,6 +16,10 @@ function fakeMc() {
     info: () => ({ online: true, connecting: false, since: new Date(), lastError: null, username: 'HugoPredict', host: 'hugosmp.net', balance: 15000, players: 12, recent: ['[HugoSMP] Willkommen!'] }),
     runCommand: async (cmd) => { calls.push(cmd); return { lines: [`[HugoSMP] ok ${cmd}`], balance: 15000 }; },
     pay: async (name, amount) => { calls.push(`pay ${name} ${amount}`); return { lines: ['[HugoSMP] Gezahlt.'], balance: 14000 }; },
+    st: { balanceCheck: false, payoutsEnabled: false, payoutMax: 0, joinCommands: [] },
+    settings() { return { ...this.st }; },
+    setSetting(k, v) { calls.push(`set ${k}=${JSON.stringify(v)}`); this.st[k] = v; return { ok: true }; },
+    reconnect() { calls.push('reconnect'); },
   };
 }
 function deps(mc) {
@@ -82,4 +86,17 @@ test('Panel: Befehl ausführen und /pay erst nach Bestätigung', async () => {
   // Zweites Bestätigen zahlt nicht erneut
   await panelInteraction.handle(interaction(OWNER), d, ['payok']);
   assert.equal(mc.calls.filter((c) => c.startsWith('pay')).length, 1);
+});
+
+test('Panel: Einstellungen umschalten und Join-Befehle setzen', async () => {
+  const mc = fakeMc();
+  const d = deps(mc);
+  await panelInteraction.handle(interaction(OWNER), d, ['toggle', 'balanceCheck']);
+  assert.equal(mc.calls.at(-1), 'set balanceCheck=true');
+  const join = interaction(OWNER, { button: false, fields: { cmds: '/server smp\n\n /warp spawn ' } });
+  await panelInteraction.handle(join, d, ['joinmodal']);
+  assert.equal(mc.calls.at(-1), 'set joinCommands=["/server smp","/warp spawn"]');
+  assert.match(json(join.out.at(-1)), /Gespeichert/);
+  await panelInteraction.handle(interaction('42'), d, ['toggle', 'payoutsEnabled']);
+  assert.ok(!mc.calls.some((c) => c.startsWith('set payoutsEnabled')), 'Fremde dürfen nichts ändern');
 });

@@ -79,6 +79,7 @@ function mainView(minecraft, result = null) {
       button('hm:panel:pay', '/pay', ButtonStyle.Success, 'coin', off),
       button('hm:panel:balance', 'Kontostand', ButtonStyle.Secondary, 'balance', off),
       button('hm:panel:refresh', 'Aktualisieren', ButtonStyle.Secondary, 'check'),
+      button('hm:panel:settings', 'Einstellungen', ButtonStyle.Secondary, 'info'),
     )],
     footer: 'Nur für dich sichtbar',
     ephemeral: true,
@@ -102,6 +103,48 @@ function payConfirmView(name, amount) {
   });
 }
 
+const onOff = (v) => (v ? '**An**' : '**Aus**');
+
+/** Einstellungen des Minecraft-Bots (gelten sofort, bleiben nach Neustarts). notice: { ok, text } */
+function settingsView(minecraft, notice = null) {
+  const st = minecraft.settings();
+  const blocks = [{
+    heading: 'Aktuell',
+    icon: 'info',
+    body: [
+      `Kontostand-Prüfung: ${onOff(st.balanceCheck)}`,
+      '-# An: Einzahlung zählt erst, wenn /balance den Anstieg zeigt. Aus: die Nachricht „Du hast … erhalten“ zählt sofort.',
+      `Auszahlungen: ${onOff(st.payoutsEnabled)} · Limit pro Auszahlung: **${st.payoutMax > 0 ? formatAmount(st.payoutMax) : 'keins'}**`,
+      '-# Führt von der Website freigegebene Auszahlungen per /pay aus. Braucht die Kontostand-Prüfung.',
+      `Join-Befehle: ${st.joinCommands.length ? st.joinCommands.map((c) => `\`${c.replace(/`/g, "'")}\``).join(' · ') : '**keine**'}`,
+      '-# Werden nach jedem Verbinden ausgeführt, z. B. /server smp. Gelten ab dem nächsten Verbinden.',
+    ].join('\n'),
+  }];
+  if (notice) blocks.push({ heading: notice.ok ? 'Gespeichert' : 'Nicht gespeichert', icon: notice.ok ? 'check' : 'warning', body: notice.text });
+  return card({
+    eyebrow: `${emojis.icon('lock')}Admin-Panel`,
+    title: 'Einstellungen',
+    icon: 'info',
+    intro: 'Änderungen gelten sofort und bleiben nach Neustarts erhalten.',
+    blocks,
+    actions: [
+      new ActionRowBuilder().addComponents(
+        button('hm:panel:toggle:balanceCheck', `Kontostand-Prüfung ${st.balanceCheck ? 'aus' : 'an'}schalten`, ButtonStyle.Secondary),
+        button('hm:panel:toggle:payoutsEnabled', `Auszahlungen ${st.payoutsEnabled ? 'aus' : 'an'}schalten`, st.payoutsEnabled ? ButtonStyle.Danger : ButtonStyle.Secondary),
+        button('hm:panel:limit', 'Limit ändern', ButtonStyle.Secondary),
+      ),
+      new ActionRowBuilder().addComponents(
+        button('hm:panel:join', 'Join-Befehle', ButtonStyle.Secondary),
+        button('hm:panel:reconnect', 'Neu verbinden', ButtonStyle.Secondary),
+        button('hm:panel:refresh', 'Zurück', ButtonStyle.Primary),
+      ),
+    ],
+    footer: 'Nur für dich sichtbar',
+    ephemeral: true,
+    logo: false,
+  });
+}
+
 const input = (id, label, placeholder, max) => new ActionRowBuilder().addComponents(
   new TextInputBuilder().setCustomId(id).setLabel(label).setPlaceholder(placeholder).setStyle(TextInputStyle.Short).setMaxLength(max).setRequired(true),
 );
@@ -110,4 +153,13 @@ const commandModal = () => new ModalBuilder().setCustomId('hm:panel:cmdmodal').s
 const payModal = () => new ModalBuilder().setCustomId('hm:panel:paymodal').setTitle('/pay')
   .addComponents(input('name', 'Minecraft-Name', 'Steve', 16), input('amount', 'Betrag', '15k', 20));
 
-module.exports = { mainView, payConfirmView, commandModal, payModal, ERRORS };
+const limitModal = () => new ModalBuilder().setCustomId('hm:panel:limitmodal').setTitle('Auszahlungs-Limit')
+  .addComponents(input('amount', 'Höchstbetrag pro Auszahlung', '50k', 20));
+const joinModal = (current) => new ModalBuilder().setCustomId('hm:panel:joinmodal').setTitle('Join-Befehle').addComponents(
+  new ActionRowBuilder().addComponents(
+    new TextInputBuilder().setCustomId('cmds').setLabel('Ein Befehl pro Zeile (leer = keine)').setPlaceholder('/server smp')
+      .setStyle(TextInputStyle.Paragraph).setMaxLength(520).setRequired(false).setValue(current.join('\n')),
+  ),
+);
+
+module.exports = { mainView, payConfirmView, settingsView, commandModal, payModal, limitModal, joinModal, ERRORS };
