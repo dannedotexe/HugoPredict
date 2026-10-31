@@ -7,6 +7,8 @@ set -euo pipefail
 WEB_DIR="${1:-$HOME/HugoPredict-Website}"
 NAME="hugopredict-web"
 cd "$WEB_DIR"
+# Gleiches Node wie bei der Einrichtung (ggf. eigenes Node 22 der Website)
+[ -f data/.node-bin ] && export PATH="$(dirname "$(cat data/.node-bin)"):$PATH"
 
 exec 9>"$WEB_DIR/data/.update.lock"
 flock -n 9 || exit 0

@@ -25,8 +25,38 @@ step() { echo; echo "==> $*"; }
 [[ "$DOMAIN" =~ ^[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]] || fail "Ungültige Domain: $DOMAIN"
 [ -f "$BOT_DIR/.env" ] || fail "Keine .env in $BOT_DIR – erst den Discord-Bot einrichten."
 command -v pm2 >/dev/null || fail "pm2 fehlt (läuft der Discord-Bot mit pm2?)."
-node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||(a===22&&b>=13)?0:1)' \
-  || fail "Die Website braucht Node.js 22.13 oder neuer (installiert: $(node -v))."
+
+# Die Website braucht Node.js 22.13+ (eingebautes SQLite). Ist das System-Node älter,
+# bekommt NUR die Website ein eigenes Node 22 in ~/.local/node22 – das System-Node
+# und andere Bots auf dem Server bleiben unverändert.
+node_ok() { "$1" -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||(a===22&&b>=13)?0:1)' 2>/dev/null; }
+NODE_BIN="$(command -v node)"
+if ! node_ok "$NODE_BIN"; then
+  NODE_HOME="$HOME/.local/node22"
+  if ! node_ok "$NODE_HOME/bin/node"; then
+    step "Eigenes Node.js 22 für die Website laden (System-Node $(node -v) bleibt)"
+    case "$(uname -m)" in
+      aarch64|arm64) ARCH=arm64 ;;
+      x86_64|amd64) ARCH=x64 ;;
+      *) fail "Unbekannte Prozessor-Architektur: $(uname -m)" ;;
+    esac
+    BASE="https://nodejs.org/dist/latest-v22.x"
+    TMP="$(mktemp -d)"
+    curl -fsSL --max-time 60 "$BASE/SHASUMS256.txt" -o "$TMP/SHASUMS256.txt" || fail "Node-Download nicht erreichbar."
+    FILE="$(grep -oE "node-v22\.[0-9]+\.[0-9]+-linux-$ARCH\.tar\.xz" "$TMP/SHASUMS256.txt" | head -1)"
+    [ -n "$FILE" ] || fail "Kein Node-22-Paket für $ARCH gefunden."
+    curl -fsSL --max-time 300 "$BASE/$FILE" -o "$TMP/$FILE" || fail "Node-Download fehlgeschlagen."
+    (cd "$TMP" && grep " $FILE\$" SHASUMS256.txt | sha256sum -c --quiet -) || fail "Prüfsumme des Node-Downloads stimmt nicht."
+    rm -rf "$NODE_HOME" && mkdir -p "$NODE_HOME"
+    tar -xJf "$TMP/$FILE" -C "$NODE_HOME" --strip-components=1
+    rm -rf "$TMP"
+  fi
+  NODE_BIN="$NODE_HOME/bin/node"
+  node_ok "$NODE_BIN" || fail "Node 22 konnte nicht eingerichtet werden."
+fi
+# npm/npx der passenden Node-Version verwenden
+export PATH="$(dirname "$NODE_BIN"):$PATH"
+echo "Website nutzt Node $("$NODE_BIN" -v)"
 
 # Setzt KEY=VALUE in einer .env (ersetzt eine vorhandene Zeile, sonst anhängen).
 set_var() {
@@ -52,6 +82,7 @@ cd "$WEB_DIR"
 npm ci --omit=dev --no-audit --no-fund --loglevel=error
 mkdir -p data
 git rev-parse HEAD > data/.deployed
+printf '%s\n' "$NODE_BIN" > data/.node-bin
 
 step "Konfiguration"
 [ -f .env ] || { cp .env.example .env; chmod 600 .env; }
@@ -74,9 +105,11 @@ echo "Website-Port: $PORT (nur lokal, nach außen über HTTPS)"
 
 step "Website starten"
 if pm2 describe "$WEB_NAME" >/dev/null 2>&1; then
-  pm2 restart "$WEB_NAME" --update-env >/dev/null
+  # Falls sich das Node geändert hat: mit dem richtigen Interpreter neu anlegen
+  pm2 delete "$WEB_NAME" >/dev/null 2>&1 || true
+  pm2 start src/server.js --name "$WEB_NAME" --cwd "$WEB_DIR" --interpreter "$NODE_BIN" >/dev/null
 else
-  pm2 start src/server.js --name "$WEB_NAME" --cwd "$WEB_DIR" >/dev/null
+  pm2 start src/server.js --name "$WEB_NAME" --cwd "$WEB_DIR" --interpreter "$NODE_BIN" >/dev/null
 fi
 for _ in $(seq 1 20); do
   curl -fs "http://127.0.0.1:$PORT/api/health" >/dev/null && break
