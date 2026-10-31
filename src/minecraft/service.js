@@ -399,10 +399,19 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
     }
   }
 
+  async function refreshBalance() {
+    if (!state.online) return;
+    await exclusive(async () => {
+      const value = await readBalance();
+      if (config.balanceCheck) settle(value);
+      else setBalance(value);
+    });
+  }
+
   async function heartbeat() {
     if (!api.configured) return;
     try {
-      await api.minecraftHeartbeat({ online: state.online, username: bot?.username ?? null });
+      await api.minecraftHeartbeat({ online: state.online, username: bot?.username ?? null, balance: db.lastBalance });
     } catch (err) {
       logger.debug?.('Minecraft-Heartbeat:', err.message);
     }
@@ -458,6 +467,8 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
       });
       flushOutbox();
       heartbeat();
+      // Ohne Prüfung wurde noch kein Kontostand gelesen: einmal nachholen (für die Deckungsanzeige)
+      if (!config.balanceCheck) setTimeout(() => refreshBalance().then(heartbeat).catch(() => {}), spawnDelayMs).unref?.();
     });
 
     // Kein mineflayer-„whisper“-Ereignis: dessen Muster passen nicht zu HugoSMP. Flüstern
@@ -536,6 +547,8 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
     persisted.save();
     connect();
     intervals.push(setInterval(() => flushOutbox(), 60_000));
+    // Alle 10 Minuten den Kontostand auffrischen (Deckungsanzeige auf der Website)
+    intervals.push(setInterval(() => refreshBalance().catch(() => {}), 10 * 60_000));
     // Alle 20 s: Nach einem Website-Neustart (z. B. Update) steht sie so höchstens kurz auf „offline“.
     intervals.push(setInterval(() => heartbeat(), 20_000));
     intervals.push(setInterval(() => syncLinks(), 5 * 60_000));

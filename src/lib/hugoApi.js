@@ -350,8 +350,9 @@ class HugoApi {
   }
 
   /** Zeigt auf der Website, ob der Minecraft-Bot gerade auf dem Server ist. */
-  async minecraftHeartbeat({ online, username }) {
-    await this.request('POST', '/minecraft/heartbeat', { body: { online, username } });
+  async minecraftHeartbeat({ online, username, balance = null }) {
+    // balance: Kontostand des Bots im Spiel (für die Deckungsanzeige im Admin-Bereich)
+    await this.request('POST', '/minecraft/heartbeat', { body: { online, username, ...(Number.isFinite(balance) ? { balance } : {}) } });
   }
 
   // --- Admin-Panel (/panel, nur lesend) ---------------------------------
