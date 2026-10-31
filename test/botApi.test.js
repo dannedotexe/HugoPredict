@@ -262,3 +262,10 @@ test('Profil, Rangliste nach Zeitraum und Ergebnisse für Discord', async () => 
   assert.equal(res.result, 'Ja');
   assert.deepEqual(res.results.map((r) => [r.discordId, r.won]), [['333333333333333333', true]], 'nur verknüpfte Spieler');
 });
+
+test('Spieler-Suche für Vorschläge: Teilwort, Platzhalter werden nicht ausgewertet', () => {
+  loginAs('Such_Steve');
+  assert.ok(svc.searchPlayers('such_st').some((p) => p.mcName === 'Such_Steve'));
+  assert.deepEqual(svc.searchPlayers('%'), []);
+  assert.deepEqual(svc.searchPlayers(''), []);
+});

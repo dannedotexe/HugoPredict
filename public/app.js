@@ -662,6 +662,10 @@ async function viewAdmin() {
     const f = Object.fromEntries(new FormData(e.target));
     run(() => api('/admin/markets', { ...f, outcomes: f.outcomes.split('\n'), closesAt: f.closesAt ? new Date(f.closesAt).toISOString() : null }), 'Markt erstellt');
   };
+  const creditUser = document.querySelector('#credit [name="username"]');
+  attachSuggest(creditUser, async (q) => (await api(`/players?q=${encodeURIComponent(q)}`)).players.map((p) => ({
+    iconUrl: `https://mc-heads.net/avatar/${encodeURIComponent(p.mcName || p.username)}/24`, label: p.username, sub: p.mcName && p.mcName !== p.username ? `Minecraft: ${p.mcName}` : 'Spieler', value: p.username,
+  })), (it) => { creditUser.value = it.value; });
   document.getElementById('credit').onsubmit = (e) => {
     e.preventDefault();
     const f = Object.fromEntries(new FormData(e.target));
@@ -738,13 +742,83 @@ async function viewLogin() {
 
 // ---------- Boot ----------
 
+// ---------- Vorschläge (Dropdown) für Suchfelder ----------
+
+/**
+ * Hängt ein Vorschlags-Dropdown an ein Eingabefeld. fetchItems(text) liefert
+ * [{ label, sub?, icon?, iconUrl?, value?, href? }]; onPick(item) wird beim Auswählen aufgerufen.
+ */
+function attachSuggest(input, fetchItems, onPick) {
+  const box = document.createElement('div');
+  box.className = 'suggest hidden';
+  box.setAttribute('role', 'listbox');
+  input.parentElement.style.position = 'relative';
+  input.parentElement.append(box);
+  input.setAttribute('autocomplete', 'off');
+  input.setAttribute('aria-autocomplete', 'list');
+  let items = [], active = -1, timer, seq = 0;
+  const close = () => { box.classList.add('hidden'); active = -1; };
+  const render = () => {
+    if (!items.length) return close();
+    box.innerHTML = items.map((it, i) => `<button type="button" role="option" class="suggest-item${i === active ? ' active' : ''}" data-i="${i}" aria-selected="${i === active}">
+      ${it.iconUrl ? `<img src="${esc(it.iconUrl)}" width="24" height="24" alt="">` : `<span class="suggest-icon">${esc(it.icon || '')}</span>`}
+      <span class="suggest-text"><b>${esc(it.label)}</b>${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</span></button>`).join('');
+    box.classList.remove('hidden');
+  };
+  const pick = (it) => { close(); onPick(it); };
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if (!q) { items = []; return close(); }
+    timer = setTimeout(async () => {
+      const mine = ++seq;
+      const res = await fetchItems(q).catch(() => []);
+      if (mine !== seq) return; // veraltete Antwort
+      items = res.slice(0, 8);
+      active = -1;
+      render();
+    }, 120);
+  });
+  input.addEventListener('keydown', (e) => {
+    if (box.classList.contains('hidden')) return;
+    if (e.key === 'ArrowDown') { active = (active + 1) % items.length; render(); e.preventDefault(); }
+    else if (e.key === 'ArrowUp') { active = (active - 1 + items.length) % items.length; render(); e.preventDefault(); }
+    else if (e.key === 'Enter' && active >= 0) { pick(items[active]); e.preventDefault(); }
+    else if (e.key === 'Escape') close();
+  });
+  // pointerdown statt click: sonst schließt blur das Dropdown, bevor der Klick ankommt
+  box.addEventListener('pointerdown', (e) => {
+    const b = e.target.closest('[data-i]');
+    if (b) { e.preventDefault(); pick(items[Number(b.dataset.i)]); }
+  });
+  input.addEventListener('blur', () => setTimeout(close, 120));
+}
+
+let marketCache = { at: 0, list: [] };
+async function allMarkets() {
+  if (Date.now() - marketCache.at > 30e3) marketCache = { at: Date.now(), list: (await api('/markets?category=all&status=all')).markets };
+  return marketCache.list;
+}
+
 const searchEl = document.getElementById('search');
 searchEl.addEventListener('input', () => {
   state.search = searchEl.value;
   if ((location.hash.slice(1) || '/').split('?')[0] === '/') renderGrid();
-  else location.hash = '#/';
 });
-document.getElementById('search-form').addEventListener('submit', (e) => e.preventDefault());
+attachSuggest(searchEl, async (q) => {
+  const t = q.toLowerCase();
+  const [markets, { players }] = await Promise.all([allMarkets(), api(`/players?q=${encodeURIComponent(q)}`)]);
+  const ms = markets.filter((m) => m.title.toLowerCase().includes(t)).slice(0, 5).map((m) => {
+    const lead = sortedOutcomes(m)[0];
+    return { icon: m.emoji, label: m.title, sub: `${CATS[m.category]} · ${STATUS[m.status][0]}${lead ? ` · ${lead.label} ${pct(lead.price)}` : ''}`, href: `#/market/${m.id}` };
+  });
+  const ps = players.slice(0, 3).map((p) => ({ iconUrl: `https://mc-heads.net/avatar/${encodeURIComponent(p.mcName || p.username)}/24`, label: p.mcName || p.username, sub: 'Spieler', href: playerLink(p.mcName || p.username) }));
+  return [...ms, ...ps];
+}, (it) => { searchEl.value = ''; state.search = ''; searchEl.blur(); location.hash = it.href; });
+document.getElementById('search-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  if ((location.hash.slice(1) || '/').split('?')[0] !== '/') location.hash = '#/';
+});
 window.addEventListener('hashchange', router);
 refreshMe().catch(() => {}).finally(router);
 setInterval(() => refreshMe().catch(() => {}), 30000);

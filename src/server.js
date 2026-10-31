@@ -106,6 +106,7 @@ app.get('/api/me', handle((req) => ({ user: req.user ? svc.publicUser(req.user) 
 app.get('/api/markets', handle((req) => ({ markets: svc.listMarkets(req.query) })));
 app.get('/api/markets/:id', handle((req) => ({ market: svc.getMarket(Number(req.params.id), req.user?.id) })));
 app.get('/api/leaderboard', handle((req) => ({ leaders: svc.leaderboard({ period: String(req.query.period || 'all') }) })));
+app.get('/api/players', handle((req) => ({ players: svc.searchPlayers(String(req.query.q || '').slice(0, 30)) })));
 app.get('/api/players/:name', handle((req) => ({ player: svc.playerProfile(req.params.name) })));
 
 // Teilen: /m/<id> liefert eine Vorschau (Discord, WhatsApp …) und leitet zur Prognose weiter.

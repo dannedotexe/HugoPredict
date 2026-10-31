@@ -618,6 +618,16 @@ export function leaderboard({ period = 'all' } = {}) {
     .slice(0, 25);
 }
 
+/** Spieler-Suche für Vorschläge (Minecraft-Name oder Username, Anfang zuerst). */
+export function searchPlayers(q, limit = 6) {
+  const term = String(q || '').trim();
+  if (!term) return [];
+  return db.prepare(`SELECT username, mc_name mcName FROM users
+    WHERE mc_name LIKE ? ESCAPE '\\' OR username LIKE ? ESCAPE '\\'
+    ORDER BY (COALESCE(mc_name, username) LIKE ? ESCAPE '\\') DESC, COALESCE(mc_name, username) LIMIT ?`)
+    .all(...(() => { const e = term.replace(/[\\%_]/g, (c) => `\\${c}`); return [`%${e}%`, `%${e}%`, `${e}%`, limit]; })());
+}
+
 /** Öffentliches Spielerprofil: laufende Gebote, entschiedene Prognosen, Trefferquote. */
 export function playerProfile(name) {
   const u = db.prepare('SELECT * FROM users WHERE mc_name = ? OR username = ?').get(String(name), String(name));
