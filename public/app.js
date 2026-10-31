@@ -6,7 +6,16 @@ const app = document.getElementById('app');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const nf = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 });
 const fmt = (n) => nf.format(Number(n) || 0);
-const money = (n) => `${fmt(n)} $`;
+// Kurz wie im Spiel: 950 · 1,5k · 10k · 2,3m · 1b (abgerundet, nie zu viel angezeigt)
+const nf1 = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 });
+function short(n) {
+  const v = Number(n) || 0, a = Math.abs(v);
+  for (const [unit, size] of [['t', 1e12], ['b', 1e9], ['m', 1e6], ['k', 1e3]]) {
+    if (a >= size) return `${a / size >= 100 ? Math.trunc(v / size) : nf1.format(Math.trunc((v / size) * 10) / 10)}${unit}`;
+  }
+  return fmt(v);
+}
+const money = (n) => `${short(n)} $`;
 const pct = (p) => (p < 0.005 ? '<1 %' : p > 0.995 ? '>99 %' : `${Math.round(p * 100)} %`);
 const cents = (p) => `${Math.max(1, Math.min(99, Math.round(p * 100)))}¢`;
 const df = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'short', year: 'numeric' });
