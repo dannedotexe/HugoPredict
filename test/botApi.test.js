@@ -303,3 +303,11 @@ test('Admin: Deckung, Bearbeiten, Vorschau beim Entscheiden, Hervorheben, Sperre
   svc.buy(uid, id, m.outcomes[1].id, 10);
   assert.ok(svc.adminUser(uid).ledger.length >= 2);
 });
+
+test('Bekannte Ausgänge einer Kategorie (z. B. Clans) ohne Platzhalter', () => {
+  svc.createMarket({ title: 'Wer gewinnt NDCW gegen V0XY?', category: 'clan', outcomes: ['NDCW', 'V0XY'] });
+  svc.createMarket({ title: 'Wer gewinnt Clan A gegen Clan B?', category: 'clan', outcomes: ['Clan A', 'Clan B', 'Unentschieden'] });
+  const labels = svc.knownOutcomes('clan');
+  assert.ok(labels.includes('NDCW') && labels.includes('V0XY'));
+  assert.ok(!labels.includes('Clan A') && !labels.includes('Unentschieden'));
+});

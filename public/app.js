@@ -611,6 +611,25 @@ const TEMPLATES = [
   { key: 'overunder', label: 'Über / Unter', emoji: '📊', category: 'irl', title: 'Wie viel …?', outcomes: 'Über …\nUnter …' },
   { key: 'many', label: 'Mehrere', emoji: '🎲', category: 'meta', title: 'Was wird …?', outcomes: 'Option 1\nOption 2\nOption 3' },
 ];
+// Schnell-Knöpfe für den Handelsschluss (lokale Zeit)
+const at = (days, hour) => { const d = new Date(); d.setDate(d.getDate() + days); d.setHours(hour, 0, 0, 0); return d.getTime(); };
+const CLOSE_PRESETS = [
+  { label: 'Heute 20 Uhr', at: () => (at(0, 20) > Date.now() + 15 * 60e3 ? at(0, 20) : at(1, 20)) },
+  { label: 'Morgen 20 Uhr', at: () => at(1, 20) },
+  { label: 'Wochenende', at: () => at(((7 - new Date().getDay()) % 7) || 7, 20) }, // nächster Sonntag 20 Uhr
+  { label: '1 Woche', at: () => at(7, 20) },
+];
+// Emoji passend zu Frage und Kategorie
+const EMOJI_HINTS = [
+  [/clan|fight|kampf|pvp|krieg|war\b/i, '⚔️'], [/event|turnier|tournament/i, '🏆'], [/mace|schwert|axt|waffe|meta/i, '🗡️'],
+  [/netherite|diamant|diamond|erz|ore/i, '💎'], [/elytra|flug|fly/i, '🪽'], [/stream|twitch|youtube|video|live/i, '📺'],
+  [/fußball|fussball|bundesliga|meister|champions|tor\b|spiel\b/i, '⚽'], [/wetter|schnee|schnei|regen|sonne|grad|hitze|kalt/i, '🌦️'],
+  [/geld|\$|coins|reich|kontostand|preis/i, '💰'], [/wiegt|gewicht|kg\b|schwer/i, '⚖️'], [/server|update|reset|wipe/i, '🏰'],
+  [/wahl|abstimmung|vote|präsident|kanzler/i, '🗳️'], [/auto|rennen|formel/i, '🏎️'], [/musik|song|album|charts/i, '🎵'],
+];
+const CATEGORY_EMOJI = { clan: '⚔️', meta: '🗡️', server: '🏰', irl: '🌍' };
+const guessEmoji = (title, category) => EMOJI_HINTS.find(([re]) => re.test(title))?.[1] ?? CATEGORY_EMOJI[category] ?? '🎲';
+
 const PREVIEW_COLORS = ['#4da3ff', '#ffb547', '#b27cff', '#2fd6c4', '#ff7ac6', '#c7d36f', '#ff8a4c', '#8f9bb3', '#3ddc84', '#ff5d6c'];
 const localInput = (t) => { const d = new Date(t); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
 
@@ -668,6 +687,7 @@ function adminOverviewTab(body, { ov, st }) {
 async function adminMarketsTab(body, { run }) {
   const { markets } = await api('/markets?category=all&status=all');
   const active = markets.filter((m) => m.status === 'open' || m.status === 'closed');
+  const recent = markets.filter((m) => m.status === 'resolved' || m.status === 'cancelled').sort((a, b) => b.createdAt - a.createdAt).slice(0, 5);
   const soon = Date.now() + 7 * 86400e3;
   body.innerHTML = `<div class="split-2">
     <section class="panel"><h2>Neue Prognose</h2>
@@ -680,12 +700,15 @@ async function adminMarketsTab(body, { run }) {
           <div class="field"><label for="f-emoji">Symbol (ein Emoji)</label><input class="input" id="f-emoji" name="emoji" value="⚔️" autocomplete="off"></div>
         </div>
         <div class="field"><label for="f-out">Ausgänge, einer pro Zeile. „Ja“ und „Nein“ ergibt einen Ja/Nein-Markt.</label>
-          <textarea class="input" id="f-out" name="outcomes" rows="4">Ja\nNein</textarea></div>
-        <div class="row-gap">
-          <div class="field"><label for="f-close">Handel endet</label><input class="input" id="f-close" type="datetime-local" name="closesAt" value="${localInput(soon)}"></div>
-          <div class="field"><label for="f-b">Liquidität</label><input class="input" id="f-b" name="b" inputmode="numeric" autocomplete="off" placeholder="Standard: 100…"></div>
-        </div>
-        <div class="field"><label for="f-desc">So wird entschieden</label><textarea class="input" id="f-desc" name="description" rows="3" placeholder="Wann zählt welcher Ausgang als gewonnen?…"></textarea></div>
+          <textarea class="input" id="f-out" name="outcomes" rows="4">Ja\nNein</textarea>
+          <div class="chips" id="known" aria-label="Schon bekannte Namen"></div></div>
+        <div class="field"><label for="f-close">Handel endet</label>
+          <div class="chips" id="close-chips">${CLOSE_PRESETS.map((p, i) => `<button class="chip" type="button" data-close-preset="${i}">${p.label}</button>`).join('')}</div>
+          <input class="input" id="f-close" type="datetime-local" name="closesAt" value="${localInput(soon)}"></div>
+        <details class="more-opts"><summary>Mehr Optionen</summary>
+          <div class="field" style="margin-top:12px"><label for="f-desc">So wird entschieden</label><textarea class="input" id="f-desc" name="description" rows="3" placeholder="Wann zählt welcher Ausgang als gewonnen?…"></textarea></div>
+          <div class="field"><label for="f-b">Liquidität (wie stark Gebote den Kurs bewegen)</label><input class="input" id="f-b" name="b" inputmode="numeric" autocomplete="off" placeholder="Standard: 100…"></div>
+        </details>
         <p class="muted" style="font-size:13px;margin:4px 0 8px">Vorschau</p>
         <div id="preview" class="preview"></div>
         <button class="btn btn-ja btn-block" style="margin-top:14px">Prognose erstellen</button>
@@ -703,6 +726,7 @@ async function adminMarketsTab(body, { run }) {
         </div>
         <div class="admin-actions">
           <button class="btn btn-sm" type="button" data-edit="${m.id}">Bearbeiten</button>
+          <button class="btn btn-sm" type="button" data-copy-market="${m.id}">Nochmal</button>
           <button class="btn btn-sm" type="button" data-feature="${m.id}" data-on="${m.featured ? 0 : 1}">${m.featured ? 'Nicht mehr oben' : '★ Oben anzeigen'}</button>
           ${m.status === 'open' ? `<button class="btn btn-sm" type="button" data-close="${m.id}">Handel stoppen</button>` : ''}
           <button class="btn btn-sm btn-nein" type="button" data-cancelm="${m.id}">Stornieren</button>
@@ -719,6 +743,9 @@ async function adminMarketsTab(body, { run }) {
           <button class="btn btn-sm btn-ja">Speichern</button>
         </form>
       </div>`).join('') : '<p class="muted">Keine laufenden Prognosen. Leg links eine an.</p>'}
+      ${recent.length ? `<h2 style="margin-top:22px">Zuletzt beendet</h2><div class="feed">${recent.map((m) => `<div class="feed-row">
+        <span aria-hidden="true">${esc(m.emoji)}</span><span>${esc(m.title)}</span>
+        <button class="btn btn-sm" type="button" data-copy-market="${m.id}" style="margin-left:auto">Nochmal</button></div>`).join('')}</div>` : ''}
     </section></div>`;
 
   // Vorlagen und Live-Vorschau
@@ -730,11 +757,54 @@ async function adminMarketsTab(body, { run }) {
       ? marketCard({ id: 0, title: f.title.value || 'Deine Frage …', emoji: f.emoji.value || '🎲', category: f.category.value, status: 'open', volume: 0, closesAt: f.closesAt.value ? new Date(f.closesAt.value).getTime() : null, outcomes: outs })
       : '<p class="muted">Mindestens zwei Ausgänge eintragen.</p>';
   };
+  // Emoji automatisch, solange es nicht von Hand geändert wurde
+  let emojiTouched = false;
+  f.emoji.addEventListener('input', () => { emojiTouched = true; });
+  const autoEmoji = () => { if (!emojiTouched) f.emoji.value = guessEmoji(f.title.value, f.category.value); };
+  f.title.addEventListener('input', autoEmoji);
+  f.category.addEventListener('change', () => { autoEmoji(); loadKnown(); preview(); });
   f.addEventListener('input', preview);
+  // Schnell-Knöpfe für den Handelsschluss
+  app.querySelectorAll('[data-close-preset]').forEach((b) => b.onclick = () => {
+    f.closesAt.value = localInput(CLOSE_PRESETS[Number(b.dataset.closePreset)].at());
+    app.querySelectorAll('[data-close-preset]').forEach((x) => x.classList.toggle('on', x === b));
+    preview();
+  });
+  // Bekannte Namen der Kategorie (z. B. Clans) als Vorschläge zum Antippen
+  const loadKnown = async () => {
+    const el = document.getElementById('known');
+    let labels = [];
+    try { ({ labels } = await api(`/admin/known-outcomes?category=${f.category.value}`)); } catch { /* egal */ }
+    el.innerHTML = labels.length ? `<span class="muted" style="font-size:12px">Schon da gewesen:</span>${labels.map((l) => `<button class="chip" type="button" data-known="${esc(l)}">+ ${esc(l)}</button>`).join('')}` : '';
+    el.querySelectorAll('[data-known]').forEach((b) => b.onclick = () => {
+      // Platzhalter (Clan A, Option 1, „Über …“) zuerst ersetzen
+      const lines = f.outcomes.value.split('\n').map((l) => l.trim()).filter(Boolean);
+      const placeholder = lines.findIndex((l) => /^(clan [a-z]|option \d+|.*…)$/i.test(l));
+      if (lines.some((l) => l.toLowerCase() === b.dataset.known.toLowerCase())) return;
+      if (placeholder >= 0) lines[placeholder] = b.dataset.known; else lines.push(b.dataset.known);
+      f.outcomes.value = lines.join('\n');
+      preview();
+    });
+  };
+  loadKnown();
+  autoEmoji();
   preview();
+  // Nochmal: alte Prognose ins Formular übernehmen
+  app.querySelectorAll('[data-copy-market]').forEach((b) => b.onclick = () => {
+    const m = markets.find((x) => String(x.id) === b.dataset.copyMarket);
+    f.title.value = m.title; f.category.value = m.category; f.emoji.value = m.emoji; emojiTouched = true;
+    f.outcomes.value = m.outcomes.map((o) => o.label).join('\n');
+    f.description.value = m.description || '';
+    f.closesAt.value = localInput(Date.now() + 7 * 86400e3);
+    loadKnown(); preview();
+    f.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    f.title.focus();
+    toast('Übernommen – Namen anpassen und erstellen.');
+  });
   app.querySelectorAll('[data-tpl]').forEach((b) => b.onclick = () => {
     const t = TEMPLATES.find((x) => x.key === b.dataset.tpl);
     Object.assign(f.title, { value: t.title }); f.outcomes.value = t.outcomes; f.emoji.value = t.emoji; f.category.value = t.category;
+    loadKnown();
     preview();
     f.title.focus();
     f.title.setSelectionRange(0, 0);

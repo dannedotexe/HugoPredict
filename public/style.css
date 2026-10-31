@@ -306,6 +306,12 @@ input.input::-webkit-date-and-time-value { text-align: left; }
 .cover-grid small { color: var(--muted); font-size: 12px; }
 .cover-grid b { font-size: 18px; font-weight: 800; }
 .templates { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+#close-chips { margin: 0 0 8px; }
+.chip { border: 1px solid var(--line); background: var(--input); color: var(--text); border-radius: 999px; padding: 5px 11px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.chip.on, .chip:active { background: var(--blue-deep); border-color: var(--blue-deep); }
+.more-opts { margin: 4px 0 10px; }
+.more-opts summary { cursor: pointer; color: var(--muted); font-weight: 600; font-size: 14px; padding: 6px 0; }
 .preview { pointer-events: none; }
 .preview .card { animation: none; }
 .admin-market { padding: 14px 0; border-top: 1px solid var(--line); }

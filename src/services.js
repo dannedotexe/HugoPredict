@@ -804,3 +804,11 @@ export function setBanned(userId, banned) {
   if (!r.changes) throw new AppError('Spieler nicht gefunden', 404);
   return { banned: !!banned };
 }
+
+/** Bekannte Ausgänge einer Kategorie (z. B. Clan-Namen) für Vorschläge beim Anlegen. */
+export function knownOutcomes(category, limit = 30) {
+  return db.prepare(`SELECT o.label, COUNT(*) n, MAX(m.created_at) last FROM outcomes o JOIN markets m ON m.id = o.market_id
+    WHERE m.category = ? AND lower(o.label) NOT IN ('ja', 'nein', 'unentschieden', 'andere', 'sonstige')
+      AND o.label NOT LIKE 'Clan _' AND o.label NOT LIKE 'Option _' AND o.label NOT LIKE '%…%'
+    GROUP BY lower(o.label) ORDER BY n DESC, last DESC LIMIT ?`).all(String(category), limit).map((r) => r.label);
+}

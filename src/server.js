@@ -153,6 +153,7 @@ app.get('/api/admin/overview', handle((req) => {
   return { ...svc.adminOverview(), bot: botState };
 }));
 app.post('/api/admin/markets', handle((req) => (admin(req), svc.createMarket(req.body))));
+app.get('/api/admin/known-outcomes', handle((req) => (admin(req), { labels: svc.knownOutcomes(String(req.query.category || '')) })));
 app.get('/api/admin/stats', handle((req) => (admin(req), svc.adminStats(botState))));
 app.post('/api/admin/markets/:id/edit', handle((req) => (admin(req), svc.editMarket(Number(req.params.id), req.body))));
 app.get('/api/admin/markets/:id/resolve-preview', handle((req) => (admin(req), svc.resolvePreview(Number(req.params.id), Number(req.query.o)))));
