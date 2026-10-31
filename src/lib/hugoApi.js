@@ -71,6 +71,12 @@ function normalizeMarket(m) {
     description: typeof m.description === 'string' ? m.description : '',
     yesPrice: isNum(m.yesPrice) ? m.yesPrice : null,
     noPrice: isNum(m.noPrice) ? m.noPrice : null,
+    // Alle Ausgänge (z. B. „über 100kg“), falls die Website sie liefert
+    outcomes: Array.isArray(m.outcomes)
+      ? m.outcomes.filter((o) => isObj(o) && typeof o.label === 'string').slice(0, 10).map((o) => ({ label: o.label.slice(0, 80), price: isNum(o.price) ? o.price : null }))
+      : [],
+    category: typeof m.category === 'string' ? m.category.slice(0, 40) : null,
+    emoji: typeof m.emoji === 'string' && m.emoji.length <= 16 ? m.emoji : null,
     volume: isNum(m.volume) ? m.volume : null,
     status: typeof m.status === 'string' ? m.status : 'unknown',
     outcome: typeof m.outcome === 'string' ? m.outcome : null,

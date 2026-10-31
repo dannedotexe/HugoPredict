@@ -38,6 +38,20 @@ function priceBar(yes, segments = 12) {
   return `\`${'▰'.repeat(filled)}${'▱'.repeat(segments - filled)}\``;
 }
 
+/** Kurse: Ja/Nein mit Balken, sonst jeder Ausgang mit eigenem Balken. */
+function pricesBody(market) {
+  const outcomes = market.outcomes ?? [];
+  const yesNo = Number.isFinite(market.yesPrice) || !outcomes.length;
+  if (yesNo) {
+    const bar = priceBar(market.yesPrice);
+    return `**Ja** ${formatPrice(market.yesPrice)}  ·  **Nein** ${formatPrice(market.noPrice)}${bar ? `\n${bar}` : ''}`;
+  }
+  return outcomes.map((o) => {
+    const bar = priceBar(o.price);
+    return `**${truncate(o.label, 80)}** ${formatPrice(o.price)}${bar ? `\n${bar}` : ''}`;
+  }).join('\n');
+}
+
 function marketActions(market) {
   if (!market.url) return [];
   return [new ActionRowBuilder().addComponents(withEmoji(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Zur Prognose').setURL(market.url), 'external'))];
@@ -51,12 +65,7 @@ function marketCard(market, { currency }, { ephemeral = false, pingRoleId = null
   if (market.status === 'resolved') {
     blocks.push({ heading: 'Ergebnis', icon: 'resolved', body: `**${truncate(market.outcome ?? '—', 200)}**\nEntschieden ${discordTime(market.resolvedAt ?? market.resolvesAt)}` });
   } else {
-    const bar = priceBar(market.yesPrice);
-    blocks.push({
-      heading: 'Kurse',
-      icon: 'logo',
-      body: `**Ja** ${formatPrice(market.yesPrice)}  ·  **Nein** ${formatPrice(market.noPrice)}${bar ? `\n${bar}` : ''}`,
-    });
+    blocks.push({ heading: 'Kurse', icon: 'logo', body: pricesBody(market) });
   }
   blocks.push({
     heading: 'Details',
@@ -69,8 +78,8 @@ function marketCard(market, { currency }, { ephemeral = false, pingRoleId = null
   });
   if (market.status === 'paused') blocks.push({ heading: 'Hinweis', icon: 'paused', body: 'Der Handel ist vorübergehend ausgesetzt.' });
   const payload = card({
-    eyebrow: `${emojis.icon(market.status)}Prognose · ${label}`,
-    title: truncate(market.title, 200),
+    eyebrow: `${emojis.icon(market.status)}Prognose · ${label}${market.category ? ` · ${market.category}` : ''}`,
+    title: truncate(`${market.emoji ? `${market.emoji} ` : ''}${market.title}`, 200),
     intro: pingRoleId ? `-# Neue Prognose für <@&${pingRoleId}>` : null,
     accent: STATUS_COLORS[market.status] ?? theme.colors.neutral,
     logo: false,
@@ -88,7 +97,7 @@ function marketHash(m) {
   const r = (v, f) => (Number.isFinite(v) ? Math.round(v * f) : null);
   return crypto.createHash('sha1')
     // Präfix = Darstellungsversion: Änderung erzwingt einmalig die Aktualisierung aller Karten.
-    .update(JSON.stringify(['karte-v2', m.title, m.description, r(m.yesPrice, 100), r(m.noPrice, 100), r(m.volume, 1), m.closesAt, m.resolvesAt, m.status, m.outcome, m.url]))
+    .update(JSON.stringify(['karte-v3', m.title, m.description, r(m.yesPrice, 100), r(m.noPrice, 100), (m.outcomes ?? []).map((o) => [o.label, r(o.price, 100)]), m.category, m.emoji, r(m.volume, 1), m.closesAt, m.resolvesAt, m.status, m.outcome, m.url]))
     .digest('hex');
 }
 
