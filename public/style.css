@@ -40,7 +40,6 @@ body {
   font: 400 15px/1.5 var(--body);
   font-variant-numeric: tabular-nums;
   -webkit-tap-highlight-color: transparent;
-  touch-action: pan-x pan-y; /* kein Zoomen per Doppeltippen oder zwei Fingern */
   caret-color: var(--blue);
 }
 ::selection { background: var(--blue); color: #fff; }
