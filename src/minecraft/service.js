@@ -370,7 +370,7 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
       whisper(name, 'Oeffne die Website und klicke auf Anmelden. Dort steht dein persoenlicher Befehl.');
       return;
     }
-    if (!/^[a-z0-9]{12}$/i.test(text)) return;
+    if (!/^[a-z0-9]{5,12}$/i.test(text)) return;
     // Höchstens 5 Code-Versuche pro Minute und Spieler
     const key = name.toLowerCase();
     const recent = (loginTries.get(key) ?? []).filter((t) => Date.now() - t < 60_000);

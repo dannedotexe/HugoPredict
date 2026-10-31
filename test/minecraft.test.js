@@ -256,12 +256,15 @@ test('Login per Flüstern: HugoSMP-Format, Absender aus der Systemzeile', async 
   bot.emit('whisper', 'Alpha_Noah', 'abcd2345efgh');
   // Eigenes Echo ist kein Fehlalarm
   sys('[Nachricht] Du -> Alpha_Noah: 1.000 erhalten. Verknüpfe dein Konto im Discord, dann wird es gutgeschrieben.');
-  sys('[Nachricht] Steve -> Du: hallo');
+  sys('[Nachricht] Steve -> Du: hallo wie gehts');
   sys('[Nachricht] Steve -> Du: abcd2345efgh');
   await until(() => world.sent.some((m) => m.startsWith('/msg Steve Du bist auf der Website angemeldet')));
   assert.deepEqual(seen, [{ minecraftName: 'Steve', code: 'abcd2345efgh' }]);
   sys('[Nachricht] Steve -> Du: zzzz2345efgh');
   await until(() => world.sent.some((m) => m.startsWith('/msg Steve Code ungueltig')));
+  // Kurzer 5-stelliger Code (z. B. KE2KM) wird ebenfalls weitergegeben
+  sys('[Nachricht] Steve -> Du: KE2KM');
+  await until(() => seen.some((l) => l.code === 'KE2KM'));
   sys('[Nachricht] Steve -> Du: login');
   await until(() => world.sent.some((m) => m.startsWith('/msg Steve Oeffne die Website')));
   // Höchstens 5 Code-Versuche pro Minute
