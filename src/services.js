@@ -319,8 +319,23 @@ function marketView(m) {
 
 const MARKET_SELECT = 'SELECT m.*, COALESCE((SELECT SUM(amount) FROM trades t WHERE t.market_id = m.id), 0) AS volume FROM markets m';
 
+/** Letzte Bieter pro Prognose (für die Köpfe auf den Karten). */
+function recentBidders() {
+  const map = new Map();
+  for (const r of db.prepare(`SELECT t.market_id, COALESCE(u.mc_name, u.username) name, MAX(t.id) last
+    FROM trades t JOIN users u ON u.id = t.user_id GROUP BY t.market_id, t.user_id ORDER BY last DESC`).all()) {
+    const e = map.get(r.market_id) ?? { names: [], count: 0 };
+    if (e.names.length < 3) e.names.push(r.name);
+    e.count += 1;
+    map.set(r.market_id, e);
+  }
+  return map;
+}
+
 export function listMarkets({ category, status } = {}) {
-  let rows = db.prepare(`${MARKET_SELECT} ORDER BY m.id DESC`).all().map(marketView);
+  const bidders = recentBidders();
+  let rows = db.prepare(`${MARKET_SELECT} ORDER BY m.id DESC`).all().map(marketView)
+    .map((m) => ({ ...m, bidders: bidders.get(m.id)?.names ?? [], bidderCount: bidders.get(m.id)?.count ?? 0 }));
   if (category && category !== 'all') rows = rows.filter((m) => m.category === category);
   if (status === 'open') rows = rows.filter((m) => m.status === 'open');
   else if (status === 'done') rows = rows.filter((m) => m.status !== 'open');

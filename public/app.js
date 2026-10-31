@@ -54,6 +54,25 @@ function toast(msg, err = false) {
   setTimeout(() => el.remove(), 4500);
 }
 
+// Restzeit statt Datum: „Endet in 2 Tagen“, „Endet heute 20:00“ – knapp (unter 24 h) wird orange
+const tf = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' });
+function remaining(t) {
+  if (!t) return { text: '', soon: false };
+  const ms = t - Date.now();
+  if (ms <= 0) return { text: 'Handel beendet', soon: false };
+  const d = new Date(t), today = new Date(), tomorrow = new Date();
+  tomorrow.setDate(today.getDate() + 1);
+  const sameDay = (a, b) => a.toDateString() === b.toDateString();
+  let text;
+  if (ms < 3600e3) text = `Endet in ${Math.max(1, Math.round(ms / 60e3))} Min.`;
+  else if (sameDay(d, today)) text = `Endet heute ${tf.format(d)}`;
+  else if (sameDay(d, tomorrow)) text = `Endet morgen ${tf.format(d)}`;
+  else if (ms < 7 * 86400e3) text = `Endet in ${Math.ceil(ms / 86400e3)} Tagen`;
+  else text = `Endet am ${date(t)}`;
+  return { text, soon: ms < 86400e3 };
+}
+const endsBadge = (t) => { const r = remaining(t); return r.text ? `<span class="ends${r.soon ? ' soon' : ''}">${r.text}</span>` : ''; };
+
 const isBinary = (m) => m.outcomes.length === 2 && /^ja$/i.test(m.outcomes[0].label) && /^nein$/i.test(m.outcomes[1].label);
 const sortedOutcomes = (m) => (isBinary(m) ? m.outcomes : [...m.outcomes].sort((a, b) => b.price - a.price));
 
@@ -100,6 +119,10 @@ const routes = [
   [/^\/login$/, viewLogin, ''],
 ];
 
+const SKELETON = `<div class="skel-page" aria-busy="true" aria-label="Lädt…">
+  <div class="skel skel-title"></div><div class="skel skel-line"></div>
+  <div class="grid" style="margin-top:20px">${'<div class="skeleton"></div>'.repeat(4)}</div></div>`;
+
 async function router() {
   const [path, query] = (location.hash.slice(1) || '/').split('?');
   for (const [re, view, nav] of routes) {
@@ -111,10 +134,14 @@ async function router() {
       a.classList.toggle('active', a.dataset.route === nav);
     });
     window.scrollTo(0, 0);
+    // Lädt eine Seite länger, erscheint ein Platzhalter statt einer leeren Fläche
+    const loading = setTimeout(() => { app.innerHTML = SKELETON; }, 150);
     try {
       await view(...m.slice(1), new URLSearchParams(query));
     } catch (err) {
-      app.innerHTML = `<div class="panel empty"><p>${esc(err.message)}</p><a class="btn" href="#/">Zu den Märkten</a></div>`;
+      app.innerHTML = `<div class="panel empty"><p>${esc(err.message)}</p><a class="btn" href="#/">Zu den Prognosen</a></div>`;
+    } finally {
+      clearTimeout(loading);
     }
     return;
   }
@@ -174,12 +201,12 @@ function marketCard(m, i = 0) {
   if (bin) {
     const [ja, nein] = m.outcomes;
     body = m.status === 'open'
-      ? `<div class="actions"><a class="btn btn-yes" href="#/market/${m.id}?o=${ja.id}">Ja kaufen</a>
-          <a class="btn btn-no" href="#/market/${m.id}?o=${nein.id}">Nein kaufen</a></div>`
+      ? `<div class="actions"><a class="btn btn-yes" href="#/market/${m.id}?o=${ja.id}">Auf Ja bieten</a>
+          <a class="btn btn-no" href="#/market/${m.id}?o=${nein.id}">Auf Nein bieten</a></div>`
       : winner ? `<p class="result">Ergebnis: <b class="${winner === ja ? 'ja' : 'nein'}">${esc(winner.label)}</b></p>` : '';
   } else {
     const top = sortedOutcomes(m).slice(0, 3);
-    body = `<div class="mini">${top.map((o) => `
+    body = `${m.status === 'open' ? `<div class="big-pct"><b>${pct(top[0].price)}</b><span>${esc(top[0].label)}</span></div>` : ''}<div class="mini">${top.map((o) => `
         <a class="mini-row" href="#/market/${m.id}?o=${o.id}"><span>${o.id === m.resolvedOutcomeId ? 'Gewonnen: ' : ''}${esc(o.label)}</span><b>${pct(o.price)}</b></a>`).join('')}
         ${m.outcomes.length > 3 ? `<span class="muted more">und ${m.outcomes.length - 3} weitere</span>` : ''}</div>`;
   }
@@ -187,8 +214,9 @@ function marketCard(m, i = 0) {
     <div class="card-top"><span class="slot" aria-hidden="true">${esc(m.emoji)}</span>
       <h3><a href="#/market/${m.id}">${esc(m.title)}</a></h3>${bin ? gauge(m.outcomes[0].price) : ''}</div>
     ${body}
-    <div class="foot-line"><span>${money(m.volume)} Volumen</span>
-      <span>${m.status === 'open' ? (m.closesAt ? `bis ${date(m.closesAt)}` : '') : `<span class="tag ${cls}">${label}</span>`}</span></div>
+    <div class="foot-line">
+      <span class="bidders">${(m.bidders || []).map((n) => head(n, 'xs')).join('')}${m.bidderCount > 3 ? `<small>+${m.bidderCount - 3}</small>` : ''}<span>${money(m.volume)}</span></span>
+      <span>${m.status === 'open' ? endsBadge(m.closesAt) : `<span class="tag ${cls}">${label}</span>`}</span></div>
   </article>`;
 }
 
@@ -244,7 +272,7 @@ async function viewMarkets() {
   featureEl.innerHTML = `
     <div class="feature-q">
       <div class="lead"><span class="slot lg" aria-hidden="true">${esc(m.emoji)}</span>
-        <div><div class="meta"><span>${CATS[m.category]}</span><span>${money(m.volume)} Volumen</span></div>
+        <div><div class="meta"><span>${CATS[m.category]}</span><span>${money(m.volume)} Volumen</span>${endsBadge(m.closesAt)}</div>
           <h1><a href="#/market/${m.id}">${esc(m.title)}</a></h1></div></div>
       <div class="odds-big"><b class="${yesLike(m, lead) ? 'blue' : ''}">${pct(lead.price)}</b><span class="muted">${isBinary(m) ? 'Chance auf Ja' : `für ${esc(lead.label)}`}</span></div>
       <div class="feature-outcomes">${sortedOutcomes(m).slice(0, 4).map((o, i) => `<a class="btn ${isBinary(m) ? (i ? 'btn-no' : 'btn-yes') : ''}" href="#/market/${m.id}?o=${o.id}">${esc(o.label)} ${cents(o.price)}</a>`).join('')}</div>
@@ -271,7 +299,7 @@ async function viewMarket(id, query) {
           <div class="market-head"><span class="slot lg" aria-hidden="true">${esc(m.emoji)}</span><div>
             <h1>${esc(m.title)}</h1>
             <div class="meta"><span>${CATS[m.category]}</span><span class="tag ${cls}">${label}</span><span>${money(m.volume)} Volumen</span>
-              ${m.closesAt ? `<span>Handel bis ${date(m.closesAt)}</span>` : ''}</div></div>
+              ${m.closesAt && m.status === 'open' ? endsBadge(m.closesAt) : ''}</div></div>
             <button class="btn btn-sm share" type="button" id="share" aria-label="Prognose teilen">
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M5 14v6h14v-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Teilen</button></div>
           <div class="odds-big"><b class="blue">${pct(lead.price)}</b><span class="muted">${bin ? 'Chance auf Ja' : `für ${esc(lead.label)}`}</span></div>
@@ -397,7 +425,8 @@ async function viewMarket(id, query) {
       try {
         if (buying) {
           const r = await api(`/markets/${m.id}/buy`, { outcomeId: o.id, amount: amt });
-          toast(`${fmt(r.shares)} Anteile ${o.label} gekauft`);
+          toast(`Gebot steht: ${money(amt)} auf ${o.label}`);
+          confetti();
         } else {
           const r = await api(`/markets/${m.id}/sell`, { outcomeId: o.id, shares: Math.min(amt, pos.shares) });
           toast(`${o.label} verkauft für ${money(r.payout)}`);
@@ -718,7 +747,7 @@ async function adminMarketsTab(body, { run }) {
       ${active.length ? active.map((m) => `<div class="admin-market">
         <p><span aria-hidden="true">${esc(m.emoji)}</span> <a href="#/market/${m.id}"><b>${esc(m.title)}</b></a>
           <span class="tag ${STATUS[m.status][1]}">${STATUS[m.status][0]}</span>${m.featured ? ' <span class="tag warn">★ Oben</span>' : ''}</p>
-        <p class="muted" style="font-size:13px">${money(m.volume)} Volumen${m.closesAt ? ` · bis ${date(m.closesAt)}` : ''}</p>
+        <p class="muted" style="font-size:13px">${money(m.volume)} Volumen ${endsBadge(m.closesAt)}</p>
         <div class="admin-actions">
           <select class="input" data-sel="${m.id}" aria-label="Gewinner für ${esc(m.title)}">
             ${sortedOutcomes(m).map((o) => `<option value="${o.id}">${esc(o.label)} (${pct(o.price)})</option>`).join('')}</select>
@@ -964,6 +993,54 @@ async function viewLogin() {
 
 // ---------- Boot ----------
 
+// ---------- Konfetti (kleiner Moment der Freude nach einem Gebot) ----------
+
+function confetti() {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const c = document.createElement('canvas');
+  c.className = 'confetti';
+  c.width = innerWidth * devicePixelRatio;
+  c.height = innerHeight * devicePixelRatio;
+  document.body.append(c);
+  const ctx = c.getContext('2d');
+  const colors = ['#33c26d', '#3b9df0', '#f0bd4b', '#ef5a48', '#b27cff', '#2fd6c4'];
+  const parts = Array.from({ length: 90 }, () => ({
+    x: c.width / 2, y: c.height * 0.55, vx: (Math.random() - 0.5) * 18 * devicePixelRatio, vy: (-Math.random() * 16 - 6) * devicePixelRatio,
+    s: (Math.random() * 6 + 4) * devicePixelRatio, r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.4, c: colors[(Math.random() * colors.length) | 0],
+  }));
+  const start = performance.now();
+  const tick = (t) => {
+    ctx.clearRect(0, 0, c.width, c.height);
+    for (const p of parts) {
+      p.vy += 0.55 * devicePixelRatio; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); ctx.restore();
+    }
+    if (t - start < 1600) requestAnimationFrame(tick); else c.remove();
+  };
+  requestAnimationFrame(tick);
+}
+
+// ---------- Kurze Einführung beim ersten Besuch ----------
+
+function showOnboarding() {
+  try { if (localStorage.getItem('hp_onboarded')) return; } catch { return; }
+  const d = document.createElement('dialog');
+  d.className = 'dialog onboarding';
+  d.innerHTML = `<img src="/icon-192.png" width="56" height="56" alt="" style="border-radius:14px">
+    <h2>So funktioniert HugoPredict</h2>
+    <ol class="onb-steps">
+      <li><span>💰</span><div><b>Einzahlen</b><p>Im Spiel <code>/pay HugoPredict &lt;Betrag&gt;</code> – das Geld landet auf deinem Konto.</p></div></li>
+      <li><span>🎯</span><div><b>Bieten</b><p>Such dir eine Prognose aus und biete auf das, was du glaubst.</p></div></li>
+      <li><span>🏆</span><div><b>Gewinnen</b><p>Liegst du richtig, gewinnst du – je weniger daran geglaubt haben, desto mehr.</p></div></li>
+    </ol>
+    <button class="btn btn-ja btn-block" type="button">Los geht's</button>`;
+  document.body.append(d);
+  const close = () => { try { localStorage.setItem('hp_onboarded', '1'); } catch { /* egal */ } d.close(); d.remove(); };
+  d.querySelector('button').onclick = close;
+  d.addEventListener('cancel', close);
+  d.showModal();
+}
+
 // ---------- Vorschläge (Dropdown) für Suchfelder ----------
 
 /**
@@ -1042,6 +1119,7 @@ document.getElementById('search-form').addEventListener('submit', (e) => {
   if ((location.hash.slice(1) || '/').split('?')[0] !== '/') location.hash = '#/';
 });
 window.addEventListener('hashchange', router);
+setTimeout(showOnboarding, 600);
 
 // ---------- Als App (PWA) ----------
 
