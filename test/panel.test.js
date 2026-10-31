@@ -25,17 +25,20 @@ function fakeMc() {
 function deps(mc) {
   return {
     env: { panelAdminIds: [OWNER], minecraft: { balanceCommand: '/balance' } },
+    store: { guild: () => ({ channels: { minecraftPanel: 'mcp' } }) },
     minecraft: mc, checkRate: () => true, logger: { info() {} }, ctx: { audit: async () => {} },
   };
 }
-function interaction(userId, { button = true, fields = {} } = {}) {
+function interaction(userId, { button = true, fields = {}, channelId = 'x', canView = false } = {}) {
   const out = [];
   return {
     out,
     user: { id: userId, tag: 'x' }, guild: null, replied: false, deferred: false,
+    guildId: 'G', channelId, inGuild: () => true, member: {},
+    channel: { permissionsFor: () => ({ has: () => canView }) },
     isButton: () => button, isModalSubmit: () => !button,
     fields: { getTextInputValue: (k) => fields[k] },
-    reply: async (p) => out.push(p), deferUpdate: async () => {}, editReply: async (p) => out.push(p),
+    reply: async (p) => out.push(p), deferUpdate: async () => {}, deferReply: async (p) => out.push({ deferred: p }), editReply: async (p) => out.push(p),
     showModal: async (m) => out.push({ modal: m.toJSON() }),
   };
 }
@@ -106,4 +109,23 @@ test('Panel zeigt nur Serverantworten, keine Broadcasts', () => {
   const s = json(view);
   assert.match(s, /Dein Kontostand/);
   assert.doesNotMatch(s, /RTP-Gegner|hallo/);
+});
+
+test('Festes Panel: nutzbar für alle, die #minecraft-panel sehen – Antwort privat', async () => {
+  const mc = fakeMc();
+  const d = deps(mc);
+  // Sieht den Channel nicht → abgewiesen
+  const blind = interaction('42', { button: false, fields: { cmd: '/money' }, channelId: 'mcp', canView: false });
+  await panelInteraction.handle(blind, d, ['cmdmodal']);
+  assert.match(JSON.stringify(blind.out.at(-1)), /Keine Berechtigung/);
+  // Anderer Channel → abgewiesen, auch wenn sichtbar
+  const elsewhere = interaction('42', { button: false, fields: { cmd: '/money' }, channelId: 'team', canView: true });
+  await panelInteraction.handle(elsewhere, d, ['cmdmodal']);
+  assert.match(JSON.stringify(elsewhere.out.at(-1)), /Keine Berechtigung/);
+  assert.equal(mc.calls.length, 0);
+  // Im Channel und sichtbar → ausgeführt, Antwort als private Nachricht
+  const ok = interaction('42', { button: false, fields: { cmd: '/money' }, channelId: 'mcp', canView: true });
+  await panelInteraction.handle(ok, d, ['cmdmodal']);
+  assert.deepEqual(mc.calls, ['/money']);
+  assert.ok(ok.out[0].deferred, 'privat geantwortet statt das feste Panel zu bearbeiten');
 });

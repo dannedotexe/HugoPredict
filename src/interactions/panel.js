@@ -5,14 +5,23 @@ const { embeds } = require('../lib/embeds');
 const { replyPrivate } = require('../lib/respond');
 const { parseAmount, formatAmount } = require('../minecraft/amount');
 const { mainView, payConfirmView, settingsView, commandModal, payModal, limitModal, joinModal } = require('../panel/minecraftPanel');
-const { isPanelAdmin, stateOf } = require('../panel/access');
+const { canUsePanel, stateOf } = require('../panel/access');
 
 /* Steuerung von /panel. Jede Interaktion prüft erneut die Discord-ID. */
 
 const PAY_TTL_MS = 2 * 60_000;
 
-/** Ersetzt die Panel-Nachricht (erst bestätigen, dann in Ruhe bauen). */
+/**
+ * Zeigt das Ergebnis. Kommt die Aktion vom festen Panel im Channel, antwortet der Bot
+ * privat (nur für die Person sichtbar); im privaten Panel wird die Nachricht ersetzt.
+ */
 async function show(interaction, build) {
+  const fromPrivate = interaction.message?.flags?.has?.(MessageFlags.Ephemeral);
+  if (!fromPrivate) {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    const payload = await build();
+    return interaction.editReply({ ...payload, flags: MessageFlags.IsComponentsV2 });
+  }
   await interaction.deferUpdate();
   const payload = await build();
   return interaction.editReply({ ...payload, flags: MessageFlags.IsComponentsV2, files: [] });
@@ -27,8 +36,8 @@ async function audit(interaction, deps, title, value) {
 }
 
 async function handle(interaction, deps, [action, arg]) {
-  if (!isPanelAdmin(deps, interaction.user.id)) {
-    return replyPrivate(interaction, { embeds: [embeds.error('Keine Berechtigung', 'Das Panel ist nur für den Inhaber von HugoPredict.')] });
+  if (!canUsePanel(interaction, deps)) {
+    return replyPrivate(interaction, { embeds: [embeds.error('Keine Berechtigung', 'Das Minecraft-Panel kann nur nutzen, wer #minecraft-panel sieht.')] });
   }
   if (!deps.checkRate(interaction, 'default')) return;
   const mc = deps.minecraft;

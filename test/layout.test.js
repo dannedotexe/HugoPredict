@@ -43,7 +43,7 @@ test('Struktur entspricht exakt der Vorgabe', () => {
     ['INFORMATIONEN', ['👋┃willkommen', '📖┃so-gehts', '📢┃ankündigungen', '📈┃prognosen', '📜┃regeln', '🔔┃pings', '📶┃status', '📝┃bewerben']],
     ['COMMUNITY', ['💬┃diskussionen', '📊┃analysen', '📸┃medien', '💡┃vorschläge', '🔊┃Voice 1', '🔊┃Voice 2', '🔊┃Voice 3']],
     ['KUNDENSERVICE', ['🎫┃support', '📋┃support-steuerung', '⏳┃support-warteraum', '🛠️┃Support Raum 1', '🛠️┃Support Raum 2']],
-    ['INTERN · PRIVAT', ['🔧┃betrieb', '🧾┃prüfprotokoll', '📡┃systemmeldungen', '🔨┃moderation', '📨┃bewerbungen', '👥┃team']],
+    ['INTERN · PRIVAT', ['🔧┃betrieb', '🎮┃minecraft-panel', '🧾┃prüfprotokoll', '📡┃systemmeldungen', '🔨┃moderation', '📨┃bewerbungen', '👥┃team']],
   ]);
   // Genau ein Emoji, dann „┃“, dann Kleinbuchstaben
   // Sprachkanäle dürfen „Voice 1“ heißen (Großbuchstabe, Leerzeichen)
