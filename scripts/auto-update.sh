@@ -26,6 +26,12 @@ update_once() {
   local previous
   previous="$(cat "$DEPLOYED_FILE")"
   # Jeder Schritt muss klappen, sonst kein Neustart.
+  # Direkt auf dem Server geänderte Dateien würden das Update dauerhaft blockieren:
+  # sichern (git stash list) statt hängen zu bleiben.
+  if ! git diff --quiet || ! git diff --cached --quiet; then
+    git stash push -q -m "server-aenderungen-$(date +%Y%m%d-%H%M)" || return 1
+    echo "[$(date -Is)] Lokale Änderungen gesichert (git stash list)"
+  fi
   git merge -q --ff-only "$target" || return 1
   # Pakete nur neu installieren, wenn sie sich geändert haben (Minecraft-Daten sind groß).
   if [ ! -d node_modules ] || ! git diff --quiet "$previous" "$target" -- package.json package-lock.json 2>/dev/null; then

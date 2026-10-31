@@ -68,7 +68,9 @@ PORT=$(oci bastion session get --session-id "$SESSION" \
   --query 'data."target-resource-details"."target-resource-port"' --raw-output)
 [ "$PORT" = "null" ] && PORT=22
 
-UPDATE_BOT="if [ -d ~/HugoPredict/.git ]; then git -C ~/HugoPredict pull --ff-only origin $BRANCH; else git clone -b $BRANCH $REPO ~/HugoPredict; fi"
+# Direkt auf dem Server geänderte Dateien blockieren das Update: sie werden per
+# git stash gesichert (nichts geht verloren, ansehen mit: git -C ~/HugoPredict stash list).
+UPDATE_BOT="if [ -d ~/HugoPredict/.git ]; then cd ~/HugoPredict && { git diff --quiet && git diff --cached --quiet || { git stash push -q -m server-aenderungen-\$(date +%Y%m%d-%H%M) && echo '==> Lokale Änderungen auf dem Server gesichert (git stash list)'; }; } && git pull --ff-only origin $BRANCH; else git clone -b $BRANCH $REPO ~/HugoPredict; fi"
 if [ "$MODE" = "website" ]; then
   DOMAIN="${2:-hugopredict.de}"
   [[ "$DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]] || fail "Ungültige Domain: $DOMAIN"
