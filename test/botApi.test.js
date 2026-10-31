@@ -147,3 +147,34 @@ test('heartbeat drives the online status', async () => {
   assert.equal(botState.online, false);
   assert.equal(botState.username, 'HugoBot');
 });
+
+test('Discord-Befehle: Guthaben, Portfolio, Verlauf und Rangliste über die Verknüpfung', async () => {
+  const discordId = '777777777777777777';
+  // Noch nicht verknüpft → 404 mit not_linked
+  const missing = await call('GET', `/users/discord/${discordId}/balance`);
+  assert.equal(missing.status, 404);
+  assert.equal(missing.body.code, 'not_linked');
+
+  // Konto entsteht per Login-Code, Verknüpfung kommt vom Bot
+  const { code } = (await post('/minecraft/login-codes', { minecraftName: 'DiscoMC' })).body;
+  svc.loginWithCode(code);
+  assert.equal((await post('/minecraft/links', { discordId, discordUsername: 'disco', minecraftName: 'DiscoMC', minecraftUuid: 'uuid-disco' })).status, 200);
+  await deposit('disco-1', 300, 'DiscoMC');
+
+  const bal = await call('GET', `/users/discord/${discordId}/balance`);
+  assert.equal(bal.status, 200);
+  assert.equal(bal.body.balance, 300);
+  assert.equal(bal.body.username, 'DiscoMC');
+
+  const tx = await call('GET', `/users/discord/${discordId}/transactions?limit=5`);
+  assert.equal(tx.body.transactions[0].description, 'Einzahlung');
+  assert.equal(tx.body.transactions[0].amount, 300);
+
+  const pf = await call('GET', `/users/discord/${discordId}/portfolio`);
+  assert.deepEqual(pf.body.positions, []);
+
+  const lb = await call('GET', '/leaderboards/all-time?limit=5');
+  assert.equal(lb.status, 200);
+  assert.ok(Array.isArray(lb.body.entries));
+  assert.equal((await call('GET', '/leaderboards/weekly')).status, 404);
+});

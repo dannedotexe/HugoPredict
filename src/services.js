@@ -469,6 +469,37 @@ export function portfolio(userId) {
   return { positions, ledger };
 }
 
+// ---------- Discord ----------
+
+// Website-Konto zu einer Discord-ID (über die Verknüpfung, die der Bot meldet).
+export function userByDiscord(discordId) {
+  return db.prepare(`SELECT u.* FROM discord_links d JOIN users u ON u.mc_name = d.mc_name WHERE d.discord_id = ?`).get(String(discordId)) ?? null;
+}
+
+const LEDGER_LABELS = {
+  deposit: 'Einzahlung', withdraw: 'Auszahlung', withdraw_refund: 'Auszahlung zurückgebucht',
+  buy: 'Kauf', sell: 'Verkauf', payout: 'Gewinn', refund: 'Erstattung', admin: 'Korrektur',
+};
+
+/** Konto für die Discord-Befehle /balance, /portfolio und /history. */
+export function discordAccount(userId, { limit = 10 } = {}) {
+  const { positions, ledger } = portfolio(userId);
+  const u = db.prepare('SELECT username, mc_name, balance FROM users WHERE id = ?').get(userId);
+  const locked = r2(positions.reduce((sum, p) => sum + p.value, 0));
+  return {
+    balance: { balance: r2(u.balance + locked), available: r2(u.balance), locked, username: u.mc_name ?? u.username },
+    positions: positions.map((p) => ({
+      marketId: String(p.market_id), marketTitle: p.title, side: p.label, shares: r2(p.shares),
+      avgPrice: p.shares > 0 ? r2(p.spent / p.shares) : null, currentPrice: r2(p.price), value: p.value,
+    })),
+    totalValue: locked,
+    transactions: ledger.slice(0, limit).map((l) => ({
+      id: String(l.id), type: l.type, amount: r2(l.amount),
+      description: LEDGER_LABELS[l.type] ?? l.type, createdAt: new Date(l.created_at).toISOString(),
+    })),
+  };
+}
+
 export function leaderboard() {
   const prices = priceMap();
   const values = new Map();

@@ -27,7 +27,8 @@ function requireKey(req, res, next) {
 
 const handle = (fn) => (req, res) => {
   try {
-    res.json(fn(req) ?? { ok: true });
+    const out = fn(req, res);
+    if (!res.headersSent) res.json(out ?? { ok: true });
   } catch (err) {
     if (!(err instanceof svc.AppError)) console.error(err);
     res.status(err.status || 500).json({ message: err instanceof svc.AppError ? err.message : 'Serverfehler' });
@@ -98,6 +99,53 @@ botApi.post('/minecraft/deposits', handle((req) => {
   if (!(typeof amount === 'number' && Number.isFinite(amount) && amount > 0)) throw new svc.AppError('Ungültiger Betrag', 422);
   const res = svc.recordDeposit(mcName(minecraftName), amount, 'bot-api', String(id));
   return { accepted: true, linked: res.credited, credited: res.credited ? res.amount : null };
+}));
+
+// --- Discord-Befehle (/balance, /portfolio, /history, /leaderboard) ---
+
+function discordUser(req, res) {
+  if (!SNOWFLAKE.test(String(req.params.discordId))) throw new svc.AppError('Ungültige Discord-ID', 422);
+  const user = svc.userByDiscord(req.params.discordId);
+  if (!user) {
+    res.status(404).json({ code: 'not_linked', message: 'Dein Discord-Konto ist noch nicht mit HugoPredict verknüpft. Nutze „Konto verknüpfen“ in #regeln.' });
+    return null;
+  }
+  return user;
+}
+const withSite = (marketId) => {
+  const site = (process.env.WEBSITE_URL || '').replace(/\/+$/, '');
+  return site ? `${site}/#/market/${marketId}` : null;
+};
+
+botApi.get('/users/discord/:discordId/balance', handle((req, res) => {
+  const user = discordUser(req, res);
+  return user && svc.discordAccount(user.id).balance;
+}));
+
+botApi.get('/users/discord/:discordId/portfolio', handle((req, res) => {
+  const user = discordUser(req, res);
+  if (!user) return null;
+  const acc = svc.discordAccount(user.id);
+  return { totalValue: acc.totalValue, positions: acc.positions.map((p) => ({ ...p, url: withSite(p.marketId) })) };
+}));
+
+botApi.get('/users/discord/:discordId/transactions', handle((req, res) => {
+  const user = discordUser(req, res);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 50);
+  return user && { transactions: svc.discordAccount(user.id, { limit }).transactions };
+}));
+
+// Die Website führt eine Rangliste nach Gewinn seit Beginn. Andere Arten gibt es (noch) nicht.
+botApi.get('/leaderboards/:type', handle((req) => {
+  if (req.params.type !== 'all-time') throw new svc.AppError('Diese Rangliste gibt es auf der Website noch nicht', 404);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 25);
+  return {
+    period: 'Seit Beginn',
+    generatedAt: new Date().toISOString(),
+    entries: svc.leaderboard().slice(0, limit).map((e, i) => ({
+      rank: i + 1, username: e.mcName ?? e.username, value: e.profit, detail: `Vermögen ${e.netWorth}`,
+    })),
+  };
 }));
 
 botApi.get('/minecraft/payouts', handle(() => ({ payouts: svc.approvedPayouts() })));
