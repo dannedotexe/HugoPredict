@@ -456,6 +456,30 @@ test('Teamnamen: höchste Teamrolle als Zusatz, Entfernen beim Rollenverlust, L�
   assert.equal(await svc.apply(owner), false, 'Eigentümer wird nicht umbenannt');
 });
 
+test('Namen: Teamrolle weg → Zusatz weg, Verifizierung weg → zurück zum Discord-Namen', async () => {
+  const { createStaffNamesService } = require('../src/services/staffNames');
+  const roles = (keys) => ({ cache: new Map(keys.map((k) => [k, {}])) });
+  const ctx = { hasRoleKey: (m, key) => m.roles.cache.has(key) };
+  const svc = createStaffNamesService({ ctx, logger: console });
+  const make = (nickname, keys) => {
+    const m = { id: '9', guild: { ownerId: '1' }, user: { username: 'steve99', globalName: 'SteveDC' }, nickname, manageable: true, roles: roles(keys) };
+    m.setNickname = async (n) => { m.nickname = n; };
+    return m;
+  };
+  // Supporter-Rolle entzogen
+  const a = make('Supporter | SteveMC', ['verified']);
+  await svc.onMemberUpdate({ roles: roles(['verified', 'support']) }, a);
+  assert.equal(a.nickname, 'SteveMC');
+  // Verifiziert entzogen → Server-Name entfernt (Discord-Name)
+  const b = make('SteveMC', []);
+  await svc.onMemberUpdate({ roles: roles(['verified']) }, b);
+  assert.equal(b.nickname, null);
+  // Verifiziert entzogen, aber noch Supporter → Zusatz mit Discord-Name
+  const c = make('Supporter | SteveMC', ['support']);
+  await svc.onMemberUpdate({ roles: roles(['verified', 'support']) }, c);
+  assert.equal(c.nickname, 'Supporter | SteveDC');
+});
+
 test('Öffentlicher Status: ohne Fehlerdetails, Website „Kommt bald“ solange nicht verbunden', async () => {
   const { createStatusService } = require('../src/services/status');
   const store = tmpStore();

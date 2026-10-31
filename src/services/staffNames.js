@@ -53,7 +53,30 @@ function createStaffNamesService({ ctx, logger }) {
   async function onMemberUpdate(oldMember, newMember) {
     const before = [...(oldMember.roles?.cache?.keys() ?? [])].sort().join();
     const after = [...newMember.roles.cache.keys()].sort().join();
-    if (before !== after) await apply(newMember);
+    if (before === after) return;
+    // Verifizierung entzogen: Minecraft-Name fällt weg, zurück zum Discord-Namen.
+    const lostVerified = oldMember.roles?.cache && ctx.hasRoleKey(oldMember, 'verified') && !ctx.hasRoleKey(newMember, 'verified');
+    if (lostVerified) {
+      await resetToDiscordName(newMember);
+      return;
+    }
+    await apply(newMember);
+  }
+
+  /** Server-Namen zurücksetzen (Discord-Name), bei Teamrolle mit Zusatz. */
+  async function resetToDiscordName(member) {
+    if (!member?.guild || member.user?.bot || member.id === member.guild.ownerId || member.manageable === false) return false;
+    const discordName = member.user?.globalName ?? member.user?.username ?? '';
+    const prefix = PREFIXES.find(([key]) => ctx.hasRoleKey(member, key))?.[1];
+    const wanted = prefix ? desiredNickname(member, ctx, discordName) : null; // null = Server-Name entfernen
+    if ((member.nickname ?? null) === wanted) return false;
+    try {
+      await member.setNickname(wanted, 'HugoPredict: Verifizierung entfernt');
+      return true;
+    } catch (err) {
+      logger.warn(`Name für ${member.user?.username}:`, err.message);
+      return false;
+    }
   }
 
   /** Alle Mitglieder abgleichen (z. B. bei /aktualisieren). Braucht den „Server Members Intent“. */
