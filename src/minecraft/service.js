@@ -528,7 +528,8 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
     persisted.save();
     connect();
     intervals.push(setInterval(() => flushOutbox(), 60_000));
-    intervals.push(setInterval(() => heartbeat(), 60_000));
+    // Alle 20 s: Nach einem Website-Neustart (z. B. Update) steht sie so höchstens kurz auf „offline“.
+    intervals.push(setInterval(() => heartbeat(), 20_000));
     intervals.push(setInterval(() => syncLinks(), 5 * 60_000));
     intervals.push(setInterval(() => payoutTick().catch((err) => logger.warn('Auszahlungen:', err.message)), config.payoutIntervalSeconds * 1000));
     for (const i of intervals) i.unref?.();
