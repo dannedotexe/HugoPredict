@@ -27,7 +27,7 @@ const { LinkCodes } = require('./linkCodes');
 const fill = (template, vars) => template.replace(/\{(\w+)\}/g, (all, k) => (vars[k] === undefined ? all : String(vars[k])));
 const plain = (v) => (typeof v === 'string' ? v : JSON.stringify(v ?? '')).slice(0, 300);
 
-function createMinecraftService({ config, api, logger, report, dataDir, createBot, chatDelayMs = 1100, settleMs = 1500, payoutCheckMs = 2500, reconnectMs = 15_000 }) {
+function createMinecraftService({ config, api, logger, report, dataDir, createBot, chatDelayMs = 1100, settleMs = 1500, payoutCheckMs = 2500, reconnectMs = 15_000, commandWaitMs = 2500 }) {
   const patterns = buildPatterns(config);
   const persisted = new Store(dataDir, { fileName: 'minecraft.json' });
   const db = (persisted.data.minecraft ??= { outbox: {}, payouts: {}, links: {}, lastBalance: null });
@@ -43,6 +43,8 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
   let settleTimer = null;
   let balanceWaiter = null;
   const recentSystem = [];
+  // Zeilen, die gerade für /panel mitgeschrieben werden (Antwort auf einen Befehl).
+  const captures = new Set();
   // Zeilen, die nach Kontostand/Geld aussehen – helfen beim Einstellen der Erkennung.
   // Spieler-Chat („Name: …“) wird ausgelassen, damit die Meldung nicht im Spam untergeht.
   const MONEY_HINT = /(kontostand|guthaben|balance|money|geld|münzen|coins|[$€⛃])/i;
@@ -303,7 +305,8 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
     const line = text.trim();
     if (!line) return;
     recentSystem.push(line.slice(0, 200));
-    if (recentSystem.length > 6) recentSystem.shift();
+    if (recentSystem.length > 15) recentSystem.shift();
+    for (const c of captures) if (c.length < 20) c.push(line.slice(0, 300));
     if (/\d/.test(line) && MONEY_HINT.test(line) && !PLAYER_CHAT.test(line)) {
       moneyLines.push(line.slice(0, 200));
       if (moneyLines.length > 8) moneyLines.shift();
@@ -534,9 +537,98 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
     }
   }
 
+
+  // --- Panel: Befehle von Hand -------------------------------------------
+
+  // Befehle, nach denen sich der Kontostand ändern kann – danach wird er neu gelesen,
+  // damit spätere Einzahlungen weiter richtig geprüft werden.
+  const MONEY_COMMAND = /^\/?(?:pay|money|eco|bal|balance|bank|withdraw|deposit|sell|buy|shop|ah|auction|trade)\b/i;
+
+  /**
+   * Führt einen Befehl über den Bot aus (nur /panel) und liefert die Serverantwort.
+   * Ergebnis: { lines, balance } oder { error }.
+   */
+  function runCommand(text, { waitMs = commandWaitMs } = {}) {
+    const cmd = String(text ?? '').replace(/[\r\n]+/g, ' ').trim();
+    if (!cmd) return Promise.resolve({ error: 'empty' });
+    if (cmd.length > 256) return Promise.resolve({ error: 'too_long' });
+    if (!state.online) return Promise.resolve({ error: 'offline_bot' });
+    return exclusive(async () => {
+      const moneyRelated = MONEY_COMMAND.test(cmd) && config.balanceCheck !== false;
+      // Offene Einzahlungen zuerst abschließen, sonst würde die eigene Zahlung sie verfälschen.
+      if (moneyRelated && claims.length) {
+        try {
+          settle(await readBalance());
+        } catch {
+          // dann eben ohne
+        }
+      }
+      const lines = [];
+      captures.add(lines);
+      try {
+        await command(cmd);
+        await sleep(waitMs);
+      } catch {
+        return { error: 'offline_bot' };
+      } finally {
+        captures.delete(lines);
+      }
+      let balance = db.lastBalance;
+      if (moneyRelated && /^\/?(?:bal|balance)\b/i.test(cmd)) {
+        // Antwort auf /balance gleich als Kontostand übernehmen
+        for (const line of lines) {
+          const g = matchFirst(patterns.balance, line);
+          const value = g && parseAmount(g.amount, { allowZero: true });
+          if (value !== null && value !== undefined && g) {
+            settle(value);
+            balance = value;
+            break;
+          }
+        }
+      } else if (moneyRelated) {
+        try {
+          const after = await readBalance();
+          if (claims.length) settle(after);
+          else setBalance(after);
+          balance = after;
+        } catch {
+          // Kontostand bleibt der letzte bekannte
+        }
+      }
+      return { lines, balance };
+    });
+  }
+
+  /** /pay über das Panel. Ergebnis wie runCommand, oder { error: 'bad_name'|'bad_amount' }. */
+  async function pay(name, amountText) {
+    if (!/^[A-Za-z0-9_]{3,16}$/.test(String(name))) return { error: 'bad_name' };
+    const amount = parseAmount(amountText);
+    if (amount === null || amount === undefined) return { error: 'bad_amount' };
+    const vars = { name, amount: commandAmount(amount) };
+    const res = await runCommand(fill(config.payCommand, vars));
+    if (res.error || !config.payConfirmCommand) return { ...res, amount };
+    const confirm = await runCommand(fill(config.payConfirmCommand, vars));
+    return { ...confirm, lines: [...res.lines, ...(confirm.lines ?? [])], amount };
+  }
+
+  const info = () => ({
+    online: state.online,
+    connecting: state.connecting,
+    since: state.since,
+    lastError: state.lastError,
+    username: bot?.username ?? null,
+    host: config.host,
+    balance: db.lastBalance,
+    players: bot?.players ? Object.keys(bot.players).length : null,
+    recent: [...recentSystem],
+  });
+
   return {
     enabled: true,
     state,
+    info,
+    runCommand,
+    pay,
     start,
     stop,
     sendLinkCode,

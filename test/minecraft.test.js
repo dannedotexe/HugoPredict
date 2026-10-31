@@ -123,7 +123,7 @@ function setup(overrides = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hm-mc-'));
   const mc = createMinecraftService({
     config: { ...config, ...overrides }, api, dataDir, createBot: world.createBot, report: (route, e) => reports.push({ route, ...e }),
-    logger: { info() {}, warn() {}, error() {} }, chatDelayMs: 0, settleMs: 5, payoutCheckMs: 5,
+    logger: { info() {}, warn() {}, error() {} }, chatDelayMs: 0, settleMs: 5, payoutCheckMs: 5, commandWaitMs: 20,
   });
   return { world, api, reports, mc, dataDir };
 }
@@ -255,4 +255,40 @@ test('HugoSMP-Format: „[HugoSMP] Dein Kontostand: …“ wird erkannt', () => 
     assert.equal(parseAmount(matchFirst(balance, line).amount, { allowZero: true }), want, line);
   }
   assert.equal(matchFirst(balance, '[HugoSMP] Mit /money log siehst du deine Transaktionen.'), null);
+});
+
+test('Panel: Befehl mit Serverantwort, /pay führt den Kontostand nach', async (t) => {
+  const { world, mc, reports } = setup();
+  t.after(() => mc.stop());
+  mc.start();
+  await until(() => mc.state.online && mc._internal.db.lastBalance === 1000);
+  const bot = world.bots[0];
+  const chat = bot.chat;
+  bot.chat = (text) => {
+    chat(text);
+    if (text === '/money log') setImmediate(() => bot.emit('messagestr', '[HugoSMP] Keine Transaktionen.', 'system'));
+  };
+
+  const log = await mc.runCommand('/money log');
+  assert.deepEqual(log.lines, ['[HugoSMP] Keine Transaktionen.']);
+  assert.equal((await mc.runCommand('  ')).error, 'empty');
+
+  assert.equal((await mc.pay('a b', '5')).error, 'bad_name');
+  assert.equal((await mc.pay('Steve', 'viel')).error, 'bad_amount');
+  const res = await mc.pay('Steve', '300');
+  assert.ok(world.sent.includes('/pay Steve 300'));
+  assert.equal(res.balance, 700);
+  assert.equal(mc._internal.db.lastBalance, 700, 'Kontostand nach der Zahlung neu gelesen');
+
+  // Danach wird eine echte Einzahlung weiter richtig erkannt
+  world.balance += 50;
+  bot.emit('messagestr', 'Steve hat dir 50 gezahlt.', 'system');
+  await until(() => mc._internal.db.lastBalance === 750);
+  assert.ok(!reports.some((r) => /gesunken|Unerklärt/.test(r.title)), 'keine Fehlalarme');
+
+  // /balance übernimmt den Kontostand direkt
+  world.balance = 900;
+  const bal = await mc.runCommand('/balance');
+  assert.equal(bal.balance, 900);
+  assert.equal(mc.info().online, true);
 });
