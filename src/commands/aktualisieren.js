@@ -1,5 +1,7 @@
 'use strict';
 
+const { backfillDefaultPings } = require('../interactions/verification');
+
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { NOTIFY_BOT_PERMISSION } = require('../config/serverLayout');
 const { embeds } = require('../lib/embeds');
@@ -35,6 +37,10 @@ module.exports = {
     const staffRenamed = deps.membersIntent && deps.services.staffNames
       ? await deps.services.staffNames.sweep(interaction.guild).catch((err) => { deps.logger.warn('Teamnamen:', err.message); return 0; })
       : null;
+    // Einmalig: bisherige Mitglieder bekommen alle Pings (wie neue beim Verifizieren)
+    const pingsGiven = deps.membersIntent
+      ? await backfillDefaultPings(interaction.guild, deps).catch((err) => { deps.logger.warn('Ping-Rollen:', err.message); return null; })
+      : null;
     // Neue Channels des Layouts anlegen (nur fehlende, Bestehendes bleibt unverändert).
     await interaction.guild.channels.fetch();
     // Channels mit neuem Typ ersetzen (z. B. #vorschläge wird ein Forum).
@@ -64,6 +70,7 @@ module.exports = {
     if (icons.set.length) e.addFields({ name: 'Rollen-Icons gesetzt', value: icons.set.join(', ').slice(0, 1024), inline: false });
     if (icons.warnings.length) e.addFields({ name: 'Hinweise (Rollen-Icons)', value: icons.warnings.join('\n').slice(0, 1024), inline: false });
     if (icons.unavailable) e.addFields({ name: 'Rollen-Icons', value: 'Rollen-Icons gibt es erst ab Server-Boost Stufe 2.', inline: false });
+    if (pingsGiven) e.addFields({ name: 'Pings', value: `${pingsGiven} Mitglied(er) haben einmalig alle Ping-Rollen bekommen.`, inline: false });
     if (botsTagged) e.addFields({ name: 'Bots', value: `${botsTagged} Bot(s) haben die Rolle „| Bots“ bekommen.`, inline: false });
     if (staffRenamed) e.addFields({ name: 'Teamnamen', value: `${staffRenamed} Name(n) an die Teamrolle angepasst (z. B. „Supporter | Name“).`, inline: false });
     if (staffRenamed === null) e.addFields({ name: 'Teamnamen', value: 'Für „Supporter | Name“ braucht der Bot den „Server Members Intent“ im Developer Portal.', inline: false });

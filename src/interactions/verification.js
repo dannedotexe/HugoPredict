@@ -11,6 +11,8 @@ const { CODE_LENGTH } = require('../minecraft/linkCodes');
 const { desiredNickname } = require('../services/staffNames');
 
 const MC_NAME = /^[A-Za-z0-9_]{3,16}$/;
+// Ping-Rollen, die jede Person standardmäßig bekommt
+const DEFAULT_PINGS = ['notifyMarkets', 'notifyNews'];
 
 function nameModal() {
   return new ModalBuilder().setCustomId('hm:verify:modal').setTitle('Konto verknüpfen').addComponents(
@@ -141,8 +143,8 @@ async function checkVerification(interaction, deps) {
 /** Vergibt Mitglied + Verifiziert und setzt den Minecraft-Namen. Ergebnis: { ok, nickNote }. */
 async function applyVerified(guild, member, minecraftName, deps) {
   const userId = member.id ?? member.user?.id;
-  // Nur Mitglied und Verifiziert – Benachrichtigungen wählt jede Person selbst in #pings.
-  const roleIds = ['member', 'verified'].map((k) => deps.ctx.roleId(guild.id, k)).filter(Boolean);
+  // Mitglied, Verifiziert und standardmäßig alle Pings (abwählbar in #pings).
+  const roleIds = ['member', 'verified', ...DEFAULT_PINGS].map((k) => deps.ctx.roleId(guild.id, k)).filter(Boolean);
   const toAdd = roleIds.filter((id) => !member.roles.cache.has(id));
   try {
     if (toAdd.length) await member.roles.add(toAdd, 'Konto verknüpft');
@@ -268,4 +270,32 @@ async function handle(interaction, deps, [action]) {
   }
 }
 
-module.exports = { prefix: 'verify', handle, startVerification, checkVerification, confirmMinecraftCode, completeFromGame, applyVerified, MC_NAME };
+/**
+ * Einmalig: allen bisherigen Mitgliedern die Ping-Rollen geben (danach nie wieder,
+ * damit niemand sie nach dem Abwählen zurückbekommt). Braucht den Members Intent.
+ */
+async function backfillDefaultPings(guild, deps) {
+  const g = deps.store.guild(guild.id);
+  if (g.defaultPingsApplied) return null;
+  const memberRole = deps.ctx.roleId(guild.id, 'member');
+  const pingIds = DEFAULT_PINGS.map((k) => deps.ctx.roleId(guild.id, k)).filter(Boolean);
+  if (!memberRole || !pingIds.length) return null;
+  const members = await guild.members.fetch();
+  let changed = 0;
+  for (const m of members.values()) {
+    if (m.user.bot || !m.roles.cache.has(memberRole)) continue;
+    const missing = pingIds.filter((id) => !m.roles.cache.has(id));
+    if (!missing.length) continue;
+    try {
+      await m.roles.add(missing, 'Standard: alle Pings (abwählbar in #pings)');
+      changed += 1;
+    } catch (err) {
+      deps.logger.warn('Ping-Rollen:', err.message);
+    }
+  }
+  g.defaultPingsApplied = true;
+  deps.store.save();
+  return changed;
+}
+
+module.exports = { prefix: 'verify', backfillDefaultPings, handle, startVerification, checkVerification, confirmMinecraftCode, completeFromGame, applyVerified, MC_NAME };

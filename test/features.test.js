@@ -75,7 +75,7 @@ test('Benachrichtigungs-Karte zieht nach #pings um; alte Nachricht wird entfernt
   assert.ok(channels.get('pings').msgs.has(g.panels.notify.messageId));
 });
 
-test('Kontoverknüpfung vergibt nur Mitglied und Verifiziert und setzt den Minecraft-Namen', async () => {
+test('Kontoverknüpfung vergibt Mitglied, Verifiziert und alle Pings und setzt den Minecraft-Namen', async () => {
   const { checkVerification } = require('../src/interactions/verification');
   const added = [];
   const interaction = {
@@ -90,7 +90,7 @@ test('Kontoverknüpfung vergibt nur Mitglied und Verifiziert und setzt den Minec
     ctx: { roleId: (g, k) => ids[k], audit: async () => {}, hasRoleKey: () => false }, logger: console,
   };
   await checkVerification(interaction, deps);
-  assert.deepEqual(added.sort(), ['M', 'V']);
+  assert.deepEqual(added.sort(), ['M', 'N1', 'N2', 'V']);
   assert.equal(interaction.member.nickname, 'Steve', 'Server-Name = Minecraft-Name');
 });
 
@@ -541,4 +541,18 @@ test('Konto verknüpfen zeigt /msg-Befehl, nach dem Flüstern Rollen und Name au
   assert.deepEqual(added.sort(), ['M', 'V']);
   assert.equal(member.nickname, 'Steve');
   assert.match(JSON.stringify(replies.at(-1).components.map((c) => c.toJSON())), /Konto verknüpft/);
+});
+
+test('Pings einmalig für bisherige Mitglieder, danach nie wieder', async () => {
+  const { backfillDefaultPings } = require('../src/interactions/verification');
+  const store = tmpStore();
+  const ids = { member: 'M', notifyMarkets: 'N1', notifyNews: 'N2' };
+  const added = [];
+  const mk = (id, roles, bot = false) => ({ user: { bot }, roles: { cache: new Collection(roles.map((r) => [r, {}])), add: async (r) => added.push([id, ...r]) } });
+  const members = new Collection([['a', mk('a', ['M'])], ['b', mk('b', ['M', 'N1'])], ['c', mk('c', [])], ['d', mk('d', ['M'], true)]]);
+  const guild = { id: 'G', members: { fetch: async () => members } };
+  const deps = { store, ctx: { roleId: (g, k) => ids[k] }, logger: console };
+  assert.equal(await backfillDefaultPings(guild, deps), 2);
+  assert.deepEqual(added, [['a', 'N1', 'N2'], ['b', 'N2']]);
+  assert.equal(await backfillDefaultPings(guild, deps), null, 'nur einmal');
 });
