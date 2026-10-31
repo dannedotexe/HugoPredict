@@ -40,122 +40,117 @@ const ERRORS = {
   bad_amount: 'Ungültiger Betrag. Beispiele: 500, 15k, 1,5k',
 };
 
-function statusLines(i) {
-  const conn = i.online
-    ? `${emojis.icon('resolved')}**Online** als **${i.username ?? '?'}** auf \`${i.host}\`${i.since ? ` · seit ${discordTime(new Date(i.since), 'R')}` : ''}`
-    : `${emojis.icon('warning')}**Offline**${i.connecting ? ' · verbindet …' : ''}${i.lastError ? `\n${i.lastError.slice(0, 200)}` : ''}`;
-  return [
-    conn,
-    `Kontostand: **${i.balance === null || i.balance === undefined ? 'unbekannt' : formatAmount(i.balance)}**`,
-    ...(i.online && i.players !== null ? [`Spieler online: **${i.players}**`] : []),
-    `Einzahlungen: ${i.balanceCheck ? 'mit Kontostand-Prüfung' : 'sofort gutgeschrieben (ohne Kontostand-Prüfung)'}`,
-  ].join('\n');
+const money = (v) => (v === null || v === undefined ? '—' : `$${formatAmount(v)}`);
+const PANEL = { ephemeral: true, logo: false }; // Panel-Nachrichten werden bearbeitet – ein Logo-Anhang ginge dabei verloren
+
+/** Kopfzeile: Verbindung in einer Zeile. */
+function eyebrow(i) {
+  if (!i) return `${emojis.icon('closed')}Ausgeschaltet`;
+  return i.online
+    ? `${emojis.icon('resolved')}Online als ${i.username ?? '?'} · ${i.host}${i.players !== null ? ` · ${i.players} Spieler` : ''}`
+    : `${emojis.icon('warning')}${i.connecting ? 'Verbindet …' : 'Offline'} · ${i.host}`;
 }
 
 /** Hauptansicht. result: { title, lines, error } vom letzten Befehl. */
 function mainView(minecraft, result = null) {
   if (!minecraft) {
     return card({
-      eyebrow: `${emojis.icon('lock')}Admin-Panel`,
+      eyebrow: eyebrow(null),
       title: 'Minecraft-Bot',
       icon: 'bot',
       intro: 'Der Minecraft-Bot ist ausgeschaltet (MC_ENABLED=false).',
       accent: theme.colors.warning,
-      ephemeral: true,
-    logo: false, // Panel-Nachrichten werden bearbeitet – ein Logo-Anhang ginge dabei verloren
+      ...PANEL,
     });
   }
   const i = minecraft.info();
-  const blocks = [{ heading: 'Status', icon: 'info', body: statusLines(i) }];
+  const blocks = [];
+  // Großer Kontostand als Mittelpunkt
+  blocks.push({
+    text: `-# Kontostand des Bots\n# ${money(i.balance)}\n-# Einzahlungen ${i.balanceCheck ? 'mit Kontostand-Prüfung' : 'werden sofort gutgeschrieben'}${i.since && i.online ? ` · verbunden ${discordTime(new Date(i.since), 'R')}` : ''}`,
+  });
+  if (!i.online && i.lastError) blocks.push({ heading: 'Verbindung', icon: 'warning', body: i.lastError.slice(0, 200) });
   if (result) {
+    const lines = serverLines(result.lines ?? []);
     blocks.push(result.error
       ? { heading: result.title, icon: 'warning', body: ERRORS[result.error] ?? result.error }
-      : { heading: result.title, icon: 'check', text: `${serverLines(result.lines).length ? codeBlock(serverLines(result.lines)) : '-# Keine Antwort vom Server.'}${result.received ? `\n-# Empfangen: ${result.received.raw} Servernachrichten` : ''}` });
+      : { heading: result.title, icon: 'check', text: lines.length ? codeBlock(lines) : '-# Keine Antwort vom Server.' });
   } else {
-    const st = i.stats ?? { raw: 0, parsed: 0 };
-    const shown = serverLines(i.recent);
-    blocks.push({
-      heading: 'Letzte Servernachrichten',
-      icon: 'announce',
-      text: `${shown.length ? codeBlock(shown.slice(-8), 1200) : '-# Noch keine.'}\n-# Seit dem Verbinden: ${st.raw} Servernachrichten empfangen`,
-    });
+    const shown = serverLines(i.recent).slice(-5);
+    if (shown.length) blocks.push({ heading: 'Zuletzt vom Server', icon: 'announce', text: codeBlock(shown, 900) });
   }
   const off = !i.online;
   return card({
-    eyebrow: `${emojis.icon('lock')}Admin-Panel`,
+    eyebrow: eyebrow(i),
     title: 'Minecraft-Bot',
     icon: 'bot',
-    intro: 'Befehle laufen über den Bot-Account im Spiel. Die Antwort des Servers erscheint hier.',
     accent: i.online ? theme.colors.success : theme.colors.warning,
     blocks,
-    actions: [new ActionRowBuilder().addComponents(
-      button('hm:panel:cmd', 'Befehl ausführen', ButtonStyle.Primary, 'platform', off),
-      button('hm:panel:pay', '/pay', ButtonStyle.Success, 'coin', off),
-      button('hm:panel:balance', 'Kontostand', ButtonStyle.Secondary, 'balance', off),
-      button('hm:panel:refresh', 'Aktualisieren', ButtonStyle.Secondary, 'check'),
-      button('hm:panel:settings', 'Einstellungen', ButtonStyle.Secondary, 'info'),
-    )],
-    footer: 'Nur für dich sichtbar',
-    ephemeral: true,
-    logo: false, // Panel-Nachrichten werden bearbeitet – ein Logo-Anhang ginge dabei verloren
+    actions: [
+      new ActionRowBuilder().addComponents(
+        button('hm:panel:pay', 'Bezahlen', ButtonStyle.Success, 'coin', off),
+        button('hm:panel:balance', 'Kontostand', ButtonStyle.Secondary, 'balance', off),
+        button('hm:panel:cmd', 'Befehl', ButtonStyle.Secondary, 'platform', off),
+      ),
+      new ActionRowBuilder().addComponents(
+        button('hm:panel:refresh', 'Aktualisieren', ButtonStyle.Secondary, 'check'),
+        button('hm:panel:settings', 'Einstellungen', ButtonStyle.Secondary, 'info'),
+      ),
+    ],
+    footer: null,
+    ...PANEL,
   });
 }
 
 function payConfirmView(name, amount) {
   return card({
-    eyebrow: `${emojis.icon('lock')}Admin-Panel`,
-    title: 'Zahlung bestätigen',
+    eyebrow: `${emojis.icon('warning')}Zahlung bestätigen`,
+    title: `${money(amount)} an ${name}`,
     icon: 'coin',
-    intro: `Der Bot zahlt **${formatAmount(amount)}** an **${name}**. Das kann nicht rückgängig gemacht werden.`,
+    intro: 'Der Bot zahlt diesen Betrag im Spiel aus. Das kann nicht rückgängig gemacht werden.',
     accent: theme.colors.warning,
     actions: [new ActionRowBuilder().addComponents(
       button('hm:panel:payok', 'Ja, zahlen', ButtonStyle.Success, 'coin'),
       button('hm:panel:refresh', 'Abbrechen', ButtonStyle.Secondary),
     )],
-    ephemeral: true,
-    logo: false, // Panel-Nachrichten werden bearbeitet – ein Logo-Anhang ginge dabei verloren
+    footer: null,
+    ...PANEL,
   });
 }
 
-const onOff = (v) => (v ? '**An**' : '**Aus**');
+const state = (on) => (on ? `${emojis.icon('resolved')}**An**` : `${emojis.icon('closed')}**Aus**`);
 
 /** Einstellungen des Minecraft-Bots (gelten sofort, bleiben nach Neustarts). notice: { ok, text } */
 function settingsView(minecraft, notice = null) {
   const st = minecraft.settings();
-  const blocks = [{
-    heading: 'Aktuell',
-    icon: 'info',
-    body: [
-      `Kontostand-Prüfung: ${onOff(st.balanceCheck)}`,
-      '-# An: Einzahlung zählt erst, wenn /balance den Anstieg zeigt. Aus: die Nachricht „Du hast … erhalten“ zählt sofort.',
-      `Auszahlungen: ${onOff(st.payoutsEnabled)} · Limit pro Auszahlung: **${st.payoutMax > 0 ? formatAmount(st.payoutMax) : 'keins'}**`,
-      '-# Führt von der Website freigegebene Auszahlungen per /pay aus. Braucht die Kontostand-Prüfung.',
-      `Join-Befehle: ${st.joinCommands.length ? st.joinCommands.map((c) => `\`${c.replace(/`/g, "'")}\``).join(' · ') : '**keine**'}`,
-      '-# Werden nach jedem Verbinden ausgeführt, z. B. /server smp. Gelten ab dem nächsten Verbinden.',
-    ].join('\n'),
-  }];
+  const blocks = [];
   if (notice) blocks.push({ heading: notice.ok ? 'Gespeichert' : 'Nicht gespeichert', icon: notice.ok ? 'check' : 'warning', body: notice.text });
+  blocks.push(
+    { heading: 'Einzahlungen', icon: 'coin', body: `Kontostand-Prüfung ${state(st.balanceCheck)}\n-# ${st.balanceCheck ? 'Eine Einzahlung zählt erst, wenn /balance den Anstieg zeigt.' : 'Die Nachricht „Du hast … erhalten“ zählt sofort.'}` },
+    { heading: 'Auszahlungen', icon: 'balance', body: `Automatisch ${state(st.payoutsEnabled)} · Limit **${st.payoutMax > 0 ? money(st.payoutMax) : 'keins'}**\n-# Führt freigegebene Auszahlungen der Website per /pay aus. Braucht die Kontostand-Prüfung.` },
+    { heading: 'Nach dem Verbinden', icon: 'platform', body: `${st.joinCommands.length ? st.joinCommands.map((c) => `\`${c.replace(/`/g, "'")}\``).join(' · ') : 'Keine Befehle'}\n-# Werden nach jedem Verbinden ausgeführt, z. B. /server smp. Bei HugoSMP nicht nötig.` },
+  );
   return card({
-    eyebrow: `${emojis.icon('lock')}Admin-Panel`,
+    eyebrow: `${emojis.icon('info')}Gilt sofort und bleibt nach Neustarts`,
     title: 'Einstellungen',
     icon: 'info',
-    intro: 'Änderungen gelten sofort und bleiben nach Neustarts erhalten.',
     blocks,
     actions: [
       new ActionRowBuilder().addComponents(
-        button('hm:panel:toggle:balanceCheck', `Kontostand-Prüfung ${st.balanceCheck ? 'aus' : 'an'}schalten`, ButtonStyle.Secondary),
-        button('hm:panel:toggle:payoutsEnabled', `Auszahlungen ${st.payoutsEnabled ? 'aus' : 'an'}schalten`, st.payoutsEnabled ? ButtonStyle.Danger : ButtonStyle.Secondary),
-        button('hm:panel:limit', 'Limit ändern', ButtonStyle.Secondary),
+        button('hm:panel:toggle:balanceCheck', `Prüfung ${st.balanceCheck ? 'aus' : 'an'}`, st.balanceCheck ? ButtonStyle.Secondary : ButtonStyle.Success),
+        button('hm:panel:toggle:payoutsEnabled', `Auszahlungen ${st.payoutsEnabled ? 'aus' : 'an'}`, st.payoutsEnabled ? ButtonStyle.Danger : ButtonStyle.Success),
+        button('hm:panel:limit', 'Limit', ButtonStyle.Secondary),
       ),
       new ActionRowBuilder().addComponents(
-        button('hm:panel:join', 'Join-Befehle', ButtonStyle.Secondary),
+        button('hm:panel:join', 'Befehle nach dem Verbinden', ButtonStyle.Secondary),
         button('hm:panel:reconnect', 'Neu verbinden', ButtonStyle.Secondary),
+      ),
+      new ActionRowBuilder().addComponents(
         button('hm:panel:refresh', 'Zurück', ButtonStyle.Primary),
       ),
     ],
-    footer: 'Nur für dich sichtbar',
-    ephemeral: true,
-    logo: false,
+    footer: null,
+    ...PANEL,
   });
 }
 
@@ -164,7 +159,7 @@ const input = (id, label, placeholder, max) => new ActionRowBuilder().addCompone
 );
 const commandModal = () => new ModalBuilder().setCustomId('hm:panel:cmdmodal').setTitle('Befehl ausführen')
   .addComponents(input('cmd', 'Befehl (mit /) oder Chat-Nachricht', '/money log', 256));
-const payModal = () => new ModalBuilder().setCustomId('hm:panel:paymodal').setTitle('/pay')
+const payModal = () => new ModalBuilder().setCustomId('hm:panel:paymodal').setTitle('Bezahlen')
   .addComponents(input('name', 'Minecraft-Name', 'Steve', 16), input('amount', 'Betrag', '15k', 20));
 
 const limitModal = () => new ModalBuilder().setCustomId('hm:panel:limitmodal').setTitle('Auszahlungs-Limit')
