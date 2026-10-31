@@ -58,7 +58,7 @@ function panelDefinitions() {
     {
       key: 'verify',
       channelKey: 'verify',
-      build: ({ channelIds = {} }) => card({
+      build: ({ env, channelIds = {} }) => card({
         icon: 'verified',
         title: 'Konto verknüpfen',
         intro: 'Verbinde dein Discord-Konto mit deinem Minecraft-Konto auf **HugoSMP**. Dauert keine Minute.',
@@ -83,6 +83,7 @@ function panelDefinitions() {
         footer: null,
         actions: [new ActionRowBuilder().addComponents(
           withEmoji(new ButtonBuilder().setCustomId('hm:verify:start').setStyle(ButtonStyle.Success).setLabel('Verknüpfen'), 'link'),
+          ...(env?.websiteUrl ? [withEmoji(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Zur Website').setURL(env.websiteUrl), 'external')] : []),
         )],
       }),
     },
@@ -99,7 +100,6 @@ function panelDefinitions() {
         const buttons = [
           withEmoji(new ButtonBuilder().setCustomId('hm:rules:accept').setStyle(ButtonStyle.Success).setLabel('Regeln akzeptieren'), 'check'),
         ];
-        if (env.websiteUrl) buttons.push(withEmoji(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Zur Website').setURL(env.websiteUrl), 'external'));
         return card({
           size: 'lg',
           icon: 'logo',
