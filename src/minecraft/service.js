@@ -405,7 +405,9 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
     });
 
     b.on('whisper', (name, message) => {
-      if (/^(?:login|anmelden)$/i.test(String(message).trim()) && name !== b.username) onLoginRequest(name);
+      // Nur echte Minecraft-Namen: der Name landet im /msg-Befehl.
+      if (!/^[A-Za-z0-9_]{3,16}$/.test(String(name)) || name === b.username) return;
+      if (/^(?:login|anmelden)$/i.test(String(message).trim())) onLoginRequest(name);
     });
 
     b.on('messagestr', (message, position) => {

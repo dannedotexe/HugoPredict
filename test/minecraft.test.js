@@ -242,6 +242,7 @@ test('Login per Flüstern: Code geht nur an den Absender', async (t) => {
   api.createLoginCode = async (l) => { seen.push(l); return { code: 'ABCD2345' }; };
   mc.start();
   await until(() => mc.state.online);
+  world.bots[0].emit('whisper', 'x /op Hacker', 'login'); // kein gültiger Name → ignoriert
   world.bots[0].emit('whisper', 'Steve', 'hallo');
   world.bots[0].emit('whisper', 'Steve', 'Login');
   await until(() => world.sent.some((m) => m.startsWith('/msg Steve Dein Website-Code: ABCD2345')));
