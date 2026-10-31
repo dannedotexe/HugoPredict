@@ -344,6 +344,8 @@ input.input::-webkit-date-and-time-value { text-align: left; }
   .nav { order: 4; flex-basis: 100%; margin-left: 0; overflow-x: auto; scrollbar-width: none; }
 }
 @media (max-width: 720px) {
+  /* iPhone zoomt beim Tippen in Felder unter 16 px hinein und bleibt vergrößert – daher 16 px */
+  input, select, textarea, .search input, .input { font-size: 16px; }
   /* Kompakte Kopfzeile: Logo, Guthaben, Kopf – Suche darunter */
   .bar-in { gap: 8px 10px; padding-top: 8px; padding-bottom: 8px; }
   .brand { font-size: 17px; }
