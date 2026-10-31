@@ -51,7 +51,6 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
   // Diagnose: rohe Systemnachrichten (vor mineflayer) vs. gelesene – zeigt, ob Nachrichten verloren gehen.
   const stats = { raw: 0, parsed: 0, lastRawAt: null, lastParsedAt: null };
   const rawRecent = [];
-  const rawCaptures = new Set();
   // Zeilen, die nach Kontostand/Geld aussehen – helfen beim Einstellen der Erkennung.
   // Spieler-Chat („Name: …“) wird ausgelassen, damit die Meldung nicht im Spam untergeht.
   const MONEY_HINT = /(kontostand|guthaben|balance|money|geld|münzen|coins|[$€⛃])/i;
@@ -430,22 +429,30 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
       if (/^(?:login|anmelden)$/i.test(String(message).trim())) onLoginRequest(name);
     });
 
-    // Rohe Pakete mitzählen und als Klartext merken (nur Anzeige im /panel, nie für Zahlungen).
-    b._client?.on?.('system_chat', (packet) => {
-      stats.raw++;
-      stats.lastRawAt = new Date();
-      const text = componentText(packet?.content).trim();
-      if (!text) return;
-      rawRecent.push(`${packet.isActionBar ? '(Actionbar) ' : ''}${text}`.slice(0, 300));
-      if (rawRecent.length > 15) rawRecent.shift();
-      for (const c of rawCaptures) if (c.length < 20) c.push(text.slice(0, 300));
-    });
+    // Systemnachrichten direkt aus dem Paket lesen: mineflayer verliert bei HugoSMP den Text
+    // nach dem Tag (aus „[HugoSMP] Dein Kontostand: …“ wird nur „[HugoSMP]“).
+    const rawSystem = typeof b._client?.on === 'function';
+    if (rawSystem) {
+      b._client.on('system_chat', (packet) => {
+        stats.raw++;
+        stats.lastRawAt = new Date();
+        const text = componentText(packet?.content).replace(/\s+/g, ' ').trim();
+        if (!text) return;
+        rawRecent.push(`${packet.isActionBar ? '(Actionbar) ' : ''}${text}`.slice(0, 300));
+        if (rawRecent.length > 15) rawRecent.shift();
+        if (packet.isActionBar) return;
+        for (const c of captures) if (c.length < 20) c.push(text.slice(0, 300));
+        onSystemMessage(text);
+      });
+    }
 
     b.on('messagestr', (message, position) => {
       if (position === 'system' || position === 'game_info') {
         stats.parsed++;
         stats.lastParsedAt = new Date();
       }
+      // Systemzeilen kommen schon aus dem Paket (siehe oben).
+      if (rawSystem && position === 'system') return;
       // Für /panel alles mitschreiben, auch Nicht-Systemzeilen (mit Kennzeichnung) – nur zur Anzeige.
       const shown = String(message).trim();
       if (shown && captures.size) {
@@ -593,9 +600,7 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
         }
       }
       const lines = [];
-      const raw = [];
       captures.add(lines);
-      rawCaptures.add(raw);
       const before = { ...stats };
       try {
         await command(cmd);
@@ -604,10 +609,7 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
         return { error: 'offline_bot' };
       } finally {
         captures.delete(lines);
-        rawCaptures.delete(raw);
       }
-      // Kam etwas an, das mineflayer nicht lesen konnte? Dann die Rohfassung zeigen.
-      if (!lines.length && raw.length) lines.push(...raw.map((l) => `(roh) ${l}`));
       const received = { raw: stats.raw - before.raw, parsed: stats.parsed - before.parsed };
       let balance = db.lastBalance;
       if (moneyRelated && /^\/?(?:bal|balance)\b/i.test(cmd)) {

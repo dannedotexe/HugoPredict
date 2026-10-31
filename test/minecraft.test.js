@@ -80,6 +80,7 @@ function fakeWorld() {
     bot.username = 'HugoPredict';
     bot.players = { Steve: { username: 'Steve', uuid: 'uuid-steve' } };
     bot.quit = () => bot.emit('end', 'quit');
+    if (world.withClient) bot._client = new EventEmitter();
     bot.chat = (text) => {
       world.sent.push(text);
       if (text === '/balance') setImmediate(() => bot.emit('messagestr', `Kontostand: ${world.balance.toLocaleString('de-DE')}$`, 'system'));
@@ -324,4 +325,25 @@ test('Panel-Einstellungen: geprüft, gespeichert, nach Neustart wirksam', async 
   assert.equal(again.settings().balanceCheck, false);
   again.start();
   await until(() => world.sent.includes('/server smp'));
+});
+
+test('Systemnachrichten aus dem Paket: voller Text, auch wenn mineflayer ihn kürzt', async (t) => {
+  const { world, api, mc } = setup({ balanceCheck: false });
+  t.after(() => mc.stop());
+  world.withClient = true;
+  mc.start();
+  await until(() => mc.state.online);
+  const bot = world.bots[0];
+  const content = JSON.stringify({ text: '', extra: [{ text: '[HugoSMP] ', color: 'red' }, { text: 'Du hast ' }, { text: '$1.000', color: 'gold' }, { text: ' von Reschoo erhalten.' }] });
+  // mineflayer liefert bei HugoSMP nur den Tag – darf nicht zählen
+  bot.emit('messagestr', '[HugoSMP]', 'system');
+  bot._client.emit('system_chat', { content, isActionBar: false });
+  await until(() => api.calls.deposits.length === 1);
+  assert.equal(api.calls.deposits[0].amount, 1000);
+  assert.equal(api.calls.deposits[0].minecraftName, 'Reschoo');
+  // Actionbar wird nie ausgewertet
+  bot._client.emit('system_chat', { content: JSON.stringify({ text: '[HugoSMP] Du hast $5 von Steve erhalten.' }), isActionBar: true });
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(api.calls.deposits.length, 1);
+  assert.equal(mc.info().stats.raw, 2);
 });
