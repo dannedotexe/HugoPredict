@@ -288,6 +288,10 @@ textarea.input { resize: vertical; min-height: 84px; }
 .bot-status::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 8px; background: var(--faint); vertical-align: 1px; }
 .bot-status.on::before { background: var(--yes); }
 
+/* ---------- Nav icons (bottom bar on phones) ---------- */
+.nav svg { display: none; width: 22px; height: 22px; }
+.show-sm { display: none; }
+
 /* ---------- Hover only where a pointer can really hover ---------- */
 @media (hover: hover) and (pointer: fine) {
   .card:hover { background: #263647; }
@@ -307,6 +311,38 @@ textarea.input { resize: vertical; min-height: 84px; }
   .nav { order: 4; flex-basis: 100%; margin-left: 0; overflow-x: auto; scrollbar-width: none; }
 }
 @media (max-width: 720px) {
+  /* Kompakte Kopfzeile: Logo, Guthaben, Kopf – Suche darunter */
+  .bar-in { gap: 8px 10px; padding-top: 8px; padding-bottom: 8px; }
+  .brand { font-size: 17px; }
+  .brand img { width: 34px; height: 34px; }
+  .purse small, #logout { display: none; }
+  .show-sm { display: inline-flex; }
+  /* Navigation als Leiste unten, wie in einer App */
+  .nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; order: 0; flex-basis: auto; margin: 0; gap: 0;
+    display: flex; justify-content: space-around; overflow: visible;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); background: rgba(22, 32, 43, 0.96); border-top: 1px solid var(--line);
+    backdrop-filter: blur(10px);
+  }
+  .nav a { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px; font-size: 11px; border-radius: 10px; }
+  .nav a.active { color: var(--blue); }
+  .nav svg { display: block; }
+  body { padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
+  .toasts { bottom: calc(80px + env(safe-area-inset-bottom)); }
+  /* Prognose: Bieten direkt unter Chart und Kursen, Trades danach */
+  .market { display: flex; flex-direction: column; align-items: stretch; gap: 16px; }
+  .market > .stack:first-child { display: contents; }
+  .market .detail { order: 1; }
+  .market .side { order: 2; }
+  .market > .stack:first-child > .panel { order: 3; }
+  /* Tabellen als Karten */
+  .hide-sm { display: none; }
+  .table.stackable thead { display: none; }
+  .table.stackable tr { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+  .table.stackable tr:first-child { border-top: 0; }
+  .table.stackable td { border: 0; padding: 0; text-align: left; }
+  .table.stackable td.title { grid-column: 1 / -1; font-weight: 600; margin-bottom: 4px; }
+  .table.stackable td[data-label]::before { content: attr(data-label); display: block; font-size: 12px; color: var(--faint); }
   .split-2, .row-gap { grid-template-columns: minmax(0, 1fr); }
   .panel { padding: 16px; }
   .chart text { font-size: 26px; }

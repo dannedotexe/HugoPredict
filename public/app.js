@@ -132,7 +132,7 @@ function needLogin(what) {
 const yesLike = (m, o) => !isBinary(m) || o.id === m.outcomes[0].id;
 
 function chart(m) {
-  const W = 720, H = 260, P = { l: 0, r: 44, t: 12, b: 26 };
+  const W = 720, H = 280, P = { l: 0, r: 92, t: 30, b: 56 };
   const h = m.history;
   const series = isBinary(m) ? [0] : m.outcomes.map((_, i) => i);
   const t0 = h[0].t, t1 = Math.max(h.at(-1).t, t0 + 1);
@@ -285,8 +285,9 @@ async function viewMarket(id, query) {
 
         <section class="panel"><h2>Letzte Trades</h2>
           ${m.recent.length ? `<div class="feed">${m.recent.map((t) => `
-            <div class="feed-row">${head(t.username, 'sm')}<span><b>${esc(t.username)}</b> ${t.side === 'buy' ? 'kaufte' : 'verkaufte'}
-              ${fmt(t.shares)} <b>${esc(byId[t.outcome_id]?.label)}</b> für ${money(t.amount)}</span>
+            <div class="feed-row">${head(t.username, 'sm')}<span><b>${esc(t.username)}</b> ${t.side === 'buy'
+                ? `bot <b>${money(t.amount)}</b> auf <b>${esc(byId[t.outcome_id]?.label)}</b>`
+                : `verkaufte <b>${esc(byId[t.outcome_id]?.label)}</b> für <b>${money(t.amount)}</b>`}</span>
               <span class="when">${ago(t.created_at)}</span></div>`).join('')}</div>`
             : '<p class="muted">Noch hat niemand gehandelt. Der erste Trade bewegt den Preis am stärksten.</p>'}
         </section>
@@ -403,7 +404,8 @@ async function viewMarket(id, query) {
 
 async function viewPortfolio() {
   if (needLogin('Im Portfolio siehst du deine Anteile und jede Buchung.')) return;
-  const { positions, ledger } = await api('/portfolio');
+  const [{ positions, ledger }, { markets }] = await Promise.all([api('/portfolio'), api('/markets?category=all&status=all')]);
+  const titles = Object.fromEntries(markets.map((m) => [String(m.id), m.title]));
   const value = positions.reduce((a, p) => a + p.value, 0);
   const spent = positions.reduce((a, p) => a + p.spent, 0);
   const diff = value - spent;
@@ -416,17 +418,18 @@ async function viewPortfolio() {
         <p class="balance" style="color:var(--text)">${money(state.me.balance)}</p><a href="#/wallet">Ein- und auszahlen</a></section>
     </div>
     <section class="panel" style="margin-bottom:20px"><h2>Anteile</h2>
-      ${positions.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Markt</th><th>Ausgang</th><th class="r">Anteile</th><th class="r">Preis</th><th class="r">Wert</th><th class="r">Gewinn/Verlust</th></tr></thead><tbody>
-        ${positions.map((p) => `<tr><td><a href="#/market/${p.market_id}">${esc(p.title)}</a></td>
-          <td><b style="color:${p.color}">${esc(p.label)}</b></td><td class="r">${fmt(p.shares)}</td>
-          <td class="r">${cents(p.price)}</td><td class="r">${money(p.value)}</td>
-          <td class="r ${p.value - p.spent >= 0 ? 'ja' : 'nein'}">${p.value - p.spent >= 0 ? '+' : ''}${fmt(p.value - p.spent)}</td></tr>`).join('')}
+      ${positions.length ? `<div class="table-wrap"><table class="table stackable"><thead><tr><th>Markt</th><th>Ausgang</th><th class="r">Anteile</th><th class="r">Chance</th><th class="r">Wert</th><th class="r">Gewinn/Verlust</th></tr></thead><tbody>
+        ${positions.map((p) => `<tr><td class="title"><a href="#/market/${p.market_id}">${esc(p.title)}</a></td>
+          <td data-label="Ausgang"><b style="color:${p.color}">${esc(p.label)}</b></td><td class="r" data-label="Anteile">${fmt(p.shares)}</td>
+          <td class="r" data-label="Chance">${pct(p.price)}</td><td class="r" data-label="Wert">${money(p.value)}</td>
+          <td class="r ${p.value - p.spent >= 0 ? 'ja' : 'nein'}" data-label="Gewinn/Verlust">${p.value - p.spent >= 0 ? '+' : ''}${money(p.value - p.spent)}</td></tr>`).join('')}
       </tbody></table></div>` : '<div class="empty"><p>Du hast noch keine Anteile.</p><a class="btn btn-ja" href="#/">Markt aussuchen</a></div>'}
     </section>
     <section class="panel"><h2>Buchungen</h2>
       ${ledger.length ? `<div class="table-wrap"><table class="table"><tbody>${ledger.map((l) => `
-        <tr><td>${LEDGER[l.type] || esc(l.type)}</td><td class="muted">${l.ref?.startsWith('m#') ? `<a href="#/market/${l.ref.slice(2)}">Markt ${l.ref.slice(2)}</a>` : esc(l.ref || '')}</td>
-        <td class="muted">${ago(l.created_at)}</td><td class="r ${l.amount >= 0 ? 'ja' : 'nein'}">${l.amount >= 0 ? '+' : ''}${money(l.amount)}</td></tr>`).join('')}
+        <tr><td><b>${LEDGER[l.type] || esc(l.type)}</b>${l.ref?.startsWith('m#') ? `<br><a class="muted" href="#/market/${l.ref.slice(2)}">${esc(titles[l.ref.slice(2)] || `Markt ${l.ref.slice(2)}`)}</a>` : ''}
+          <br><small class="muted">${ago(l.created_at)}</small></td>
+        <td class="r ${l.amount >= 0 ? 'ja' : 'nein'}" style="white-space:nowrap"><b>${l.amount >= 0 ? '+' : ''}${money(l.amount)}</b></td></tr>`).join('')}
       </tbody></table></div>` : '<p class="muted">Noch keine Buchungen. Deine erste Einzahlung erscheint hier.</p>'}
     </section>`;
 }
@@ -447,7 +450,8 @@ async function viewWallet() {
       <div class="stack">
         <section class="panel"><h2 class="muted" style="font-size:16px;font-family:var(--body);font-weight:500">Guthaben</h2>
           <p class="balance">${money(me.balance)}</p>
-          <p class="muted">${me.mcName ? `Verknüpft mit <b style="color:var(--text)">${esc(me.mcName)}</b>` : 'Noch kein Minecraft-Account verknüpft'}</p></section>
+          <p class="muted">${me.mcName ? `Verknüpft mit <b style="color:var(--text)">${esc(me.mcName)}</b>` : 'Noch kein Minecraft-Account verknüpft'}</p>
+          <button class="btn btn-quiet btn-sm show-sm" type="button" id="logout-wallet" style="margin-top:8px;padding-left:0">Abmelden</button></section>
         ${me.mcName ? `
         <section class="panel"><h2>Einzahlen</h2>
           <p class="muted">Schick dem Bot auf Hugo SMP Geld. Er schreibt es dir gut, sobald er die Zahlung sieht.</p>
@@ -479,6 +483,7 @@ async function viewWallet() {
     await navigator.clipboard.writeText(b.dataset.copy);
     toast('Kopiert. Füg es im Minecraft-Chat ein.');
   });
+  document.getElementById('logout-wallet')?.addEventListener('click', () => document.getElementById('logout')?.click());
   document.getElementById('wd-all')?.addEventListener('click', () => { document.getElementById('wd').value = Math.floor(me.balance); });
   document.getElementById('wd-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -509,11 +514,11 @@ async function viewLeaderboard() {
   app.innerHTML = `
     <div class="page-title"><div><h1>Rangliste</h1><p>Wer auf Hugo SMP am besten vorhersagt, sortiert nach Gewinn</p></div></div>
     <section class="panel">${leaders.length ? `<div class="table-wrap"><table class="table">
-      <thead><tr><th>Platz</th><th>Spieler</th><th class="r">Gewinn</th><th class="r">Vermögen</th></tr></thead><tbody>
+      <thead><tr><th>Platz</th><th>Spieler</th><th class="r">Gewinn</th><th class="r hide-sm">Vermögen</th></tr></thead><tbody>
       ${leaders.map((l, i) => `<tr><td class="rank ${i < 3 ? `r${i + 1}` : ''}">${i + 1}</td>
         <td><div class="who">${head(l.mcName || l.username)}<b>${esc(l.mcName || l.username)}</b></div></td>
         <td class="r ${l.profit >= 0 ? 'ja' : 'nein'}">${l.profit >= 0 ? '+' : ''}${money(l.profit)}</td>
-        <td class="r">${money(l.netWorth)}</td></tr>`).join('')}
+        <td class="r hide-sm">${money(l.netWorth)}</td></tr>`).join('')}
       </tbody></table></div>` : '<div class="empty"><p>Noch niemand auf der Rangliste. Der erste Gewinn bringt dich auf Platz 1.</p><a class="btn btn-ja" href="#/">Markt aussuchen</a></div>'}</section>`;
 }
 
@@ -576,13 +581,13 @@ async function viewAdmin() {
     </div>
     <div class="split-2" style="margin-top:20px">
       <section class="panel"><h2>Auszahlungen</h2><div class="table-wrap"><table class="table"><tbody>
-        ${ov.withdrawals.map((w) => `<tr><td>${esc(w.username)} an ${esc(w.mc_name)}</td><td>${money(w.amount)}</td>
+        ${ov.withdrawals.map((w) => `<tr><td><b>${esc(w.mc_name)}</b>${w.username && w.username !== w.mc_name ? `<br><small class="muted">${esc(w.username)}</small>` : ''}</td><td style="white-space:nowrap">${money(w.amount)}</td>
           <td><span class="tag ${w.status === 'done' ? 'live' : w.status === 'failed' ? 'bad' : 'warn'}">${WITHDRAW_STATUS[w.status] || esc(w.status)}</span></td><td class="muted">${ago(w.created_at)}</td>
           <td class="r">${w.status === 'pending' && state.status?.payoutsNeedApproval ? `<button class="btn btn-sm btn-ja" type="button" data-approve="${w.id}">Freigeben</button>` : ''}</td></tr>`).join('') || '<tr><td class="muted">Noch keine Auszahlungen</td></tr>'}
       </tbody></table></div></section>
       <section class="panel"><h2>Einzahlungen</h2><div class="table-wrap"><table class="table"><tbody>
-        ${ov.deposits.map((d) => `<tr><td>${esc(d.mc_name)}</td><td class="ja">+${money(d.amount)}</td>
-          <td>${d.username ? esc(d.username) : '<span class="tag warn">nicht verknüpft</span>'}</td><td class="muted">${ago(d.created_at)}</td></tr>`).join('') || '<tr><td class="muted">Noch keine Einzahlungen</td></tr>'}
+        ${ov.deposits.map((d) => `<tr><td><b>${esc(d.mc_name)}</b><br>${d.username ? (d.username !== d.mc_name ? `<small class="muted">${esc(d.username)}</small>` : '') : '<span class="tag warn">nicht verknüpft</span>'}</td>
+          <td class="ja r" style="white-space:nowrap">+${money(d.amount)}<br><small class="muted">${ago(d.created_at)}</small></td></tr>`).join('') || '<tr><td class="muted">Noch keine Einzahlungen</td></tr>'}
       </tbody></table></div></section>
     </div>`;
 
