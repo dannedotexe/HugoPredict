@@ -213,9 +213,9 @@ function panelDefinitions() {
         ],
         footer: null,
         actions: [new ActionRowBuilder().addComponents(
-          withEmoji(new ButtonBuilder().setCustomId('hm:panel:pay').setStyle(ButtonStyle.Success).setLabel('Bezahlen'), 'coin'),
-          withEmoji(new ButtonBuilder().setCustomId('hm:panel:balance').setStyle(ButtonStyle.Secondary).setLabel('Kontostand'), 'balance'),
-          withEmoji(new ButtonBuilder().setCustomId('hm:panel:cmd').setStyle(ButtonStyle.Secondary).setLabel('Befehl'), 'platform'),
+          withEmoji(new ButtonBuilder().setCustomId('hm:panel:pay').setStyle(ButtonStyle.Primary).setLabel('Bezahlen'), 'coin'),
+          withEmoji(new ButtonBuilder().setCustomId('hm:panel:balance').setStyle(ButtonStyle.Primary).setLabel('Kontostand'), 'balance'),
+          withEmoji(new ButtonBuilder().setCustomId('hm:panel:cmd').setStyle(ButtonStyle.Primary).setLabel('Befehl'), 'platform'),
           withEmoji(new ButtonBuilder().setCustomId('hm:panel:refresh').setStyle(ButtonStyle.Primary).setLabel('Übersicht'), 'info'),
         )],
       }),

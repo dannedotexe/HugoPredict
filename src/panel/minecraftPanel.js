@@ -12,7 +12,8 @@ const theme = require('../config/theme');
  * (z. B. /pay, /balance). Nur für die Discord-IDs aus PANEL_ADMIN_IDS.
  */
 
-const button = (id, label, style = ButtonStyle.Secondary, icon = null, disabled = false) => {
+// Einheitlich: alle Panel-Knöpfe blau, nur die Zahlungsbestätigung grün/rot.
+const button = (id, label, style = ButtonStyle.Primary, icon = null, disabled = false) => {
   const b = new ButtonBuilder().setCustomId(id).setLabel(label).setStyle(style).setDisabled(disabled);
   return icon ? withEmoji(b, icon) : b;
 };
@@ -88,13 +89,13 @@ function mainView(minecraft, result = null) {
     blocks,
     actions: [
       new ActionRowBuilder().addComponents(
-        button('hm:panel:pay', 'Bezahlen', ButtonStyle.Success, 'coin', off),
-        button('hm:panel:balance', 'Kontostand', ButtonStyle.Secondary, 'balance', off),
-        button('hm:panel:cmd', 'Befehl', ButtonStyle.Secondary, 'platform', off),
+        button('hm:panel:pay', 'Bezahlen', ButtonStyle.Primary, 'coin', off),
+        button('hm:panel:balance', 'Kontostand', ButtonStyle.Primary, 'balance', off),
+        button('hm:panel:cmd', 'Befehl', ButtonStyle.Primary, 'platform', off),
       ),
       new ActionRowBuilder().addComponents(
-        button('hm:panel:refresh', 'Aktualisieren', ButtonStyle.Secondary, 'check'),
-        button('hm:panel:settings', 'Einstellungen', ButtonStyle.Secondary, 'info'),
+        button('hm:panel:refresh', 'Aktualisieren', ButtonStyle.Primary, 'check'),
+        button('hm:panel:settings', 'Einstellungen', ButtonStyle.Primary, 'info'),
       ),
     ],
     footer: null,
@@ -111,7 +112,7 @@ function payConfirmView(name, amount) {
     accent: theme.colors.warning,
     actions: [new ActionRowBuilder().addComponents(
       button('hm:panel:payok', 'Ja, zahlen', ButtonStyle.Success, 'coin'),
-      button('hm:panel:refresh', 'Abbrechen', ButtonStyle.Secondary),
+      button('hm:panel:refresh', 'Abbrechen', ButtonStyle.Danger),
     )],
     footer: null,
     ...PANEL,
@@ -137,13 +138,13 @@ function settingsView(minecraft, notice = null) {
     blocks,
     actions: [
       new ActionRowBuilder().addComponents(
-        button('hm:panel:toggle:balanceCheck', `Prüfung ${st.balanceCheck ? 'aus' : 'an'}`, st.balanceCheck ? ButtonStyle.Secondary : ButtonStyle.Success),
-        button('hm:panel:toggle:payoutsEnabled', `Auszahlungen ${st.payoutsEnabled ? 'aus' : 'an'}`, st.payoutsEnabled ? ButtonStyle.Danger : ButtonStyle.Success),
-        button('hm:panel:limit', 'Limit', ButtonStyle.Secondary),
+        button('hm:panel:toggle:balanceCheck', `Prüfung ${st.balanceCheck ? 'aus' : 'an'}`, ButtonStyle.Primary),
+        button('hm:panel:toggle:payoutsEnabled', `Auszahlungen ${st.payoutsEnabled ? 'aus' : 'an'}`, ButtonStyle.Primary),
+        button('hm:panel:limit', 'Limit', ButtonStyle.Primary),
       ),
       new ActionRowBuilder().addComponents(
-        button('hm:panel:join', 'Befehle nach dem Verbinden', ButtonStyle.Secondary),
-        button('hm:panel:reconnect', 'Neu verbinden', ButtonStyle.Secondary),
+        button('hm:panel:join', 'Befehle nach dem Verbinden', ButtonStyle.Primary),
+        button('hm:panel:reconnect', 'Neu verbinden', ButtonStyle.Primary),
       ),
       new ActionRowBuilder().addComponents(
         button('hm:panel:refresh', 'Zurück', ButtonStyle.Primary),
