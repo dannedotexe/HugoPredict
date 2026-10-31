@@ -24,6 +24,14 @@ function codeBlock(lines, max = 1800) {
   return `\`\`\`\n${text}\n\`\`\``;
 }
 
+// Nur Antworten des Servers („[HugoSMP] …“) zeigen, nicht Broadcasts und Chat anderer Spieler.
+// Kam keine solche Zeile, wird alles gezeigt – dann sieht man trotzdem, was ankam.
+const SERVER_TAG = /^\[HugoSMP\]/i;
+function serverLines(lines) {
+  const own = lines.filter((l) => SERVER_TAG.test(l));
+  return own.length ? own : lines;
+}
+
 const ERRORS = {
   offline_bot: 'Der Minecraft-Bot ist gerade nicht verbunden.',
   empty: 'Bitte einen Befehl eingeben.',
@@ -62,10 +70,10 @@ function mainView(minecraft, result = null) {
   if (result) {
     blocks.push(result.error
       ? { heading: result.title, icon: 'warning', body: ERRORS[result.error] ?? result.error }
-      : { heading: result.title, icon: 'check', text: `${result.lines.length ? codeBlock(result.lines) : '-# Keine Antwort vom Server.'}${result.received ? `\n-# Empfangen: ${result.received.raw} Servernachrichten` : ''}` });
+      : { heading: result.title, icon: 'check', text: `${serverLines(result.lines).length ? codeBlock(serverLines(result.lines)) : '-# Keine Antwort vom Server.'}${result.received ? `\n-# Empfangen: ${result.received.raw} Servernachrichten` : ''}` });
   } else {
     const st = i.stats ?? { raw: 0, parsed: 0 };
-    const shown = i.recent;
+    const shown = serverLines(i.recent);
     blocks.push({
       heading: 'Letzte Servernachrichten',
       icon: 'announce',

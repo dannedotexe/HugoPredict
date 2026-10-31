@@ -100,3 +100,10 @@ test('Panel: Einstellungen umschalten und Join-Befehle setzen', async () => {
   await panelInteraction.handle(interaction('42'), d, ['toggle', 'payoutsEnabled']);
   assert.ok(!mc.calls.some((c) => c.startsWith('set payoutsEnabled')), 'Fremde dürfen nichts ändern');
 });
+
+test('Panel zeigt nur Serverantworten, keine Broadcasts', () => {
+  const view = mainView(fakeMc(), { title: 'Ausgeführt: /balance', lines: ['Nidoyu sucht einen 1vs1-RTP-Gegner', '[HugoSMP] Dein Kontostand: $101.000', '5trq: hallo'] });
+  const s = json(view);
+  assert.match(s, /Dein Kontostand/);
+  assert.doesNotMatch(s, /RTP-Gegner|hallo/);
+});
