@@ -102,9 +102,18 @@ test('markets use the shape the bot expects', async () => {
   const [m] = (await call('GET', '/markets?status=open&limit=5')).body.markets;
   assert.equal(m.id, String(id));
   assert.equal(m.yesPrice, 0.5);
+  assert.deepEqual(m.outcomes, [{ label: 'Ja', price: 0.5 }, { label: 'Nein', price: 0.5 }]);
+  assert.equal(m.category, 'Clan Fights');
+  // Andere Ausgänge als Ja/Nein kommen mit Namen an
+  const other = svc.createMarket({ title: 'Wie schwer?', category: 'irl', outcomes: ['über 100kg', 'unter 100kg'] });
+  const o = (await call('GET', '/markets?status=open&limit=5')).body.markets.find((x) => x.id === String(other.id));
+  assert.equal(o.yesPrice, null);
+  assert.deepEqual(o.outcomes.map((x) => x.label), ['über 100kg', 'unter 100kg']);
+  assert.equal(o.category, 'Echte Welt');
+  svc.cancelMarket(other.id);
   assert.deepEqual((await call('GET', '/markets?status=resolved')).body.markets, []);
   svc.cancelMarket(id);
-  assert.equal((await call('GET', '/markets?status=rejected')).body.markets[0].id, String(id));
+  assert.ok((await call('GET', '/markets?status=rejected')).body.markets.some((x) => x.id === String(id)));
   assert.equal((await call('GET', '/markets?status=x')).status, 422);
 });
 

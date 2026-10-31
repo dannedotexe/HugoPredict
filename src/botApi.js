@@ -40,6 +40,8 @@ function mcName(value) {
   return String(value);
 }
 
+const CATEGORY_LABELS = { clan: 'Clan Fights', meta: 'Meta', server: 'Server', irl: 'Echte Welt' };
+
 function marketForBot(m) {
   const [a, b] = m.outcomes;
   const binary = m.outcomes.length === 2 && /^ja$/i.test(a.label) && /^nein$/i.test(b.label);
@@ -50,6 +52,10 @@ function marketForBot(m) {
     description: m.description,
     yesPrice: binary ? a.price : null,
     noPrice: binary ? b.price : null,
+    // Alle Ausgänge mit Kurs (auch bei Nicht-Ja/Nein-Märkten), dazu Kategorie und Emoji für Discord.
+    outcomes: m.outcomes.map((o) => ({ label: o.label, price: o.price })),
+    category: CATEGORY_LABELS[m.category] ?? m.category,
+    emoji: m.emoji,
     volume: m.volume,
     status: m.status === 'cancelled' ? 'rejected' : m.status,
     outcome: m.outcomes.find((o) => o.id === m.resolvedOutcomeId)?.label ?? null,
