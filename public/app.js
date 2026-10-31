@@ -123,7 +123,7 @@ function renderHeader() {
   const bs = document.getElementById('bot-status');
   bs.classList.toggle('on', !!state.status?.botOnline);
   bs.textContent = state.status?.botOnline
-    ? `Bot ${state.status.botName} ist auf Hugo SMP online`
+    ? `Bot ${state.status.botName} ist auf HugoSMP online`
     : 'Bot offline: Auszahlungen warten, bis er zurück ist';
 }
 
@@ -507,7 +507,7 @@ async function viewWallet() {
   const wStatus = { pending: [s.payoutsNeedApproval ? 'Wartet auf Freigabe' : 'Wartet', 'warn'], approved: [s.payoutsNeedApproval ? 'Freigegeben' : 'Wird gleich ausgezahlt', 'warn'], processing: ['Wird ausgezahlt', 'warn'], uncertain: ['Wird vom Team geprüft', 'warn'], done: ['Ausgezahlt', 'live'], failed: ['Fehlgeschlagen, zurückgebucht', 'bad'], cancelled: ['Storniert', ''] };
 
   app.innerHTML = `
-    <div class="page-title"><div><h1>Wallet</h1><p>Ein- und Auszahlungen laufen über den Bot <b translate="no">${esc(s.botName)}</b> auf Hugo SMP</p></div>
+    <div class="page-title"><div><h1>Wallet</h1><p>Ein- und Auszahlungen laufen über den Bot <b translate="no">${esc(s.botName)}</b> auf HugoSMP</p></div>
       <span class="tag ${s.botOnline ? 'live' : 'bad'}">${s.botOnline ? 'Bot online' : 'Bot offline'}</span></div>
     <div class="split-2">
       <div class="stack">
@@ -517,7 +517,7 @@ async function viewWallet() {
           <button class="btn btn-quiet btn-sm show-sm" type="button" id="logout-wallet" style="margin-top:8px;padding-left:0">Abmelden</button></section>
         ${me.mcName ? `
         <section class="panel"><h2>Einzahlen</h2>
-          <p class="muted">Schick dem Bot auf Hugo SMP Geld. Er schreibt es dir gut, sobald er die Zahlung sieht.</p>
+          <p class="muted">Schick dem Bot auf HugoSMP Geld. Er schreibt es dir gut, sobald er die Zahlung sieht.</p>
           <div class="cmd"><code translate="no">${esc(s.payCommand)}</code>
             <button class="btn btn-sm" type="button" data-copy="${esc(s.payCommand.replace(' <Betrag>', ' '))}">Kopieren</button></div>
         </section>` : ''}
@@ -583,14 +583,15 @@ async function viewLeaderboard(query) {
   const name = (l) => l.mcName || l.username;
   const top = leaders.slice(0, 3);
   // Podest: 2 – 1 – 3
-  const podium = top.length >= 3 ? `<div class="podium">${[1, 0, 2].map((i) => `
+  const podium = top.length ? `<div class="podium">${[1, 0, 2].map((i) => !top[i] ? `
+    <div class="podium-spot p${i + 1} empty"><span class="podium-head"></span><b>—</b><span>frei</span><div class="podium-block">${i + 1}</div></div>` : `
     <a class="podium-spot p${i + 1}" href="${playerLink(name(top[i]))}">
       <img class="podium-head" src="https://mc-heads.net/avatar/${encodeURIComponent(name(top[i]))}/64" width="56" height="56" alt="">
       <b>${esc(name(top[i]))}</b><span class="${top[i].profit >= 0 ? 'ja' : 'nein'}">${top[i].profit >= 0 ? '+' : ''}${money(top[i].profit)}</span>
       <div class="podium-block">${i + 1}</div></a>`).join('')}</div>` : '';
   app.innerHTML = `
     <div class="page-title"><div><h1>Rangliste</h1><p>${period === 'all'
-      ? 'Wer auf Hugo SMP am besten vorhersagt, sortiert nach Gewinn'
+      ? 'Wer auf HugoSMP am besten vorhersagt, sortiert nach Gewinn'
       : `Gewinn aus Prognosen, die in ${period === 'week' ? 'dieser Woche' : 'diesem Monat'} entschieden wurden`}</p></div></div>
     <div class="filters" role="group" aria-label="Zeitraum">${Object.entries(PERIOD_LABEL).map(([k, v]) =>
       `<button type="button" data-p="${k}" aria-pressed="${k === period}">${v}</button>`).join('')}</div>
@@ -933,9 +934,10 @@ async function adminPlayersTab(body, { run }) {
     const { user: u } = await api(`/admin/users/${id}`);
     box.innerHTML = `
       <form class="credit-row" data-credit="${u.id}">
-        <input class="input" name="amount" placeholder="±Betrag, z. B. 500, 10k oder -200" required autocomplete="off" autocapitalize="off">
+        <input class="input" name="amount" placeholder="Betrag, z. B. 500 oder 10k" required autocomplete="off" autocapitalize="off">
         <input class="input" name="note" placeholder="Grund…" autocomplete="off">
-        <button class="btn btn-sm">Buchen</button></form>
+        <div class="credit-btns"><button class="btn btn-sm btn-yes" type="submit" value="plus">+ Gutschreiben</button>
+          <button class="btn btn-sm btn-no" type="submit" value="minus">− Abziehen</button></div></form>
       <div class="admin-actions" style="margin:10px 0">
         <a class="btn btn-sm" href="${playerLink(u.mcName || u.username)}">Profil</a>
         <button class="btn btn-sm ${u.banned ? 'btn-ja' : 'btn-nein'}" type="button" data-ban="${u.id}" data-to="${u.banned ? 0 : 1}">${u.banned ? 'Entsperren' : 'Sperren'}</button></div>
@@ -945,7 +947,10 @@ async function adminPlayersTab(body, { run }) {
     box.querySelector('[data-credit]').onsubmit = (e) => {
       e.preventDefault();
       const v = Object.fromEntries(new FormData(e.target));
-      run(() => api('/admin/credit', { username: u.username, amount: parseAmount(v.amount), note: v.note }), 'Gebucht');
+      const value = Math.abs(parseAmount(v.amount));
+      if (!Number.isFinite(value) || !value) { toast('Ungültiger Betrag. Beispiele: 500, 10k, 1,5m', true); return; }
+      const minus = e.submitter?.value === 'minus';
+      run(() => api('/admin/credit', { username: u.username, amount: minus ? -value : value, note: v.note }), minus ? `${money(value)} abgezogen` : `${money(value)} gutgeschrieben`);
     };
     box.querySelector('[data-ban]').onclick = async (e) => {
       const to = e.target.dataset.to === '1';
@@ -980,7 +985,7 @@ async function viewLogin() {
   app.innerHTML = `<section class="auth panel" id="login-wait">
     <img class="auth-logo" src="/logo.png" width="148" height="148" alt="HugoPredict Logo">
     <h1>Mit Minecraft anmelden</h1>
-    <ol class="steps"><li>Geh auf <b>Hugo SMP</b> online und schick diesen Befehl im Chat ab:</li></ol>
+    <ol class="steps"><li>Geh auf <b>HugoSMP</b> online und schick diesen Befehl im Chat ab:</li></ol>
     <div class="cmd"><code translate="no">${esc(cmd)}</code><button class="btn btn-sm" type="button" data-copy="${esc(cmd)}">Kopieren</button></div>
     <ol class="steps" start="2"><li>Danach bist du hier automatisch angemeldet.</li></ol>
     ${s?.botOnline ? '<p class="muted" style="font-size:14px" aria-live="polite">Warte auf deine Nachricht…</p>' : '<p class="muted" style="font-size:14px">Der Bot ist gerade offline. Ohne ihn klappt die Anmeldung nicht.</p>'}

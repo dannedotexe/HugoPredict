@@ -1,7 +1,7 @@
 {
   "name": "HugoPredict",
   "short_name": "HugoPredict",
-  "description": "Prognosen für Hugo SMP – biete mit Ingame-Geld auf Clan Fights, Events und mehr.",
+  "description": "Prognosen für HugoSMP – biete mit Ingame-Geld auf Clan Fights, Events und mehr.",
   "lang": "de",
   "start_url": "/?app=1",
   "scope": "/",

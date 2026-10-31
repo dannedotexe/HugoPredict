@@ -353,6 +353,10 @@ input.input::-webkit-date-and-time-value { text-align: left; }
 .player-detail { padding: 4px 0 14px; }
 .credit-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .credit-row .input { flex: 1; min-width: 130px; }
+.credit-btns { display: flex; gap: 8px; width: 100%; }
+.credit-btns .btn { flex: 1; }
+.podium-spot.empty { opacity: 0.45; }
+.podium-spot.empty .podium-head { display: block; }
 .dialog { max-width: 420px; width: calc(100% - 32px); border: 1px solid var(--line); border-radius: 16px; background: var(--panel); color: var(--text); padding: 20px; }
 .dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 .dialog h2 { margin-bottom: 10px; }
