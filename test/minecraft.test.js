@@ -248,3 +248,11 @@ test('Login per Flüstern: Code geht nur an den Absender', async (t) => {
   await until(() => world.sent.some((m) => m.startsWith('/msg Steve Dein Website-Code: ABCD2345')));
   assert.deepEqual(seen, [{ minecraftName: 'Steve' }]);
 });
+
+test('HugoSMP-Format: „[HugoSMP] Dein Kontostand: …“ wird erkannt', () => {
+  const { balance } = buildPatterns();
+  for (const [line, want] of [['[HugoSMP] Dein Kontostand: 1.234$', 1234], ['[HugoSMP] Dein Kontostand: 0$', 0], ['[HugoSMP] Dein Kontostand: 2.500 Coins', 2500]]) {
+    assert.equal(parseAmount(matchFirst(balance, line).amount, { allowZero: true }), want, line);
+  }
+  assert.equal(matchFirst(balance, '[HugoSMP] Mit /money log siehst du deine Transaktionen.'), null);
+});

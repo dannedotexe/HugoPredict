@@ -13,18 +13,20 @@
 
 const PREFIX = String.raw`^(?:[\[(][^\])]{1,24}[\])]\s*(?:[»>:|]\s*)?)?`;
 const AMT = String.raw`(?<amount>[$€]?\s?\d[\d.,]*\s?(?:k|tsd|mio|m|mrd|b)?\s?[$€⛃]?)`;
+// Währung als Wort hinter dem Betrag, z. B. „1.234 Coins“ (gehört nicht zum Betrag)
+const UNIT = String.raw`(?:\s?(?:coins?|münzen|taler|dollar|euro|hugocoins|hc))?`;
 const NAME = String.raw`(?<name>[A-Za-z0-9_]{3,16})`;
 const END = String.raw`\s*[.!]?$`;
 
 const DEFAULT_PAY = [
-  `${AMT} has been received from ${NAME}`,
-  `${AMT} (?:wurden?|ist) (?:dir )?von ${NAME} (?:erhalten|überwiesen|gesendet|gezahlt|bezahlt)`,
-  `Du hast ${AMT} von ${NAME} (?:erhalten|bekommen)`,
-  `${NAME} hat dir ${AMT} (?:gezahlt|bezahlt|überwiesen|gesendet|geschickt|gegeben)`,
-  `(?:You )?received ${AMT} from ${NAME}`,
+  `${AMT}${UNIT} has been received from ${NAME}`,
+  `${AMT}${UNIT} (?:wurden?|ist) (?:dir )?von ${NAME} (?:erhalten|überwiesen|gesendet|gezahlt|bezahlt)`,
+  `Du hast ${AMT}${UNIT} von ${NAME} (?:erhalten|bekommen)`,
+  `${NAME} hat dir ${AMT}${UNIT} (?:gezahlt|bezahlt|überwiesen|gesendet|geschickt|gegeben)`,
+  `(?:You )?received ${AMT}${UNIT} from ${NAME}`,
 ];
 const DEFAULT_BALANCE = [
-  String.raw`(?:Dein |Your )?(?:Kontostand|Guthaben|Balance|Geld|Money)(?: beträgt| is)?\s*:?\s*${AMT}`,
+  String.raw`(?:Dein |Your )?(?:Kontostand|Guthaben|Balance|Geld|Money)(?: beträgt| is)?\s*:?\s*${AMT}${UNIT}`,
 ];
 
 // Hinweis-Wörter für Nachrichten, die wie eine Zahlung aussehen, aber nicht erkannt wurden.
