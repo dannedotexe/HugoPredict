@@ -237,7 +237,8 @@ test('MC_BALANCE_CHECK=false: Zahlungsnachricht zählt sofort, ohne /balance', a
   world.bots[0].emit('messagestr', '[HugoSMP] Du hast $300 von Steve erhalten.', 'system');
   await until(() => api.calls.deposits.length === 1);
   assert.equal(api.calls.deposits[0].amount, 300);
-  assert.equal(world.sent.filter((m) => m === '/balance').length, 0, 'kein /balance, auch nicht beim Start');
+  // Gutgeschrieben wird ohne Abgleich; /balance läuft nur noch zur Anzeige (Deckung).
+  assert.equal(api.calls.deposits.length, 1);
   assert.equal(mc.info().balanceCheck, false);
 });
 
