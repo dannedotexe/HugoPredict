@@ -40,6 +40,7 @@ function statusLines(i) {
     conn,
     `Kontostand: **${i.balance === null || i.balance === undefined ? 'unbekannt' : formatAmount(i.balance)}**`,
     ...(i.online && i.players !== null ? [`Spieler online: **${i.players}**`] : []),
+    `Einzahlungen: ${i.balanceCheck ? 'mit Kontostand-Prüfung' : 'sofort gutgeschrieben (ohne Kontostand-Prüfung)'}`,
   ].join('\n');
 }
 

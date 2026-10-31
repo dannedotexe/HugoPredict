@@ -110,7 +110,7 @@ function fakeApi() {
 const config = {
   host: 'hugosmp.test', port: 25565, account: 'bot@example.com', version: '', joinCommands: [],
   whisperCommand: '/msg {name} {text}', payCommand: '/pay {name} {amount}', payConfirmCommand: '', balanceCommand: '/balance',
-  payPattern: '', balancePattern: '', payoutsEnabled: true, payoutMax: 10000, payoutIntervalSeconds: 3600,
+  payPattern: '', balancePattern: '', balanceCheck: true, payoutsEnabled: true, payoutMax: 10000, payoutIntervalSeconds: 3600,
 };
 
 async function until(fn, ms = 2000) {
@@ -231,13 +231,12 @@ test('MC_BALANCE_CHECK=false: Zahlungsnachricht zählt sofort, ohne /balance', a
   const { world, api, mc } = setup({ balanceCheck: false });
   t.after(() => mc.stop());
   mc.start();
-  await until(() => mc._internal.db.lastBalance === 1000);
-  const before = world.sent.filter((m) => m === '/balance').length;
-  world.bots[0].emit('messagestr', 'Steve hat dir 300 gezahlt.', 'system');
+  await until(() => mc.state.online);
+  world.bots[0].emit('messagestr', '[HugoSMP] Du hast $300 von Steve erhalten.', 'system');
   await until(() => api.calls.deposits.length === 1);
   assert.equal(api.calls.deposits[0].amount, 300);
-  assert.equal(world.sent.filter((m) => m === '/balance').length, before, 'kein /balance');
-  assert.equal(mc._internal.db.lastBalance, 1300, 'Kontostand mitgeführt');
+  assert.equal(world.sent.filter((m) => m === '/balance').length, 0, 'kein /balance, auch nicht beim Start');
+  assert.equal(mc.info().balanceCheck, false);
 });
 
 test('Login per Flüstern: Code geht nur an den Absender', async (t) => {

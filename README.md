@@ -201,7 +201,7 @@ npm start        # startet den Bot
 | `MC_ACCOUNT` | mit Minecraft | | Microsoft-Konto des Bot-Accounts |
 | `MC_JOIN_COMMANDS` | nein | | Befehle nach dem Betreten, durch `;` getrennt |
 | `MC_WHISPER_COMMAND`, `MC_PAY_COMMAND`, `MC_BALANCE_COMMAND` | nein | `/msg …`, `/pay …`, `/balance` | Befehle im Spiel |
-| `MC_BALANCE_CHECK` | nein | `true` | Einzahlungen am Kontostand prüfen; `false` = Zahlungsnachricht zählt sofort (Auszahlungen werden immer geprüft) |
+| `MC_BALANCE_CHECK` | nein | `false` | Einzahlungen am Kontostand prüfen; `false` = Zahlungsnachricht zählt sofort (Auszahlungen werden immer geprüft) |
 | `MC_PAY_CONFIRM_COMMAND` | nein | | Bestätigung nach `/pay`, falls der Server sie verlangt |
 | `MC_PAY_PATTERN`, `MC_BALANCE_PATTERN` | nein | eingebaut | Eigene Erkennung der Servernachrichten |
 | `MC_PAYOUTS_ENABLED` | nein | `false` | Auszahlungen ausführen |

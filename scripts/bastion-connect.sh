@@ -84,6 +84,8 @@ elif [ "$MODE" = "website-umzug" ]; then
   REMOTE="$UPDATE_BOT && bash ~/HugoPredict/scripts/website-umzug.sh $OLD_PORT"
 elif [ "$MODE" = "alte-website-loeschen" ]; then
   REMOTE="$UPDATE_BOT && bash ~/HugoPredict/scripts/remove-old-website.sh"
+elif [ "$MODE" = "kontostand-aus" ] || [ "$MODE" = "kontostand-an" ]; then
+  REMOTE="$UPDATE_BOT && bash ~/HugoPredict/scripts/enable-minecraft.sh --$MODE"
 elif [ "$MODE" = "minecraft" ]; then
   REMOTE="$UPDATE_BOT && bash ~/HugoPredict/scripts/enable-minecraft.sh"
 elif [ "$MODE" = "pruefen" ]; then

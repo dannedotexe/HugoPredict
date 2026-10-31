@@ -74,7 +74,7 @@ const env = {
     payConfirmCommand: str('MC_PAY_CONFIRM_COMMAND'),
     balanceCommand: str('MC_BALANCE_COMMAND', '/balance'),
     // Einzahlungen am Kontostand prüfen (empfohlen). Auszahlungen werden immer geprüft.
-    balanceCheck: bool('MC_BALANCE_CHECK', true),
+    balanceCheck: bool('MC_BALANCE_CHECK', false),
     payPattern: str('MC_PAY_PATTERN'),
     balancePattern: str('MC_BALANCE_PATTERN'),
     payoutsEnabled: bool('MC_PAYOUTS_ENABLED', false),

@@ -325,7 +325,7 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
       if (amount === null || pay.name.toLowerCase() === bot?.username?.toLowerCase()) return;
       const player = findPlayer(pay.name);
       const claim = { name: player?.username ?? pay.name, uuid: player?.uuid ?? null, amount, at: new Date().toISOString() };
-      if (config.balanceCheck === false) {
+      if (!config.balanceCheck) {
         // MC_BALANCE_CHECK=false: Nachricht gilt direkt, der bekannte Kontostand wird mitgeführt.
         if (db.lastBalance !== null) setBalance(db.lastBalance + amount);
         queueDeposit(claim);
@@ -405,7 +405,8 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
       logger.info(`Minecraft: verbunden als ${b.username} mit ${config.host}.`);
       for (const cmd of config.joinCommands) await command(cmd).catch(() => {});
       if (config.joinCommands.length) await sleep(3000);
-      await exclusive(async () => {
+      // Ohne Kontostand-Prüfung (Standard) wird /balance beim Start nicht gebraucht.
+      if (config.balanceCheck) await exclusive(async () => {
         try {
           settle(await readBalance());
         } catch (err) {
@@ -560,7 +561,7 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
     if (cmd.length > 256) return Promise.resolve({ error: 'too_long' });
     if (!state.online) return Promise.resolve({ error: 'offline_bot' });
     return exclusive(async () => {
-      const moneyRelated = MONEY_COMMAND.test(cmd) && config.balanceCheck !== false;
+      const moneyRelated = MONEY_COMMAND.test(cmd) && config.balanceCheck;
       // Offene Einzahlungen zuerst abschließen, sonst würde die eigene Zahlung sie verfälschen.
       if (moneyRelated && claims.length) {
         try {
@@ -625,6 +626,7 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
     username: bot?.username ?? null,
     host: config.host,
     balance: db.lastBalance,
+    balanceCheck: Boolean(config.balanceCheck),
     players: bot?.players ? Object.keys(bot.players).length : null,
     recent: [...recentSystem],
   });
