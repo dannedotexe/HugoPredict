@@ -333,6 +333,27 @@ class HugoApi {
     await this.request('POST', '/minecraft/heartbeat', { body: { online, username } });
   }
 
+  // --- Admin-Panel (/panel, nur lesend) ---------------------------------
+
+  async panelSummary() {
+    const body = await this.request('GET', '/admin/summary');
+    if (!isObj(body) || !isNum(body.users)) throw new ApiError('invalid_response', 'Panel-Übersicht unvollständig.', { body });
+    return body;
+  }
+
+  async panelUsers({ q = '', offset = 0, limit = 8 } = {}) {
+    const body = await this.request('GET', '/admin/users', { query: { q, offset, limit } });
+    return { total: isNum(body?.total) ? body.total : 0, users: requireArray(body, 'users') };
+  }
+
+  async panelMarkets() {
+    return { markets: requireArray(await this.request('GET', '/admin/markets'), 'markets') };
+  }
+
+  async panelTransactions({ type = '', limit = 15 } = {}) {
+    return { transactions: requireArray(await this.request('GET', '/admin/transactions', { query: { type, limit } }), 'transactions') };
+  }
+
   /** Vom Team freigegebene Auszahlungen, die der Bot im Spiel ausführen soll. */
   async listPayouts() {
     const body = await this.request('GET', '/minecraft/payouts', { query: { status: 'approved' } });

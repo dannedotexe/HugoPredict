@@ -31,6 +31,7 @@ const { createStaffNamesService } = require('./services/staffNames');
 const { createBotRoleService } = require('./services/botRole');
 const { resolveIntents, membersIntentAllowed } = require('./lib/intents');
 const { createMinecraftService } = require('./minecraft/service');
+const { createActivityLog, instrument } = require('./services/activityLog');
 const { syncRoleIcons } = require('./setup/setupServer');
 
 const logger = createLogger(env.logLevel);
@@ -39,6 +40,10 @@ const api = new HugoApi({ baseUrl: env.apiUrl, apiKey: env.apiKey, timeoutMs: en
 const limiter = new RateLimiter();
 const locks = new LockSet();
 const ctx = createGuildContext({ store, logger });
+// Letzte Ereignisse für das Admin-Panel mitschreiben (Verhalten bleibt gleich)
+const activity = createActivityLog();
+instrument({ ctx, logger, activity });
+const startedAt = new Date();
 const commands = loadCommands();
 const handlers = loadInteractionHandlers();
 
@@ -64,11 +69,21 @@ const marketFeed = createMarketFeed({ api, store, env, ctx, logger, statusServic
 
 const denyLog = new Map();
 
+// Version (git) für /panel
+let version = 'unbekannt';
+try {
+  version = require('node:child_process').execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: __dirname, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+} catch {
+  // ohne git
+}
+
 const deps = {
-  env, api, store, ctx, logger, limiter, locks, minecraft,
+  env, api, store, ctx, logger, limiter, locks, minecraft, activity, version,
   services: {
     status,
     marketFeed,
+    // Neustart über /panel: sauber beenden, pm2 startet den Prozess neu.
+    restartBot: () => shutdown('Neustart über /panel', 1),
     runFeedsNow: () => {
       marketFeed.tick(client).catch((err) => logger.error('Prognosen:', err));
       status.tick(client).catch((err) => logger.error('Status:', err));

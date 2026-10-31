@@ -82,6 +82,9 @@ const env = {
     payoutIntervalSeconds: int('MC_PAYOUT_INTERVAL_SECONDS', 30, { min: 10, max: 3600 }),
   },
 
+  // Wer /panel benutzen darf (Discord-IDs, kommagetrennt)
+  panelAdminIds: str('PANEL_ADMIN_IDS', '1489628580123250870').split(',').map((s) => s.trim()).filter((s) => /^\d{15,25}$/.test(s)),
+
   dataDir: path.resolve(str('DATA_DIR', path.join(__dirname, '..', '..', 'data'))),
   logLevel: str('LOG_LEVEL', 'info'),
 };
