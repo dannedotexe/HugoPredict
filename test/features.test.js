@@ -63,8 +63,8 @@ test('Benachrichtigungs-Karte zieht nach #pings um; alte Nachricht wird entfernt
       messages: { fetch: async (mid) => msgs.get(mid) ?? null },
     };
   };
-  const channels = new Collection(['docs', 'pings', 'support', 'mo', 'sys', 'ctl', 'apply', 'howto', 'mcp'].map((id) => [id, makeChannel(id)]));
-  Object.assign(g.channels, { docs: 'docs', pings: 'pings', support: 'support', marketOverview: 'mo', system: 'sys', supportControl: 'ctl', apply: 'apply', howto: 'howto', minecraftPanel: 'mcp' });
+  const channels = new Collection(['docs', 'pings', 'support', 'mo', 'sys', 'ctl', 'apply', 'howto', 'mcp', 'ver'].map((id) => [id, makeChannel(id)]));
+  Object.assign(g.channels, { docs: 'docs', pings: 'pings', support: 'support', marketOverview: 'mo', system: 'sys', supportControl: 'ctl', apply: 'apply', howto: 'howto', minecraftPanel: 'mcp', verify: 'ver' });
   const oldMsg = await channels.get('docs').send();
   g.panels.notify = { channelId: 'docs', messageId: oldMsg.id };
   const guild = { id: 'G', client: { user: { id: BOT } }, channels: { cache: channels, fetch: async (id) => channels.get(id) } };

@@ -62,7 +62,7 @@ function sections({ currency, websiteUrl }) {
         '• Probleme mit Guthaben oder Verdachtsfälle ausschließlich über #support melden.',
         '• Es gelten die Nutzungsbedingungen und Community-Richtlinien von Discord.',
         '',
-        'Mit „Regeln akzeptieren“ erhältst du Zugang zur Community. Verknüpfe anschließend dein Konto, um private Kontoabfragen zu nutzen.',
+        'Mit „Regeln akzeptieren“ erhältst du Zugang zur Community. Verknüpfe anschließend dein Konto in #verifizieren, um private Kontoabfragen zu nutzen.',
       ].join('\n'),
     },
   ];

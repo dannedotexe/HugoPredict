@@ -40,7 +40,7 @@ test('Rollen: deutsche Namen mit Präfix, geforderte Reihenfolge, ohne Emojis', 
 
 test('Struktur entspricht exakt der Vorgabe', () => {
   assert.deepEqual(L.CATEGORIES.map((c) => [c.name, c.channels.map((ch) => ch.name)]), [
-    ['INFORMATIONEN', ['👋┃willkommen', '📖┃so-gehts', '📢┃ankündigungen', '📈┃prognosen', '📜┃regeln', '🔔┃pings', '📶┃status', '📝┃bewerben']],
+    ['INFORMATIONEN', ['👋┃willkommen', '📖┃so-gehts', '📢┃ankündigungen', '📈┃prognosen', '📜┃regeln', '✅┃verifizieren', '🔔┃pings', '📶┃status', '📝┃bewerben']],
     ['COMMUNITY', ['💬┃diskussionen', '📊┃analysen', '📸┃medien', '💡┃vorschläge', '🔊┃Voice 1', '🔊┃Voice 2', '🔊┃Voice 3']],
     ['KUNDENSERVICE', ['🎫┃support', '📋┃support-steuerung', '⏳┃support-warteraum', '🛠️┃Support Raum 1', '🛠️┃Support Raum 2']],
     ['INTERN · PRIVAT', ['🔧┃betrieb', '🎮┃minecraft-panel', '🧾┃prüfprotokoll', '📡┃systemmeldungen', '🔨┃moderation', '📨┃bewerbungen', '👥┃team']],

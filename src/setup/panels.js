@@ -56,17 +56,48 @@ function panelDefinitions() {
       },
     },
     {
+      key: 'verify',
+      channelKey: 'verify',
+      build: ({ channelIds = {} }) => card({
+        icon: 'verified',
+        title: 'Konto verknüpfen',
+        intro: 'Verbinde dein Discord-Konto mit deinem Minecraft-Konto auf **HugoSMP**. Dauert keine Minute.',
+        blocks: [
+          {
+            heading: 'So geht’s',
+            icon: 'info',
+            body: [
+              '1. Unten auf **Verknüpfen** tippen',
+              '2. Du bekommst einen Befehl wie `/msg HugoPredict KE2KM`',
+              '3. Den Befehl auf HugoSMP im Chat abschicken',
+              '4. Fertig – du wirst automatisch verifiziert',
+            ].join('\n'),
+          },
+          {
+            heading: 'Was du davon hast',
+            icon: 'check',
+            body: `Die Rolle Verifiziert, dein Minecraft-Name als Server-Name und Kontoabfragen wie \`/balance\`.${channelIds.docs ? ` Vorher bitte die Regeln in <#${channelIds.docs}> akzeptieren.` : ''}`,
+          },
+          { heading: 'Sicherheit', icon: 'lock', body: 'Schick nur einen Befehl ab, den du selbst hier bekommen hast – niemals einen, den dir jemand anderes gibt.' },
+        ],
+        footer: null,
+        actions: [new ActionRowBuilder().addComponents(
+          withEmoji(new ButtonBuilder().setCustomId('hm:verify:start').setStyle(ButtonStyle.Success).setLabel('Verknüpfen'), 'link'),
+        )],
+      }),
+    },
+    {
       key: 'docs',
       channelKey: 'docs',
       build: ({ env, channelIds = {} }) => {
         // Channel-Namen im Text werden zu anklickbaren Verweisen, sofern eingerichtet.
         const link = (text) => text
           .replace(/#ankündigungen/g, channelIds.announcements ? `<#${channelIds.announcements}>` : '#ankündigungen')
-          .replace(/#support/g, channelIds.support ? `<#${channelIds.support}>` : '#support');
+          .replace(/#support/g, channelIds.support ? `<#${channelIds.support}>` : '#support')
+          .replace(/#verifizieren/g, channelIds.verify ? `<#${channelIds.verify}>` : '#verifizieren');
         const blocks = sections({ currency: env.currency, websiteUrl: env.websiteUrl }).map((s) => ({ heading: s.title, icon: s.icon, body: link(s.body) }));
         const buttons = [
           withEmoji(new ButtonBuilder().setCustomId('hm:rules:accept').setStyle(ButtonStyle.Success).setLabel('Regeln akzeptieren'), 'check'),
-          withEmoji(new ButtonBuilder().setCustomId('hm:verify:start').setStyle(ButtonStyle.Secondary).setLabel('Konto verknüpfen'), 'link'),
         ];
         if (env.websiteUrl) buttons.push(withEmoji(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Zur Website').setURL(env.websiteUrl), 'external'));
         return card({

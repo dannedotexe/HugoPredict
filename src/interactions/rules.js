@@ -1,5 +1,11 @@
 'use strict';
 
+// Verweis auf #verifizieren (anklickbar, wenn der Channel eingerichtet ist)
+const verifyRef = (interaction, deps) => {
+  const id = deps.ctx.channelId?.(interaction.guild.id, 'verify');
+  return id ? `<#${id}>` : '#verifizieren';
+};
+
 const { embeds } = require('../lib/embeds');
 const { replyPrivate } = require('../lib/respond');
 
@@ -20,7 +26,7 @@ async function handle(interaction, deps, [action]) {
     return replyPrivate(interaction, { embeds: [embeds.error('Rolle nicht vergeben', 'Die Rolle konnte nicht vergeben werden. Das Team wurde informiert.')] });
   }
   return replyPrivate(interaction, {
-    embeds: [embeds.success('Regeln akzeptiert', 'Du hast jetzt Zugang zur Community. Verknüpfe als Nächstes dein Konto über „Konto verknüpfen“ oder `/verify`, um Kontoabfragen zu nutzen.')],
+    embeds: [embeds.success('Regeln akzeptiert', `Du hast jetzt Zugang zur Community. Verknüpfe als Nächstes dein Konto in ${verifyRef(interaction, deps)} oder mit \`/verify\`, um Kontoabfragen zu nutzen.`)],
   });
 }
 

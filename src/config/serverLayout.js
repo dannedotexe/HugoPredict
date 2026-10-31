@@ -207,7 +207,7 @@ const F = ChannelType.GuildForum;
 // (mit Strich ohne Emoji bzw. ganz ohne) werden von /aktualisieren umbenannt.
 const SEPARATOR = '┃';
 const ICONS = {
-  willkommen: '👋', 'so-gehts': '📖', status: '📶', bewerben: '📝', bewerbungen: '📨', ankündigungen: '📢', prognosen: '📈', regeln: '📜', pings: '🔔',
+  willkommen: '👋', 'so-gehts': '📖', verifizieren: '✅', status: '📶', bewerben: '📝', bewerbungen: '📨', ankündigungen: '📢', prognosen: '📈', regeln: '📜', pings: '🔔',
   diskussionen: '💬', analysen: '📊', medien: '📸', vorschläge: '💡', 'Voice 1': '🔊', 'Voice 2': '🔊', 'Voice 3': '🔊', support: '🎫', 'support-steuerung': '📋', 'support-warteraum': '⏳', 'Support Raum 1': '🛠️', 'Support Raum 2': '🛠️',
   betrieb: '🔧', 'minecraft-panel': '🎮', prüfprotokoll: '🧾', systemmeldungen: '📡', moderation: '🔨', team: '👥',
 };
@@ -246,6 +246,11 @@ const CATEGORIES = [
       {
         key: 'docs', ...named('regeln', 'dokumentation'), type: T, legacy: ['welcome'],
         topic: 'Plattform, HugoCoins, Gebühren und Prognoseregeln.',
+        permissions: profiles.publicRead(),
+      },
+      {
+        key: 'verify', ...named('verifizieren'), type: T,
+        topic: 'Minecraft-Konto verknüpfen: Befehl holen, im Spiel abschicken, fertig.',
         permissions: profiles.publicRead(),
       },
       {
