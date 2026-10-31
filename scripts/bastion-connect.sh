@@ -14,7 +14,7 @@ REPO="https://github.com/dannedotexe/HugoPredict.git"
 fail() { echo "FEHLER: $*" >&2; exit 1; }
 
 command -v oci >/dev/null || fail "OCI CLI nicht gefunden – bitte in Oracle Cloud Shell ausführen."
-[ -f "$KEY" ] || fail "Schlüssel $KEY fehlt. Erzeugen mit: ssh-keygen -t rsa -f ~/.ssh/bastion"
+[ -f "$KEY" ] && [ -f "$KEY.pub" ] || fail "Schlüssel $KEY fehlt. Erzeugen mit: ssh-keygen -t rsa -f ~/.ssh/bastion"
 COMPARTMENT="${COMPARTMENT:-${OCI_TENANCY:-}}"
 [ -n "$COMPARTMENT" ] || fail "OCI_TENANCY ist nicht gesetzt."
 REGION="${OCI_REGION:-eu-frankfurt-1}"
@@ -24,10 +24,41 @@ BASTION=$(oci bastion bastion list --compartment-id "$COMPARTMENT" --all \
   --query 'data[?"lifecycle-state"==`ACTIVE`] | [0].id' --raw-output)
 [ -n "$BASTION" ] && [ "$BASTION" != "null" ] || fail "Kein aktiver Bastion gefunden."
 
-echo "==> Suche aktive Sitzung"
-SESSION=$(oci bastion session list --bastion-id "$BASTION" --all \
-  --query 'data[?"lifecycle-state"==`ACTIVE`] | [0].id' --raw-output)
-[ -n "$SESSION" ] && [ "$SESSION" != "null" ] || fail "Keine aktive Sitzung. Im Bastion unter Sessions eine Managed SSH session erstellen."
+# Fingerabdruck eines öffentlichen Schlüssels: Typ + Inhalt, ohne Kommentar.
+key_id() { awk '{print $1" "$2}'; }
+MY_KEY="$(key_id < "$KEY.pub")"
+
+echo "==> Suche aktive Sitzung mit deinem Schlüssel"
+SESSION=""
+for S in $(oci bastion session list --bastion-id "$BASTION" --all \
+    --query 'data[?"lifecycle-state"==`ACTIVE`].id' --raw-output 2>/dev/null | tr -d '[]",'); do
+  PUB="$(oci bastion session get --session-id "$S" --query 'data."key-details"."public-key-content"' --raw-output 2>/dev/null | key_id)"
+  if [ "$PUB" = "$MY_KEY" ]; then SESSION="$S"; break; fi
+done
+
+if [ -z "$SESSION" ]; then
+  echo "==> Keine passende Sitzung – erstelle eine neue (dauert 1–2 Minuten)"
+  TARGET=$(oci bastion session list --bastion-id "$BASTION" --all \
+    --query 'data[0]."target-resource-details"."target-resource-id"' --raw-output 2>/dev/null || true)
+  if [ -z "$TARGET" ] || [ "$TARGET" = "null" ]; then
+    TARGET=$(oci compute instance list --compartment-id "$COMPARTMENT" --display-name "${INSTANCE:-discord-bots}" \
+      --lifecycle-state RUNNING --query 'data[0].id' --raw-output)
+  fi
+  [ -n "$TARGET" ] && [ "$TARGET" != "null" ] || fail "Server „${INSTANCE:-discord-bots}“ nicht gefunden."
+  SESSION=$(oci bastion session create-managed-ssh --bastion-id "$BASTION" \
+    --target-resource-id "$TARGET" --target-os-username "${SSH_USER:-ubuntu}" \
+    --ssh-public-key-file "$KEY.pub" --session-ttl 10800 --display-name hugopredict \
+    --query 'data.id' --raw-output)
+  [ -n "$SESSION" ] && [ "$SESSION" != "null" ] || fail "Sitzung konnte nicht erstellt werden."
+  for _ in $(seq 1 60); do
+    STATE=$(oci bastion session get --session-id "$SESSION" --query 'data."lifecycle-state"' --raw-output)
+    [ "$STATE" = "ACTIVE" ] && break
+    [ "$STATE" = "FAILED" ] && fail "Die neue Sitzung ist fehlgeschlagen (ist das Bastion-Plugin auf dem Server aktiv?)."
+    sleep 5
+  done
+  [ "$STATE" = "ACTIVE" ] || fail "Die neue Sitzung wurde nicht rechtzeitig aktiv. Bitte gleich nochmal versuchen."
+  sleep 10 # kurz warten, bis der Schlüssel auf dem Server angekommen ist
+fi
 
 IP=$(oci bastion session get --session-id "$SESSION" \
   --query 'data."target-resource-details"."target-resource-private-ip-address"' --raw-output)
