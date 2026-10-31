@@ -321,11 +321,15 @@ class HugoApi {
     return { linked: body.linked === true, credited: isNum(body.credited) ? body.credited : null };
   }
 
-  /** Login-Code für die Website. Der Bot flüstert ihn nur dem Spieler selbst zu. */
-  async createLoginCode({ minecraftName }) {
-    const body = await this.request('POST', '/minecraft/login-codes', { body: { minecraftName } });
-    if (!isObj(body) || typeof body.code !== 'string') throw new ApiError('invalid_response', 'Login-Code fehlt.', { body });
-    return { code: body.code };
+  /** Ein Spieler hat dem Bot den Code von der Website geflüstert. false: Code unbekannt oder abgelaufen. */
+  async confirmLogin({ minecraftName, code }) {
+    try {
+      await this.request('POST', '/minecraft/login-confirm', { body: { minecraftName, code } });
+      return true;
+    } catch (err) {
+      if (err.status === 404) return false;
+      throw err;
+    }
   }
 
   /** Zeigt auf der Website, ob der Minecraft-Bot gerade auf dem Server ist. */

@@ -77,6 +77,7 @@ const env = {
     balanceCheck: bool('MC_BALANCE_CHECK', false),
     payPattern: str('MC_PAY_PATTERN'),
     balancePattern: str('MC_BALANCE_PATTERN'),
+    whisperPattern: str('MC_WHISPER_PATTERN'),
     payoutsEnabled: bool('MC_PAYOUTS_ENABLED', false),
     payoutMax: int('MC_PAYOUT_MAX', 0, { min: 0, max: 1_000_000_000 }),
     payoutIntervalSeconds: int('MC_PAYOUT_INTERVAL_SECONDS', 30, { min: 10, max: 3600 }),

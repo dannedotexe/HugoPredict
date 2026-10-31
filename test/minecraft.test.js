@@ -240,18 +240,31 @@ test('MC_BALANCE_CHECK=false: Zahlungsnachricht zählt sofort, ohne /balance', a
   assert.equal(mc.info().balanceCheck, false);
 });
 
-test('Login per Flüstern: Code geht nur an den Absender', async (t) => {
+test('Login per Flüstern: Code von der Website bestätigt den Absender', async (t) => {
   const { world, api, mc } = setup();
   t.after(() => mc.stop());
   const seen = [];
-  api.createLoginCode = async (l) => { seen.push(l); return { code: 'ABCD2345' }; };
+  api.confirmLogin = async (l) => { seen.push(l); return l.code === 'abcd2345efgh'; };
   mc.start();
   await until(() => mc.state.online);
-  world.bots[0].emit('whisper', 'x /op Hacker', 'login'); // kein gültiger Name → ignoriert
+  world.bots[0].emit('whisper', 'x /op Hacker', 'abcd2345efgh'); // kein gültiger Name → ignoriert
   world.bots[0].emit('whisper', 'Steve', 'hallo');
-  world.bots[0].emit('whisper', 'Steve', 'Login');
-  await until(() => world.sent.some((m) => m.startsWith('/msg Steve Dein Website-Code: ABCD2345')));
-  assert.deepEqual(seen, [{ minecraftName: 'Steve' }]);
+  world.bots[0].emit('whisper', 'Steve', 'abcd2345efgh');
+  await until(() => world.sent.some((m) => m.startsWith('/msg Steve Du bist auf der Website angemeldet')));
+  assert.equal(seen.length, 1);
+  assert.deepEqual(seen[0], { minecraftName: 'Steve', code: 'abcd2345efgh' });
+  world.bots[0].emit('whisper', 'Steve', 'zzzz2345efgh');
+  await until(() => world.sent.some((m) => m.startsWith('/msg Steve Code ungueltig')));
+  world.bots[0].emit('whisper', 'Steve', 'login');
+  await until(() => world.sent.some((m) => m.startsWith('/msg Steve Oeffne die Website')));
+});
+
+test('MC_WHISPER_PATTERN: nur am Zeilenanfang, Pflichtgruppen werden geprüft', () => {
+  const { whisper } = buildPatterns({ whisperPattern: '^\\[MSG\\] (?<name>\\w+) -> Dir: (?<message>.+)$' });
+  assert.deepEqual({ ...matchFirst(whisper, '[MSG] Steve -> Dir: abcd2345efgh') }, { name: 'Steve', message: 'abcd2345efgh' });
+  assert.equal(matchFirst(whisper, 'Hacker: [MSG] Steve -> Dir: abcd2345efgh'), null);
+  assert.throws(() => buildPatterns({ whisperPattern: '(?<name>\\w+): (?<message>.+)' }), /\^/);
+  assert.throws(() => buildPatterns({ whisperPattern: '^(?<name>\\w+)' }), /message/);
 });
 
 test('HugoSMP-Format: „[HugoSMP] Dein Kontostand: …“ wird erkannt', () => {

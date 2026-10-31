@@ -312,6 +312,11 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
     if (!line) return;
     recentSystem.push(line.slice(0, 200));
     if (recentSystem.length > 15) recentSystem.shift();
+    const whispered = matchFirst(patterns.whisper, line);
+    if (whispered) {
+      onWhisper(whispered.name, whispered.message);
+      return;
+    }
     if (/\d/.test(line) && MONEY_HINT.test(line) && !PLAYER_CHAT.test(line)) {
       moneyLines.push(line.slice(0, 200));
       if (moneyLines.length > 8) moneyLines.shift();
@@ -352,13 +357,26 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
 
   // --- Website ------------------------------------------------------------
 
-  // Der Absender einer Flüsternachricht ist nur am Text erkannt. Sicher ist das trotzdem:
-  // Der Code geht per /msg an den echten Spieler, ein Fälscher bekommt ihn nie zu sehen.
-  async function onLoginRequest(name) {
-    if (!api.configured) return;
+  // Der Absender ist nur am Text erkannt: Das Muster muss so genau sein, dass Spieler-Chat nie passt.
+  // Die Antwort geht an den genannten Spieler, damit er eine fremde Anmeldung in seinem Namen bemerkt.
+  async function onWhisper(name, message) {
+    // Nur echte Minecraft-Namen: der Name landet im /msg-Befehl.
+    if (!/^[A-Za-z0-9_]{3,16}$/.test(String(name)) || name === bot?.username) return;
+    const text = String(message).trim();
+    if (/^(?:login|anmelden)$/i.test(text)) {
+      whisper(name, 'Oeffne die Website und klicke auf Anmelden. Dort steht dein persoenlicher Befehl.');
+      return;
+    }
+    if (!/^[a-z0-9]{12}$/i.test(text)) return;
+    if (!api.configured) {
+      logger.warn('Minecraft: Login-Code erhalten, aber die Website ist nicht eingerichtet (HUGO_API_URL, HUGO_API_KEY).');
+      whisper(name, 'Die Anmeldung ist gerade nicht moeglich.');
+      return;
+    }
     try {
-      const { code } = await api.createLoginCode({ minecraftName: name });
-      whisper(name, `Dein Website-Code: ${code} - 5 Minuten gueltig. Niemals weitergeben!`);
+      whisper(name, await api.confirmLogin({ minecraftName: name, code: text })
+        ? 'Du bist auf der Website angemeldet. Warst du das nicht? Melde dich sofort beim Team.'
+        : 'Code ungueltig oder abgelaufen. Hol dir auf der Website einen neuen.');
     } catch (err) {
       whisper(name, userMessage(err));
     }
@@ -423,11 +441,7 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
       heartbeat();
     });
 
-    b.on('whisper', (name, message) => {
-      // Nur echte Minecraft-Namen: der Name landet im /msg-Befehl.
-      if (!/^[A-Za-z0-9_]{3,16}$/.test(String(name)) || name === b.username) return;
-      if (/^(?:login|anmelden)$/i.test(String(message).trim())) onLoginRequest(name);
-    });
+    b.on('whisper', (name, message) => { onWhisper(name, message); });
 
     // Systemnachrichten direkt aus dem Paket lesen: mineflayer verliert bei HugoSMP den Text
     // nach dem Tag (aus „[HugoSMP] Dein Kontostand: …“ wird nur „[HugoSMP]“).

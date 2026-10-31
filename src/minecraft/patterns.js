@@ -42,12 +42,15 @@ function compile(source, label) {
   return re;
 }
 
-function buildPatterns({ payPattern = '', balancePattern = '' } = {}) {
+function buildPatterns({ payPattern = '', balancePattern = '', whisperPattern = '' } = {}) {
   const pay = payPattern ? [compile(payPattern, 'MC_PAY_PATTERN')] : DEFAULT_PAY.map((p) => compile(PREFIX + p + END, 'Zahlungsmuster'));
   const balance = balancePattern ? [compile(balancePattern, 'MC_BALANCE_PATTERN')] : DEFAULT_BALANCE.map((p) => compile(PREFIX + p + END, 'Kontostandsmuster'));
   for (const re of pay) if (!/\(\?<amount>/.test(re.source) || !/\(\?<name>/.test(re.source)) throw new Error('MC_PAY_PATTERN braucht die Gruppen (?<amount>…) und (?<name>…).');
   for (const re of balance) if (!/\(\?<amount>/.test(re.source)) throw new Error('MC_BALANCE_PATTERN braucht die Gruppe (?<amount>…).');
-  return { pay, balance };
+  const whisper = whisperPattern ? [compile(whisperPattern, 'MC_WHISPER_PATTERN')] : [];
+  // Ohne ^ könnte ein Spieler die Nachricht im öffentlichen Chat nachtippen und sich als anderer anmelden.
+  for (const re of whisper) if (!re.source.startsWith('^') || !/\(\?<name>/.test(re.source) || !/\(\?<message>/.test(re.source)) throw new Error('MC_WHISPER_PATTERN muss mit ^ beginnen und die Gruppen (?<name>…) und (?<message>…) haben.');
+  return { pay, balance, whisper };
 }
 
 function matchFirst(patterns, text) {
