@@ -28,7 +28,7 @@ update_once() {
   # Jeder Schritt muss klappen, sonst kein Neustart.
   # Direkt auf dem Server geänderte Dateien würden das Update dauerhaft blockieren:
   # sichern (git stash list) statt hängen zu bleiben.
-  if ! git diff --quiet || ! git diff --cached --quiet; then
+  if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
     git stash push -q -m "server-aenderungen-$(date +%Y%m%d-%H%M)" || return 1
     echo "[$(date -Is)] Lokale Änderungen gesichert (git stash list)"
   fi
