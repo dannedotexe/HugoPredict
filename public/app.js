@@ -71,7 +71,7 @@ function renderHeader() {
     ? `<a href="#/wallet" class="purse" aria-label="Guthaben ${money(me.balance)}">${icon('emerald', '', 18, 18)}<b>${money(me.balance)}</b></a>
        <a href="#/wallet" aria-label="Wallet von ${esc(me.mcName || me.username)}">${head(me.mcName || me.username)}</a>
        <button class="btn btn-quiet btn-sm" id="logout">Abmelden</button>`
-    : `<a class="btn btn-quiet" href="#/login">Anmelden</a><a class="btn btn-ja btn-sm" href="#/login?register">Konto erstellen</a>`;
+    : '<a class="btn btn-ja btn-sm" href="#/login">Anmelden</a>';
   document.getElementById('logout')?.addEventListener('click', async () => {
     await api('/logout', {});
     state.me = null;
@@ -122,7 +122,7 @@ async function router() {
 function needLogin(what) {
   if (state.me) return false;
   app.innerHTML = `<div class="panel empty"><h1>Melde dich an</h1><p>${what}</p>
-    <a class="btn btn-ja" href="#/login">Anmelden oder Konto erstellen</a></div>`;
+    <a class="btn btn-ja" href="#/login">Mit Minecraft anmelden</a></div>`;
   return true;
 }
 
@@ -436,7 +436,6 @@ async function viewWallet() {
   const me = state.me, s = state.status;
   const { withdrawals } = me.mcName ? await api('/withdrawals') : { withdrawals: [] };
   const wStatus = { pending: [s.payoutsNeedApproval ? 'Wartet auf Freigabe' : 'Wartet', 'warn'], approved: ['Freigegeben', 'warn'], processing: ['Wird ausgezahlt', 'warn'], uncertain: ['Wird vom Team geprüft', 'warn'], done: ['Ausgezahlt', 'live'], failed: ['Fehlgeschlagen, zurückgebucht', 'bad'], cancelled: ['Storniert', ''] };
-  const verifyCmd = `/msg ${s.botName} verify ${me.verifyCode}`;
 
   app.innerHTML = `
     <div class="page-title"><div><h1>Wallet</h1><p>Ein- und Auszahlungen laufen über den Bot <b translate="no">${esc(s.botName)}</b> auf Hugo SMP</p></div>
@@ -451,15 +450,7 @@ async function viewWallet() {
           <p class="muted">Schick dem Bot auf Hugo SMP Geld. Er schreibt es dir gut, sobald er die Zahlung sieht.</p>
           <div class="cmd"><code translate="no">${esc(s.payCommand)}</code>
             <button class="btn btn-sm" type="button" data-copy="${esc(s.payCommand.replace(' <Betrag>', ' '))}">Kopieren</button></div>
-        </section>` : `
-        <section class="panel"><h2>Minecraft verknüpfen</h2>
-          <p class="muted">Einmalig nötig, damit der Bot weiß, wem eine Zahlung gehört.</p>
-          ${me.verifyCode ? `
-            <ol class="steps" style="margin-top:14px"><li>Geh auf <b>Hugo SMP</b> online.</li><li>Schick dem Bot diese Nachricht:</li></ol>
-            <div class="cmd"><code translate="no">${esc(verifyCmd)}</code><button class="btn btn-sm" type="button" data-copy="${esc(verifyCmd)}">Kopieren</button></div>
-            <p class="muted" style="font-size:14px">Der Code gilt 15 Minuten. <button class="btn btn-quiet btn-sm" type="button" id="check">Verknüpfung prüfen</button></p>`
-          : '<button class="btn btn-ja" type="button" id="link" style="margin-top:14px">Code erzeugen</button>'}
-        </section>`}
+        </section>` : ''}
       </div>
       <div class="stack">
         <section class="panel"><h2>Auszahlen</h2>
@@ -484,13 +475,6 @@ async function viewWallet() {
   app.querySelectorAll('[data-copy]').forEach((b) => b.onclick = async () => {
     await navigator.clipboard.writeText(b.dataset.copy);
     toast('Kopiert. Füg es im Minecraft-Chat ein.');
-  });
-  document.getElementById('link')?.addEventListener('click', async () => { await api('/link', {}); viewWallet(); });
-  document.getElementById('check')?.addEventListener('click', async () => {
-    await refreshMe();
-    if (state.me.mcName) toast(`Verknüpft mit ${state.me.mcName}`);
-    else toast('Noch nicht verknüpft. Hast du die Nachricht an den Bot geschickt?', true);
-    viewWallet();
   });
   document.getElementById('wd-all')?.addEventListener('click', () => { document.getElementById('wd').value = Math.floor(me.balance); });
   document.getElementById('wd-form')?.addEventListener('submit', async (e) => {
@@ -627,38 +611,37 @@ async function viewAdmin() {
 
 // ---------- Login ----------
 
-function viewLogin(query) {
-  let register = query?.has('register');
-  const render = () => {
-    app.innerHTML = `<section class="auth panel">
-      <p class="brand">${icon('emerald', '', 30, 30)}HugoPredict</p>
-      <div class="seg" role="group" aria-label="Anmelden oder registrieren">
-        <button type="button" data-t="login" aria-pressed="${!register}">Anmelden</button>
-        <button type="button" data-t="reg" aria-pressed="${register}">Konto erstellen</button></div>
-      <form id="auth">
-        <div class="field"><label for="u">Username</label><input class="input" id="u" name="username" autocomplete="username" spellcheck="false" required></div>
-        <div class="field"><label for="p">Passwort${register ? ', mindestens 8 Zeichen' : ''}</label>
-          <input class="input" id="p" type="password" name="password" autocomplete="${register ? 'new-password' : 'current-password'}" required minlength="${register ? 8 : 1}"></div>
-        <button class="btn btn-ja btn-block">${register ? 'Konto erstellen' : 'Anmelden'}</button>
-        ${register ? '<p class="muted" style="font-size:14px;margin-top:14px">Deinen Minecraft-Account verknüpfst du danach in der Wallet.</p>' : ''}
-      </form></section>`;
-    app.querySelectorAll('[data-t]').forEach((b) => b.onclick = () => { register = b.dataset.t === 'reg'; render(); });
-    document.getElementById('auth').onsubmit = async (e) => {
-      e.preventDefault();
-      const btn = e.target.querySelector('button');
-      btn.disabled = true;
-      try {
-        await api(register ? '/register' : '/login', Object.fromEntries(new FormData(e.target)));
-        await refreshMe();
-        toast(register ? 'Konto erstellt. Verknüpfe jetzt Minecraft.' : `Angemeldet als ${state.me.username}`);
-        location.hash = register ? '#/wallet' : '#/';
-      } catch (err) {
-        toast(err.message, true);
-        btn.disabled = false;
-      }
-    };
+function viewLogin() {
+  const s = state.status;
+  const loginCmd = `/msg ${s?.botName || 'HugoPredict'} login`;
+  app.innerHTML = `<section class="auth panel">
+    <p class="brand">${icon('emerald', '', 30, 30)}HugoPredict</p>
+    <ol class="steps"><li>Geh auf <b>Hugo SMP</b> online und schreib dem Bot:</li></ol>
+    <div class="cmd"><code translate="no">${esc(loginCmd)}</code><button class="btn btn-sm" type="button" data-copy="${esc(loginCmd)}">Kopieren</button></div>
+    <ol class="steps" start="2"><li>Der Bot flüstert dir deinen persönlichen Code zu. Gib ihn hier ein:</li></ol>
+    ${s?.botOnline ? '' : '<p class="muted" style="font-size:14px">Der Bot ist gerade offline. Ohne ihn bekommst du keinen Code.</p>'}
+    <form id="auth">
+      <div class="field"><label for="c">Code</label><input class="input" id="c" name="code" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" required maxlength="8"></div>
+      <button class="btn btn-ja btn-block">Anmelden</button>
+    </form></section>`;
+  app.querySelector('[data-copy]').onclick = async (e) => {
+    await navigator.clipboard.writeText(e.target.dataset.copy);
+    toast('Kopiert. Füg es im Minecraft-Chat ein.');
   };
-  render();
+  document.getElementById('auth').onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button');
+    btn.disabled = true;
+    try {
+      await api('/login', Object.fromEntries(new FormData(e.target)));
+      await refreshMe();
+      toast(`Angemeldet als ${state.me.mcName}`);
+      location.hash = '#/';
+    } catch (err) {
+      toast(err.message, true);
+      btn.disabled = false;
+    }
+  };
 }
 
 // ---------- Boot ----------

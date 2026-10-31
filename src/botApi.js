@@ -89,11 +89,8 @@ botApi.post('/minecraft/links', handle((req) => {
   return { linked: true };
 }));
 
-// A player whispered the code from the website wallet to the bot.
-botApi.post('/minecraft/website-links', handle((req) => {
-  const res = svc.completeLink(mcName(req.body.minecraftName), String(req.body.code || ''));
-  return { linked: true, ...res };
-}));
+// A player whispered "login" to the bot; the bot whispers this code back to that player only.
+botApi.post('/minecraft/login-codes', handle((req) => svc.createLoginCode(mcName(req.body.minecraftName))));
 
 botApi.post('/minecraft/deposits', handle((req) => {
   const { id, minecraftName, amount } = req.body;

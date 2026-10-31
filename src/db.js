@@ -111,6 +111,13 @@ db.exec(`
     created_at INTEGER NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS login_codes (
+    mc_name TEXT PRIMARY KEY COLLATE NOCASE,
+    code_hash TEXT NOT NULL UNIQUE,
+    expires_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS idx_trades_market ON trades(market_id, id);
   CREATE INDEX IF NOT EXISTS idx_positions_market ON positions(market_id);
   CREATE INDEX IF NOT EXISTS idx_ledger_user ON ledger(user_id, id);

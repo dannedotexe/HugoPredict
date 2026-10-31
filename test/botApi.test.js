@@ -45,11 +45,8 @@ test('deposit report is idempotent and held until the website link', async () =>
   await deposit('d1', 100);
 
   const code = svc.startLink(userId('caro'));
-  const wrong = await post('/minecraft/website-links', { minecraftName: 'CaroMC', code: 'FFFFFF' });
-  assert.equal(wrong.status, 400);
-  assert.ok(wrong.body.message);
-  const linked = await post('/minecraft/website-links', { minecraftName: 'CaroMC', code });
-  assert.deepEqual(linked.body, { linked: true, username: 'caro', claimed: 100 });
+  assert.equal((await post('/minecraft/website-links', { minecraftName: 'CaroMC', code })).status, 404);
+  assert.equal(svc.completeLink('CaroMC', code).claimed, 100);
   assert.equal(balance('caro'), 100);
 
   assert.deepEqual((await deposit('d2', 50, 'caromc')).body, { accepted: true, linked: true, credited: 50 });
@@ -103,6 +100,43 @@ test('markets use the shape the bot expects', async () => {
   svc.cancelMarket(id);
   assert.equal((await call('GET', '/markets?status=rejected')).body.markets[0].id, String(id));
   assert.equal((await call('GET', '/markets?status=x')).status, 422);
+});
+
+test('login code is single use, creates the account and claims held deposits', async () => {
+  process.env.ADMIN_MC = 'Alpha_Noah';
+  await deposit('held-1', 70, 'Alpha_Noah');
+  const { body } = await post('/minecraft/login-codes', { minecraftName: 'Alpha_Noah' });
+  assert.equal(body.code.length, 8);
+  assert.equal((await post('/minecraft/login-codes', { minecraftName: 'alpha_noah' })).status, 409);
+
+  const token = svc.loginWithCode(body.code.toLowerCase());
+  const user = svc.userBySession(token);
+  assert.equal(user.mc_name, 'Alpha_Noah');
+  assert.equal(user.isAdmin, true);
+  assert.equal(user.balance, 70);
+  assert.throws(() => svc.loginWithCode(body.code), /ungültig/);
+  assert.throws(() => svc.loginWithCode(''), /ungültig/);
+});
+
+test('admin follows the Minecraft name, not a matching username', async () => {
+  process.env.ADMIN_MC = 'Alpha_Noah';
+  svc.register('Alpha_Noah2', 'password1');
+  const squatter = svc.register('alpha_NOAH_x', 'password1');
+  assert.equal(svc.userBySession(squatter).isAdmin, false);
+
+  // A username grabbed earlier must neither block nor inherit the real player's login.
+  db.prepare('UPDATE users SET username = ? WHERE username = ?').run('Dieb_Name', 'Alpha_Noah2');
+  svc.register('Opfer_MC', 'password1');
+  const { code } = svc.createLoginCode('Opfer_MC');
+  const user = svc.userBySession(svc.loginWithCode(code));
+  assert.equal(user.username, 'Opfer_MC_2');
+  assert.equal(user.mc_name, 'Opfer_MC');
+});
+
+test('expired login code is refused', () => {
+  const { code } = svc.createLoginCode('Spaet_MC');
+  db.prepare('UPDATE login_codes SET expires_at = 1 WHERE mc_name = ?').run('Spaet_MC');
+  assert.throws(() => svc.loginWithCode(code), /abgelaufen/);
 });
 
 test('heartbeat drives the online status', async () => {

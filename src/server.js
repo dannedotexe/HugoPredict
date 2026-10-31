@@ -84,15 +84,9 @@ app.get('/api/status', handle(() => ({
   payCommand: (process.env.PAY_COMMAND || '/pay {player} {amount}').replace('{player}', botState.username).replace('{amount}', '<Betrag>'),
 })));
 
-app.post('/api/register', handle((req, res) => {
-  rateLimit(req);
-  const token = svc.register(req.body.username, req.body.password);
-  res.setHeader('Set-Cookie', `${COOKIE}=${token}; ${cookieFlags}`);
-}));
-
 app.post('/api/login', handle((req, res) => {
   rateLimit(req);
-  const token = svc.login(req.body.username, req.body.password);
+  const token = svc.loginWithCode(req.body.code);
   res.setHeader('Set-Cookie', `${COOKIE}=${token}; ${cookieFlags}`);
 }));
 
@@ -115,7 +109,6 @@ app.post('/api/markets/:id/sell', handle((req) =>
   svc.sell(auth(req).id, Number(req.params.id), Number(req.body.outcomeId), req.body.shares)));
 
 app.get('/api/portfolio', handle((req) => svc.portfolio(auth(req).id)));
-app.post('/api/link', handle((req) => ({ code: svc.startLink(auth(req).id) })));
 app.get('/api/withdrawals', handle((req) => ({ withdrawals: svc.userWithdrawals(auth(req).id) })));
 app.post('/api/withdrawals', handle((req) => svc.requestWithdrawal(auth(req).id, req.body.amount)));
 app.post('/api/withdrawals/:id/cancel', handle((req) => svc.cancelWithdrawal(auth(req).id, Number(req.params.id))));

@@ -19,7 +19,7 @@ export class AppError extends Error {
 export const r2 = (x) => Math.round(x * 100) / 100;
 const now = () => Date.now();
 const adminNames = () =>
-  (process.env.ADMIN_USERS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+  (process.env.ADMIN_MC || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
 
 // ---------- Balance ----------
 
@@ -70,7 +70,8 @@ export function userBySession(token) {
   if (!token) return null;
   const u = db.prepare('SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.created_at > ?')
     .get(token, now() - SESSION_TTL);
-  if (u) u.isAdmin = !!u.is_admin || adminNames().includes(u.username.toLowerCase());
+  // Admin rights follow the verified Minecraft name, never the free-form username.
+  if (u) u.isAdmin = !!u.is_admin || adminNames().includes((u.mc_name || '').toLowerCase());
   return u || null;
 }
 
@@ -100,15 +101,65 @@ export function completeLink(mcName, code) {
     const taken = db.prepare('SELECT id FROM users WHERE mc_name = ? AND id <> ?').get(mcName, u.id);
     if (taken) throw new AppError('Dieser Minecraft-Name ist schon mit einem anderen Account verknüpft');
     db.prepare('UPDATE users SET mc_name = ?, verify_code = NULL, verify_expires = NULL WHERE id = ?').run(mcName, u.id);
+    return { username: u.username, claimed: claimDeposits(u.id, mcName) };
+  });
+}
 
-    // Deposits sent before linking are credited now.
-    let claimed = 0;
-    for (const d of db.prepare('SELECT * FROM deposits WHERE user_id IS NULL AND mc_name = ?').all(mcName)) {
-      db.prepare('UPDATE deposits SET user_id = ? WHERE id = ?').run(u.id, d.id);
-      changeBalance(u.id, d.amount, 'deposit', `dep#${d.id}`);
-      claimed += d.amount;
+// Deposits sent before the account existed are credited now.
+function claimDeposits(userId, mcName) {
+  let claimed = 0;
+  for (const d of db.prepare('SELECT * FROM deposits WHERE user_id IS NULL AND mc_name = ?').all(mcName)) {
+    db.prepare('UPDATE deposits SET user_id = ? WHERE id = ?').run(userId, d.id);
+    changeBalance(userId, d.amount, 'deposit', `dep#${d.id}`);
+    claimed += d.amount;
+  }
+  return r2(claimed);
+}
+
+// ---------- Login through the Minecraft bot ----------
+// The bot whispers the code to the player, so only the owner of the Minecraft account can read it.
+
+const LOGIN_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const LOGIN_TTL = 5 * 60e3;
+const LOGIN_RESEND = 30e3;
+const hashCode = (code) => crypto.createHash('sha256').update(code).digest('hex');
+
+export function createLoginCode(mcName) {
+  return tx(() => {
+    const last = db.prepare('SELECT created_at FROM login_codes WHERE mc_name = ?').get(mcName);
+    if (last && now() - last.created_at < LOGIN_RESEND) throw new AppError('Warte kurz, bevor du einen neuen Code anforderst.', 409);
+    const code = Array.from(crypto.randomBytes(8), (b) => LOGIN_ALPHABET[b % LOGIN_ALPHABET.length]).join('');
+    db.prepare(`INSERT INTO login_codes (mc_name, code_hash, expires_at, created_at) VALUES (?, ?, ?, ?)
+      ON CONFLICT (mc_name) DO UPDATE SET code_hash = excluded.code_hash, expires_at = excluded.expires_at, created_at = excluded.created_at`)
+      .run(mcName, hashCode(code), now() + LOGIN_TTL, now());
+    return { code, expiresInSeconds: LOGIN_TTL / 1000 };
+  });
+}
+
+function freeUsername(mcName) {
+  const taken = (name) => db.prepare('SELECT 1 FROM users WHERE username = ?').get(name);
+  if (!taken(mcName)) return mcName;
+  for (let i = 2; ; i++) {
+    const name = `${mcName.slice(0, 15 - String(i).length)}_${i}`;
+    if (!taken(name)) return name;
+  }
+}
+
+export function loginWithCode(code) {
+  const hash = hashCode(String(code || '').trim().toUpperCase());
+  return tx(() => {
+    const row = db.prepare('SELECT * FROM login_codes WHERE code_hash = ? AND expires_at > ?').get(hash, now());
+    if (!row) throw new AppError('Code ungültig oder abgelaufen', 401);
+    db.prepare('DELETE FROM login_codes WHERE mc_name = ?').run(row.mc_name);
+    let u = db.prepare('SELECT id FROM users WHERE mc_name = ?').get(row.mc_name);
+    if (!u) {
+      const salt = crypto.randomBytes(16).toString('hex');
+      const r = db.prepare('INSERT INTO users (username, pass_hash, salt, mc_name, created_at) VALUES (?, ?, ?, ?, ?)')
+        .run(freeUsername(row.mc_name), hashPassword(crypto.randomBytes(32).toString('hex'), salt), salt, row.mc_name, now());
+      u = { id: Number(r.lastInsertRowid) };
+      claimDeposits(u.id, row.mc_name);
     }
-    return { username: u.username, claimed: r2(claimed) };
+    return createSession(u.id);
   });
 }
 

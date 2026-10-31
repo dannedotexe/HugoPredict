@@ -4,8 +4,8 @@ Ein Prediction Market im Stil von Polymarket – nur für **Hugo SMP**. Spieler 
 
 ## Wie es funktioniert
 
-1. **Account erstellen** auf der Website.
-2. **Minecraft verknüpfen:** In der Wallet einen Code erzeugen und ingame `/msg <Bot> verify <CODE>` schreiben.
+1. **Code holen:** Ingame `/msg <Bot> login` schreiben. Der Bot flüstert einen persönlichen Code zurück, der 5 Minuten gilt.
+2. **Anmelden:** Code auf der Website eingeben. Beim ersten Mal entsteht das Konto automatisch, ein Passwort gibt es nicht.
 3. **Einzahlen:** Ingame `/pay <Bot> <Betrag>`. Der Bot erkennt die Zahlung und schreibt sie gut.
 4. **Wetten:** Anteile eines Outcomes kaufen. Der Preis (z.B. 63¢) ist die Wahrscheinlichkeit, die die Community dem Outcome gibt. Gewinnt das Outcome, zahlt jeder Anteil 1 $.
 5. **Auszahlen:** In der Wallet anfordern – der Bot führt `/pay <Spieler> <Betrag>` aus.
@@ -23,7 +23,7 @@ npm run seed             # optional: Demo-Märkte
 npm start                # http://localhost:3000
 ```
 
-Wer in `ADMIN_USERS` steht, sieht nach dem Registrieren den **Admin**-Tab: Märkte erstellen, schließen, auflösen (zahlt Gewinner automatisch aus), stornieren (erstattet Einsätze) und Guthaben manuell anpassen.
+Wessen Minecraft-Name in `ADMIN_MC` steht, sieht nach dem Anmelden den **Admin**-Tab: Märkte erstellen, schließen, auflösen (zahlt Gewinner automatisch aus), stornieren (erstattet Einsätze) und Guthaben manuell anpassen.
 
 ## Externen Minecraft-Bot verbinden
 
@@ -32,7 +32,6 @@ Der Minecraft-Bot aus dem Discord-Bot-Branch `claude/hugosmp-market-discord-kyru
 1. Schlüssel erzeugen: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
 2. Website-`.env`: `HUGO_API_KEY=<Schlüssel>` und `WEBSITE_URL=https://<domain>`, außerdem `COOKIE_SECURE=true`.
 3. Bot-`.env`: `HUGO_API_KEY=<Schlüssel>`, `HUGO_API_URL=https://<domain>/api/bot`, `WEBSITE_URL=https://<domain>`, `MC_PAYOUTS_ENABLED=true`, `MC_PAYOUT_MAX=<Limit>`.
-4. `docs/mc-bot-website-link.patch` auf den Bot-Branch anwenden. Erst damit nimmt der Bot `/msg <Bot> verify <CODE>` an und meldet seinen Online-Status.
 
 Auszahlungen muss in diesem Modus ein Admin im Admin-Tab freigeben. Meldet der Bot ein unklares Ergebnis, bleibt die Auszahlung auf „Wird vom Team geprüft“; nach der Prüfung ingame lässt sie sich bei Bedarf über die Admin-Gutschrift erstatten.
 
