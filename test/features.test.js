@@ -556,3 +556,17 @@ test('Pings einmalig für bisherige Mitglieder, danach nie wieder', async () => 
   assert.deepEqual(added, [['a', 'N1', 'N2'], ['b', 'N2']]);
   assert.equal(await backfillDefaultPings(guild, deps), null, 'nur einmal');
 });
+
+test('Neue Verifizierung: Karte im Team-Channel #verifizierungen', async () => {
+  const { applyVerified } = require('../src/interactions/verification');
+  const sent = [];
+  const channel = { isTextBased: () => true, send: async (p) => sent.push(p) };
+  const member = { id: '7', user: { username: 'steve_dc', createdAt: new Date(Date.now() - 2 * 86400e3) }, nickname: null, roles: { cache: new Collection(), add: async () => {} }, setNickname: async () => {} };
+  const deps = { ctx: { roleId: () => null, audit: async () => { throw new Error('soll nicht ins Prüfprotokoll'); }, hasRoleKey: () => false, channel: async (g, key) => (key === 'verifyLog' ? channel : null) }, logger: console };
+  await applyVerified({ id: 'G' }, member, 'Steve', deps);
+  const text = JSON.stringify(sent[0].components.map((c) => c.toJSON()));
+  assert.match(text, /Neu verifiziert/);
+  assert.match(text, /<@7>/);
+  assert.match(text, /sehr neu/, 'junges Discord-Konto wird markiert');
+  assert.deepEqual(sent[0].allowedMentions, { parse: [] }, 'niemand wird gepingt');
+});

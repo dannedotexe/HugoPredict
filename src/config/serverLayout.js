@@ -209,7 +209,7 @@ const SEPARATOR = '┃';
 const ICONS = {
   willkommen: '👋', 'so-gehts': '📖', verifizieren: '✅', status: '📶', bewerben: '📝', bewerbungen: '📨', ankündigungen: '📢', prognosen: '📈', regeln: '📜', pings: '🔔',
   diskussionen: '💬', analysen: '📊', medien: '📸', vorschläge: '💡', 'Voice 1': '🔊', 'Voice 2': '🔊', 'Voice 3': '🔊', support: '🎫', 'support-steuerung': '📋', 'support-warteraum': '⏳', 'Support Raum 1': '🛠️', 'Support Raum 2': '🛠️',
-  betrieb: '🔧', 'minecraft-panel': '🎮', prüfprotokoll: '🧾', systemmeldungen: '📡', moderation: '🔨', team: '👥',
+  betrieb: '🔧', 'minecraft-panel': '🎮', verifizierungen: '🪪', prüfprotokoll: '🧾', systemmeldungen: '📡', moderation: '🔨', team: '👥',
 };
 const named = (plain, ...older) => ({
   name: `${ICONS[plain] ?? ''}${SEPARATOR}${plain}`,
@@ -329,6 +329,7 @@ const CATEGORIES = [
     channels: [
       { key: 'operations', ...named('betrieb'), type: T, legacy: ['marketDecisions'], topic: 'Prognosebetrieb: Vorschläge prüfen und Entscheidungen vorbereiten.', permissions: profiles.staff(['marketMod', ...LEADERSHIP]) },
       { key: 'minecraftPanel', ...named('minecraft-panel'), type: T, topic: 'Befehle über den Minecraft-Bot ausführen (/pay, /balance …). Wer diesen Channel sieht, kann das Panel nutzen.', permissions: profiles.staff(LEADERSHIP) },
+      { key: 'verifyLog', ...named('verifizierungen'), type: T, topic: 'Wer sich verifiziert hat: Discord-Konto, Minecraft-Name und Zeitpunkt.', permissions: profiles.staff(STAFF, { readOnly: true }) },
       { key: 'audit', ...named('prüfprotokoll'), type: T, legacy: ['modLogs'], topic: 'Administrative Eingriffe, Transaktionen und Sicherheitsereignisse.', permissions: profiles.staff(LEADERSHIP, { readOnly: true }) },
       { key: 'system', ...named('systemmeldungen'), type: T, legacy: ['botLogs'], topic: 'Systemstatus und technische Meldungen.', permissions: profiles.staff(['developer', ...LEADERSHIP], { readOnly: true }) },
       { key: 'moderation', ...named('moderation'), type: T, legacy: ['ticketLogs'], topic: 'Moderation und Ticket-Protokolle.', permissions: profiles.staff(['moderator', 'support', ...LEADERSHIP]) },
@@ -344,6 +345,7 @@ const ARCHIVE_CATEGORY = { key: 'archive', name: 'ARCHIV', permissions: profiles
 // Welche Protokolle landen in welchem Channel
 const LOG_ROUTES = {
   system: 'system', // Fehler, API-Störungen
+  verifications: 'verifyLog', // neue Verifizierungen (Kontoverknüpfung)
   audit: 'audit', // Setup, Panels, Ankündigungen, Daily, Verifizierung, verweigerte Zugriffe
   tickets: 'moderation', // Ticket-Eröffnung, -Übernahme, -Abschluss mit Transkript
   operations: 'operations', // Prognosevorschläge und Entscheidungen

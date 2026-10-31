@@ -5,7 +5,7 @@ const theme = require('../config/theme');
 const { embeds, discordTime, formatRetry } = require('../lib/embeds');
 const { replyPrivate, replyApiError, EPHEMERAL } = require('../lib/respond');
 const { ApiError } = require('../lib/hugoApi');
-const { withEmoji } = require('../lib/emojis');
+const { withEmoji, emojis } = require('../lib/emojis');
 const { card } = require('../lib/ui');
 const { CODE_LENGTH } = require('../minecraft/linkCodes');
 const { desiredNickname } = require('../services/staffNames');
@@ -140,6 +140,38 @@ async function checkVerification(interaction, deps) {
   return grantVerified(interaction, status.minecraftName, deps);
 }
 
+/** Karte im Team-Channel #verifizierungen (ohne Channel: Eintrag im Prüfprotokoll). */
+async function announceVerification(guild, member, minecraftName, deps) {
+  const userId = member.id ?? member.user?.id;
+  const channel = await deps.ctx.channel?.(guild, 'verifyLog').catch(() => null);
+  if (!channel?.isTextBased?.()) {
+    await deps.ctx.audit(guild, 'audit', {
+      title: 'Konto verknüpft',
+      fields: [{ name: 'Discord', value: `<@${userId}> (${userId})` }, { name: 'Minecraft', value: minecraftName ?? '—' }],
+    });
+    return;
+  }
+  const created = member.user?.createdAt instanceof Date ? member.user.createdAt : null;
+  const young = created && Date.now() - created.getTime() < 7 * 86400e3;
+  const payload = card({
+    eyebrow: `${emojis.icon('verified')}Neu verifiziert`,
+    title: minecraftName ?? 'Unbekannt',
+    intro: `<@${userId}> hat sein Konto verknüpft.`,
+    accent: young ? theme.colors.warning : theme.colors.success,
+    thumbnailUrl: minecraftName ? `https://mc-heads.net/avatar/${encodeURIComponent(minecraftName)}/128` : undefined,
+    blocks: [{
+      text: [
+        `**Discord:** ${member.user?.username ?? '—'} · \`${userId}\``,
+        `**Minecraft:** ${minecraftName ?? '—'}`,
+        created ? `**Discord-Konto erstellt:** ${discordTime(created, 'R')}${young ? ' ⚠️ sehr neu' : ''}` : null,
+        `**Verifiziert:** ${discordTime(new Date(), 'f')}`,
+      ].filter(Boolean).join('\n'),
+    }],
+    footer: null,
+  });
+  await channel.send({ ...payload, allowedMentions: { parse: [] } }).catch((err) => deps.logger.warn('Verifizierungs-Karte:', err.message));
+}
+
 /** Vergibt Mitglied + Verifiziert und setzt den Minecraft-Namen. Ergebnis: { ok, nickNote }. */
 async function applyVerified(guild, member, minecraftName, deps) {
   const userId = member.id ?? member.user?.id;
@@ -166,13 +198,7 @@ async function applyVerified(guild, member, minecraftName, deps) {
       deps.logger.warn('Nickname nicht gesetzt:', err.message);
     }
   }
-  await deps.ctx.audit(guild, 'audit', {
-    title: 'Konto verknüpft',
-    fields: [
-      { name: 'Discord', value: `<@${userId}> (${userId})` },
-      { name: 'Minecraft', value: minecraftName ?? '—' },
-    ],
-  });
+  await announceVerification(guild, member, minecraftName, deps);
   return { ok: true, nickNote };
 }
 
