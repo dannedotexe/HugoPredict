@@ -178,3 +178,25 @@ test('Discord-Befehle: Guthaben, Portfolio, Verlauf und Rangliste über die Verk
   assert.ok(Array.isArray(lb.body.entries));
   assert.equal((await call('GET', '/leaderboards/weekly')).status, 404);
 });
+
+test('Admin-Panel: Kennzahlen, Nutzer, Märkte und Transaktionen nur mit Schlüssel', async () => {
+  assert.equal((await call('GET', '/admin/summary', undefined, 'falsch')).status, 401);
+  const { code } = (await post('/minecraft/login-codes', { minecraftName: 'PanelMC' })).body;
+  svc.loginWithCode(code);
+  await post('/minecraft/links', { discordId: '888888888888888888', discordUsername: 'panel', minecraftName: 'PanelMC', minecraftUuid: 'uuid-panel' });
+  await deposit('panel-1', 120, 'PanelMC');
+
+  const sum = (await call('GET', '/admin/summary')).body;
+  assert.ok(sum.users >= 1 && sum.mcPlayers >= 1);
+  assert.ok(sum.deposits.sum >= 120);
+  assert.ok(Array.isArray(sum.top));
+
+  const users = (await call('GET', '/admin/users?q=panel')).body;
+  assert.equal(users.users[0].mcName, 'PanelMC');
+  assert.equal(users.users[0].discordId, '888888888888888888');
+  assert.equal(users.users[0].balance, 120);
+
+  const tx = (await call('GET', '/admin/transactions?type=deposit&limit=5')).body;
+  assert.ok(tx.transactions.every((t) => t.type === 'deposit'));
+  assert.equal((await call('GET', '/admin/markets')).status, 200);
+});

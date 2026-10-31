@@ -500,6 +500,73 @@ export function discordAccount(userId, { limit = 10 } = {}) {
   };
 }
 
+// ---------- Admin-Panel im Discord (/panel, nur lesend) ----------
+
+const iso = (ms) => (ms ? new Date(ms).toISOString() : null);
+const one = (sql, ...args) => db.prepare(sql).get(...args);
+
+/** Kennzahlen für das Dashboard und die Wirtschaftsseite. */
+export function panelSummary() {
+  const prices = priceMap();
+  let positionsValue = 0;
+  for (const p of db.prepare('SELECT outcome_id, shares FROM positions WHERE shares > 0').all()) positionsValue += p.shares * (prices.get(p.outcome_id) ?? 0);
+  const marketCounts = Object.fromEntries(listMarkets().reduce((m, x) => m.set(x.status, (m.get(x.status) || 0) + 1), new Map()));
+  const withdrawals = Object.fromEntries(db.prepare('SELECT status, COUNT(*) n, COALESCE(SUM(amount), 0) s FROM withdrawals GROUP BY status').all()
+    .map((w) => [w.status, { count: w.n, sum: r2(w.s) }]));
+  return {
+    users: one('SELECT COUNT(*) n FROM users').n,
+    mcPlayers: one('SELECT COUNT(*) n FROM users WHERE mc_name IS NOT NULL').n,
+    discordLinks: one('SELECT COUNT(*) n FROM discord_links').n,
+    balances: r2(one('SELECT COALESCE(SUM(balance), 0) s FROM users').s),
+    positionsValue: r2(positionsValue),
+    trades: one('SELECT COUNT(*) n FROM trades').n,
+    volume: r2(one('SELECT COALESCE(SUM(amount), 0) s FROM trades').s),
+    fees: r2(one('SELECT COALESCE(SUM(fee), 0) s FROM trades').s),
+    deposits: { count: one('SELECT COUNT(*) n FROM deposits').n, sum: r2(one('SELECT COALESCE(SUM(amount), 0) s FROM deposits').s), unclaimed: r2(one('SELECT COALESCE(SUM(amount), 0) s FROM deposits WHERE user_id IS NULL').s) },
+    withdrawals,
+    markets: marketCounts,
+    top: db.prepare('SELECT username, mc_name, balance FROM users ORDER BY balance DESC LIMIT 10').all()
+      .map((u) => ({ username: u.username, mcName: u.mc_name, balance: r2(u.balance) })),
+  };
+}
+
+/** Registrierte Nutzer mit Discord-Verknüpfung, durchsuchbar. */
+export function panelUsers({ q = '', offset = 0, limit = 10 } = {}) {
+  const like = `%${String(q).trim().replace(/[%_]/g, '')}%`;
+  const where = `WHERE u.username LIKE ? OR u.mc_name LIKE ? OR d.discord_username LIKE ? OR d.discord_id LIKE ?`;
+  const from = 'FROM users u LEFT JOIN discord_links d ON d.mc_name = u.mc_name';
+  const total = one(`SELECT COUNT(*) n ${from} ${where}`, like, like, like, like).n;
+  const users = db.prepare(`SELECT u.id, u.username, u.mc_name, u.balance, u.created_at, d.discord_id, d.discord_username
+    ${from} ${where} ORDER BY u.id DESC LIMIT ? OFFSET ?`).all(like, like, like, like, limit, offset)
+    .map((u) => ({ id: u.id, username: u.username, mcName: u.mc_name, balance: r2(u.balance), createdAt: iso(u.created_at), discordId: u.discord_id ?? null, discordName: u.discord_username ?? null }));
+  return { total, users };
+}
+
+/** Märkte mit Status, Volumen und Ergebnis. */
+export function panelMarkets() {
+  return {
+    markets: listMarkets().map((m) => ({
+      id: m.id, title: m.title, category: m.category, status: m.status, volume: m.volume,
+      closesAt: iso(m.closesAt), createdAt: iso(m.createdAt),
+      outcomes: m.outcomes.map((o) => ({ label: o.label, price: r2(o.price) })),
+      result: m.outcomes.find((o) => o.id === m.resolvedOutcomeId)?.label ?? null,
+    })),
+  };
+}
+
+/** Letzte Buchungen (Ledger), optional nach Typ gefiltert. */
+export function panelTransactions({ type = '', limit = 15 } = {}) {
+  const rows = type
+    ? db.prepare('SELECT l.*, u.username, u.mc_name FROM ledger l JOIN users u ON u.id = l.user_id WHERE l.type = ? ORDER BY l.id DESC LIMIT ?').all(type, limit)
+    : db.prepare('SELECT l.*, u.username, u.mc_name FROM ledger l JOIN users u ON u.id = l.user_id ORDER BY l.id DESC LIMIT ?').all(limit);
+  return {
+    transactions: rows.map((l) => ({
+      id: String(l.id), type: l.type, label: LEDGER_LABELS[l.type] ?? l.type, amount: r2(l.amount),
+      user: l.mc_name ?? l.username, ref: l.ref, createdAt: iso(l.created_at),
+    })),
+  };
+}
+
 export function leaderboard() {
   const prices = priceMap();
   const values = new Map();

@@ -148,6 +148,17 @@ botApi.get('/leaderboards/:type', handle((req) => {
   };
 }));
 
+// --- Admin-Panel im Discord (/panel): nur lesend ---
+const intParam = (v, def, min, max) => Math.min(Math.max(Number.parseInt(v, 10) || def, min), max);
+botApi.get('/admin/summary', handle(() => svc.panelSummary()));
+botApi.get('/admin/users', handle((req) => svc.panelUsers({
+  q: String(req.query.q || '').slice(0, 40), offset: intParam(req.query.offset, 0, 0, 1e6), limit: intParam(req.query.limit, 10, 1, 25),
+})));
+botApi.get('/admin/markets', handle(() => svc.panelMarkets()));
+botApi.get('/admin/transactions', handle((req) => svc.panelTransactions({
+  type: /^[a-z_]{1,20}$/.test(String(req.query.type || '')) ? String(req.query.type) : '', limit: intParam(req.query.limit, 15, 1, 50),
+})));
+
 botApi.get('/minecraft/payouts', handle(() => ({ payouts: svc.approvedPayouts() })));
 botApi.post('/minecraft/payouts/:id/complete', handle((req) => svc.completePayout(Number(req.params.id))));
 botApi.post('/minecraft/payouts/:id/fail', handle((req) =>
