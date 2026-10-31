@@ -26,9 +26,20 @@ function truncate(text, max) {
 
 const nf = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 });
 
+const nf1 = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 });
+
+/** Kurz wie im Spiel: 950 · 1,5k · 10k · 2,3m · 1b (abgerundet, nie zu viel angezeigt). */
+function shortNumber(value) {
+  const v = Number(value), a = Math.abs(v);
+  for (const [unit, size] of [['t', 1e12], ['b', 1e9], ['m', 1e6], ['k', 1e3]]) {
+    if (a >= size) return `${a / size >= 100 ? Math.trunc(v / size) : nf1.format(Math.trunc((v / size) * 10) / 10)}${unit}`;
+  }
+  return nf.format(v);
+}
+
 function formatAmount(value, currency) {
   if (value === null || value === undefined || !Number.isFinite(Number(value))) return '—';
-  return `${nf.format(Number(value))} ${currency}`;
+  return `${shortNumber(value)} ${currency}`;
 }
 
 /** Preis im Bereich 0–1 als Prozent/Wahrscheinlichkeit. */
@@ -51,4 +62,5 @@ function formatRetry(ms) {
   return s >= 60 ? `${Math.ceil(s / 60)} Minute(n)` : `${s} Sekunde(n)`;
 }
 
-module.exports = { embeds, truncate, formatAmount, formatPrice, discordTime, formatRetry };
+module.exports = {
+  shortNumber, embeds, truncate, formatAmount, formatPrice, discordTime, formatRetry };
