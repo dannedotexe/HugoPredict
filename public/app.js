@@ -156,7 +156,9 @@ async function router() {
     });
     window.scrollTo(0, 0);
     // Lädt eine Seite länger, erscheint ein Platzhalter statt einer leeren Fläche
-    const loading = setTimeout(() => { app.innerHTML = SKELETON; }, 150);
+    // Nur solange die Seite noch nichts gezeichnet hat – sonst würde der Platzhalter sie überschreiben.
+    const before = app.innerHTML;
+    const loading = setTimeout(() => { if (app.innerHTML === before) app.innerHTML = SKELETON; }, 150);
     try {
       await view(...m.slice(1), new URLSearchParams(query));
     } catch (err) {
@@ -287,8 +289,11 @@ async function viewMarkets() {
   const featureEl = document.getElementById('feature');
   // Oben: die vom Admin hervorgehobene Prognose, sonst die mit dem meisten Volumen
   const top = open.find((m) => m.featured) ?? [...open].sort((a, b) => b.volume - a.volume)[0];
+  if (!featureEl) return;
   if (!top) { featureEl.remove(); return; }
   const { market: m } = await api(`/markets/${top.id}`);
+  // Inzwischen weiternavigiert? Dann nichts mehr zeichnen.
+  if (!featureEl.isConnected) return;
   const lead = sortedOutcomes(m)[0];
   featureEl.innerHTML = `
     <div class="feature-q">
