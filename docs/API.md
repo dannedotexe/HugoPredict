@@ -123,6 +123,14 @@ Antwort: `{ "linked": true }`. Ist das Minecraft-Konto schon mit einem anderen D
 verknüpft: **409** mit optionalem `message`. Verknüpfungen, die ohne Website entstanden sind,
 überträgt der Bot automatisch nach (gleicher Idempotency-Key).
 
+### `POST /minecraft/login-codes`
+Spieler flüstert dem Bot `login`. Body: `{ "minecraftName": "Steve" }`
+Antwort: `{ "code": "A1B2C3D4", "expiresInSeconds": 300 }`, zu schnell wiederholt: 409 mit `message`.
+Der Bot flüstert den Code nur diesem Spieler zu und schreibt ihn nie ins Log.
+
+### `POST /minecraft/heartbeat`
+`{ "online": true, "username": "HugoPredict" }`, jede Minute. Bleibt er 3 Minuten aus, gilt der Bot als offline.
+
 ### `POST /minecraft/deposits`
 Eine Einzahlung, die der Bot am **gestiegenen Kontostand** bestätigt hat.
 Header `Idempotency-Key: mc-deposit:<id>`. Nicht erreichbare Meldungen wiederholt der Bot.

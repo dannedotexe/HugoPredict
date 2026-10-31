@@ -321,6 +321,18 @@ class HugoApi {
     return { linked: body.linked === true, credited: isNum(body.credited) ? body.credited : null };
   }
 
+  /** Login-Code für die Website. Der Bot flüstert ihn nur dem Spieler selbst zu. */
+  async createLoginCode({ minecraftName }) {
+    const body = await this.request('POST', '/minecraft/login-codes', { body: { minecraftName } });
+    if (!isObj(body) || typeof body.code !== 'string') throw new ApiError('invalid_response', 'Login-Code fehlt.', { body });
+    return { code: body.code };
+  }
+
+  /** Zeigt auf der Website, ob der Minecraft-Bot gerade auf dem Server ist. */
+  async minecraftHeartbeat({ online, username }) {
+    await this.request('POST', '/minecraft/heartbeat', { body: { online, username } });
+  }
+
   /** Vom Team freigegebene Auszahlungen, die der Bot im Spiel ausführen soll. */
   async listPayouts() {
     const body = await this.request('GET', '/minecraft/payouts', { query: { status: 'approved' } });

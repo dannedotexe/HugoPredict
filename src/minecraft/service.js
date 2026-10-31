@@ -332,6 +332,29 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
     }
   }
 
+  // --- Website ------------------------------------------------------------
+
+  // Der Absender einer Flüsternachricht ist nur am Text erkannt. Sicher ist das trotzdem:
+  // Der Code geht per /msg an den echten Spieler, ein Fälscher bekommt ihn nie zu sehen.
+  async function onLoginRequest(name) {
+    if (!api.configured) return;
+    try {
+      const { code } = await api.createLoginCode({ minecraftName: name });
+      whisper(name, `Dein Website-Code: ${code} - 5 Minuten gueltig. Niemals weitergeben!`);
+    } catch (err) {
+      whisper(name, userMessage(err));
+    }
+  }
+
+  async function heartbeat() {
+    if (!api.configured) return;
+    try {
+      await api.minecraftHeartbeat({ online: state.online, username: bot?.username ?? null });
+    } catch (err) {
+      logger.debug?.('Minecraft-Heartbeat:', err.message);
+    }
+  }
+
   // --- Verbindung ---------------------------------------------------------
 
   function connect() {
@@ -378,6 +401,11 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
         }
       });
       flushOutbox();
+      heartbeat();
+    });
+
+    b.on('whisper', (name, message) => {
+      if (/^(?:login|anmelden)$/i.test(String(message).trim()) && name !== b.username) onLoginRequest(name);
     });
 
     b.on('messagestr', (message, position) => {
@@ -398,6 +426,7 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
       state.connecting = false;
       if (bot === b) bot = null;
       if (balanceWaiter) balanceWaiter = null;
+      heartbeat();
       logger.warn(`Minecraft: Verbindung beendet (${plain(reason)}).`);
       scheduleReconnect();
     });
@@ -423,6 +452,7 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
     persisted.save();
     connect();
     intervals.push(setInterval(() => flushOutbox(), 60_000));
+    intervals.push(setInterval(() => heartbeat(), 60_000));
     intervals.push(setInterval(() => syncLinks(), 5 * 60_000));
     intervals.push(setInterval(() => payoutTick().catch((err) => logger.warn('Auszahlungen:', err.message)), config.payoutIntervalSeconds * 1000));
     for (const i of intervals) i.unref?.();
