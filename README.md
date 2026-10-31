@@ -226,6 +226,21 @@ gespeichert. Erkennt der Bot Zahlungs- oder Kontostandsnachrichten nicht, meldet
 unbekannte Nachricht in `systemmeldungen`. Dann `MC_PAY_PATTERN`/`MC_BALANCE_PATTERN`
 anpassen. Alle Geldbewegungen stehen in `prüfprotokoll`.
 
+## Website verbinden
+
+Die Website liegt im Branch `website`. Auf dem Server richtet ein Befehl alles ein:
+
+```bash
+bash ~/HugoPredict/scripts/setup-website.sh hugopredict.de
+```
+
+Das Skript lädt die Website nach `~/HugoPredict-Website`, startet sie mit pm2 (`hugopredict-web`,
+nur lokal erreichbar), erzeugt den gemeinsamen API-Schlüssel und trägt ihn zusammen mit
+`HUGO_API_URL=http://127.0.0.1:<port>/api/bot` und `WEBSITE_URL` in beide `.env`-Dateien ein,
+startet den Discord-Bot neu, richtet Caddy als HTTPS-Proxy für die Domain ein, öffnet die Ports
+80/443 auf dem Server und aktiviert Auto-Updates für die Website. Danach fehlen nur noch der
+DNS-A-Eintrag der Domain und die Ingress-Regeln für 80/443 in der Oracle-Sicherheitsliste.
+
 ## Hosting auf Oracle Cloud (Always Free)
 
 Der Bot braucht nur **ausgehende** Verbindungen (Discord-Gateway und deine API). Du musst
