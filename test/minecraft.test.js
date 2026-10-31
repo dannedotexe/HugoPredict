@@ -405,3 +405,19 @@ test('Discord-Verknüpfung per /msg: Code aus Discord, Absender aus der Systemze
   await until(() => world.sent.some((m) => m.includes('schon mit einem anderen Discord-Konto')));
   assert.equal(linked.length, 1);
 });
+
+test('Panel: /balance aktualisiert den angezeigten Kontostand auch ohne Kontostand-Prüfung', async (t) => {
+  const { world, mc } = setup({ balanceCheck: false });
+  t.after(() => mc.stop());
+  mc.start();
+  await until(() => mc.state.online);
+  mc._internal.db.lastBalance = 102000; // veralteter Wert
+  world.balance = 1000;
+  const res = await mc.runCommand('/balance');
+  assert.equal(res.balance, 1000);
+  assert.equal(mc.info().balance, 1000);
+  // /pay liest den Kontostand danach neu
+  const paid = await mc.pay('Steve', '300');
+  assert.equal(paid.balance, 700);
+  assert.equal(mc.info().balance, 700);
+});

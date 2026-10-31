@@ -667,9 +667,12 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
     if (cmd.length > 256) return Promise.resolve({ error: 'too_long' });
     if (!state.online) return Promise.resolve({ error: 'offline_bot' });
     return exclusive(async () => {
-      const moneyRelated = MONEY_COMMAND.test(cmd) && config.balanceCheck;
+      // Nach Geld-Befehlen den Kontostand neu lesen – auch ohne Kontostand-Prüfung, damit die
+      // Anzeige stimmt. Mit Prüfung werden offene Einzahlungen dabei abgeglichen.
+      const moneyRelated = MONEY_COMMAND.test(cmd);
+      const adopt = (value) => (config.balanceCheck ? settle(value) : setBalance(value));
       // Offene Einzahlungen zuerst abschließen, sonst würde die eigene Zahlung sie verfälschen.
-      if (moneyRelated && claims.length) {
+      if (moneyRelated && config.balanceCheck && claims.length) {
         try {
           settle(await readBalance());
         } catch {
@@ -695,7 +698,7 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
           const g = matchFirst(patterns.balance, line);
           const value = g && parseAmount(g.amount, { allowZero: true });
           if (value !== null && value !== undefined && g) {
-            settle(value);
+            adopt(value);
             balance = value;
             break;
           }
@@ -703,7 +706,7 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
       } else if (moneyRelated) {
         try {
           const after = await readBalance();
-          if (claims.length) settle(after);
+          if (config.balanceCheck && claims.length) settle(after);
           else setBalance(after);
           balance = after;
         } catch {
