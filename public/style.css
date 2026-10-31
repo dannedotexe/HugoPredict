@@ -63,7 +63,7 @@ p { margin: 0; text-wrap: pretty; }
 .skip:focus { top: 12px; }
 
 .wrap { width: 100%; max-width: 1320px; margin: 0 auto; padding: 0 20px; }
-main.wrap { flex: 1; padding-top: 20px; padding-bottom: 56px; outline: none; }
+main.wrap { flex: 1; padding-top: 20px; padding-bottom: 56px; outline: none; overflow-x: clip; }
 
 /* ---------- Top bar ---------- */
 .bar { position: sticky; top: 0; z-index: 30; background: var(--ground); border-bottom: 1px solid var(--line); }

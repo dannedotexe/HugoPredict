@@ -644,12 +644,12 @@ async function viewAdmin() {
     </div>
     <div class="split-2" style="margin-top:20px">
       <section class="panel"><h2>Auszahlungen</h2><div class="table-wrap"><table class="table"><tbody>
-        ${ov.withdrawals.map((w) => `<tr><td><b>${esc(w.mc_name)}</b>${w.username && w.username !== w.mc_name ? `<br><small class="muted">${esc(w.username)}</small>` : ''}</td><td style="white-space:nowrap">${money(w.amount)}</td>
+        ${ov.withdrawals.map((w) => `<tr><td><div class="who">${head(w.mc_name)}<span><b>${esc(w.mc_name)}</b>${w.username && w.username !== w.mc_name ? `<br><small class="muted">${esc(w.username)}</small>` : ''}</span></div></td><td style="white-space:nowrap">${money(w.amount)}</td>
           <td><span class="tag ${w.status === 'done' ? 'live' : w.status === 'failed' ? 'bad' : 'warn'}">${WITHDRAW_STATUS[w.status] || esc(w.status)}</span></td><td class="muted">${ago(w.created_at)}</td>
           <td class="r">${w.status === 'pending' && state.status?.payoutsNeedApproval ? `<button class="btn btn-sm btn-ja" type="button" data-approve="${w.id}">Freigeben</button>` : ''}</td></tr>`).join('') || '<tr><td class="muted">Noch keine Auszahlungen</td></tr>'}
       </tbody></table></div></section>
       <section class="panel"><h2>Einzahlungen</h2><div class="table-wrap"><table class="table"><tbody>
-        ${ov.deposits.map((d) => `<tr><td><b>${esc(d.mc_name)}</b><br>${d.username ? (d.username !== d.mc_name ? `<small class="muted">${esc(d.username)}</small>` : '') : '<span class="tag warn">nicht verknüpft</span>'}</td>
+        ${ov.deposits.map((d) => `<tr><td><div class="who">${head(d.mc_name)}<span><b>${esc(d.mc_name)}</b>${d.username ? (d.username !== d.mc_name ? `<br><small class="muted">${esc(d.username)}</small>` : '') : '<br><span class="tag warn">noch kein Konto</span>'}</span></div></td>
           <td class="ja r" style="white-space:nowrap">+${money(d.amount)}<br><small class="muted">${ago(d.created_at)}</small></td></tr>`).join('') || '<tr><td class="muted">Noch keine Einzahlungen</td></tr>'}
       </tbody></table></div></section>
     </div>`;
