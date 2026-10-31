@@ -201,7 +201,7 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
           persisted.save();
           whisper(d.minecraftName, res.linked
             ? `${formatAmount(d.amount)} erhalten${res.credited !== null ? ` – ${formatAmount(res.credited)} HugoCoins gutgeschrieben` : ''}. Danke!`
-            : `${formatAmount(d.amount)} erhalten. Verknüpfe dein Konto im Discord, dann wird es gutgeschrieben.`);
+            : `${formatAmount(d.amount)} erhalten. Melde dich auf der Website an oder verknüpfe dein Konto im Discord, dann wird es gutgeschrieben.`);
           notify('audit', {
             title: 'Minecraft: Einzahlung',
             fields: [
@@ -312,6 +312,8 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
     if (!line) return;
     recentSystem.push(line.slice(0, 200));
     if (recentSystem.length > 15) recentSystem.shift();
+    // Eigenes Echo einer /msg („[Nachricht] Du -> …“) ist keine Zahlung – kein Fehlalarm.
+    if (/^\[Nachricht\] Du -> /.test(line)) return;
     const whispered = matchFirst(patterns.whisper, line);
     if (whispered) {
       onWhisper(whispered.name, whispered.message);
@@ -359,6 +361,7 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
 
   // Der Absender ist nur am Text erkannt: Das Muster muss so genau sein, dass Spieler-Chat nie passt.
   // Die Antwort geht an den genannten Spieler, damit er eine fremde Anmeldung in seinem Namen bemerkt.
+  const loginTries = new Map();
   async function onWhisper(name, message) {
     // Nur echte Minecraft-Namen: der Name landet im /msg-Befehl.
     if (!/^[A-Za-z0-9_]{3,16}$/.test(String(name)) || name === bot?.username) return;
@@ -368,6 +371,11 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
       return;
     }
     if (!/^[a-z0-9]{12}$/i.test(text)) return;
+    // Höchstens 5 Code-Versuche pro Minute und Spieler
+    const key = name.toLowerCase();
+    const recent = (loginTries.get(key) ?? []).filter((t) => Date.now() - t < 60_000);
+    if (recent.length >= 5) return;
+    loginTries.set(key, [...recent, Date.now()]);
     if (!api.configured) {
       logger.warn('Minecraft: Login-Code erhalten, aber die Website ist nicht eingerichtet (HUGO_API_URL, HUGO_API_KEY).');
       whisper(name, 'Die Anmeldung ist gerade nicht moeglich.');
@@ -441,7 +449,8 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
       heartbeat();
     });
 
-    b.on('whisper', (name, message) => { onWhisper(name, message); });
+    // Kein mineflayer-„whisper“-Ereignis: dessen Muster passen nicht zu HugoSMP. Flüstern
+    // wird nur über das genaue Muster in onSystemMessage erkannt (siehe patterns.js).
 
     // Systemnachrichten direkt aus dem Paket lesen: mineflayer verliert bei HugoSMP den Text
     // nach dem Tag (aus „[HugoSMP] Dein Kontostand: …“ wird nur „[HugoSMP]“).

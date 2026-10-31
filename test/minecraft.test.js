@@ -240,23 +240,35 @@ test('MC_BALANCE_CHECK=false: Zahlungsnachricht zählt sofort, ohne /balance', a
   assert.equal(mc.info().balanceCheck, false);
 });
 
-test('Login per Flüstern: Code von der Website bestätigt den Absender', async (t) => {
-  const { world, api, mc } = setup();
+test('Login per Flüstern: HugoSMP-Format, Absender aus der Systemzeile', async (t) => {
+  const { world, api, mc, reports } = setup();
   t.after(() => mc.stop());
   const seen = [];
   api.confirmLogin = async (l) => { seen.push(l); return l.code === 'abcd2345efgh'; };
   mc.start();
   await until(() => mc.state.online);
-  world.bots[0].emit('whisper', 'x /op Hacker', 'abcd2345efgh'); // kein gültiger Name → ignoriert
-  world.bots[0].emit('whisper', 'Steve', 'hallo');
-  world.bots[0].emit('whisper', 'Steve', 'abcd2345efgh');
+  const bot = world.bots[0];
+  const sys = (line) => bot.emit('messagestr', line, 'system');
+  // Nachgemachte Zeilen im Spieler- und Clan-Chat zählen nicht
+  sys('Hacker: [Nachricht] Alpha_Noah -> Du: abcd2345efgh');
+  sys('[NDCW] Hacker: [Nachricht] Alpha_Noah -> Du: abcd2345efgh');
+  // mineflayer-„whisper“ wird nicht ausgewertet
+  bot.emit('whisper', 'Alpha_Noah', 'abcd2345efgh');
+  // Eigenes Echo ist kein Fehlalarm
+  sys('[Nachricht] Du -> Alpha_Noah: 1.000 erhalten. Verknüpfe dein Konto im Discord, dann wird es gutgeschrieben.');
+  sys('[Nachricht] Steve -> Du: hallo');
+  sys('[Nachricht] Steve -> Du: abcd2345efgh');
   await until(() => world.sent.some((m) => m.startsWith('/msg Steve Du bist auf der Website angemeldet')));
-  assert.equal(seen.length, 1);
-  assert.deepEqual(seen[0], { minecraftName: 'Steve', code: 'abcd2345efgh' });
-  world.bots[0].emit('whisper', 'Steve', 'zzzz2345efgh');
+  assert.deepEqual(seen, [{ minecraftName: 'Steve', code: 'abcd2345efgh' }]);
+  sys('[Nachricht] Steve -> Du: zzzz2345efgh');
   await until(() => world.sent.some((m) => m.startsWith('/msg Steve Code ungueltig')));
-  world.bots[0].emit('whisper', 'Steve', 'login');
+  sys('[Nachricht] Steve -> Du: login');
   await until(() => world.sent.some((m) => m.startsWith('/msg Steve Oeffne die Website')));
+  // Höchstens 5 Code-Versuche pro Minute
+  for (let i = 0; i < 6; i++) sys(`[Nachricht] Raten -> Du: aaaa2345eff${i}`);
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(seen.filter((l) => l.minecraftName === 'Raten').length, 5);
+  assert.ok(!reports.some((r) => /nicht erkannt/.test(r.title)), 'kein Fehlalarm');
 });
 
 test('MC_WHISPER_PATTERN: nur am Zeilenanfang, Pflichtgruppen werden geprüft', () => {

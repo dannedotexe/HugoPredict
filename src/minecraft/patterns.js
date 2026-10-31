@@ -25,6 +25,7 @@ const DEFAULT_PAY = [
   `${NAME} hat dir ${AMT}${UNIT} (?:gezahlt|bezahlt|überwiesen|gesendet|geschickt|gegeben)`,
   `(?:You )?received ${AMT}${UNIT} from ${NAME}`,
 ];
+const DEFAULT_WHISPER = String.raw`^\[Nachricht\] (?<name>[A-Za-z0-9_]{3,16}) -> Du: (?<message>.+)$`;
 const DEFAULT_BALANCE = [
   String.raw`(?:Dein |Your )?(?:Kontostand|Guthaben|Balance|Geld|Money)(?: beträgt| is)?\s*:?\s*${AMT}${UNIT}`,
 ];
@@ -47,7 +48,8 @@ function buildPatterns({ payPattern = '', balancePattern = '', whisperPattern = 
   const balance = balancePattern ? [compile(balancePattern, 'MC_BALANCE_PATTERN')] : DEFAULT_BALANCE.map((p) => compile(PREFIX + p + END, 'Kontostandsmuster'));
   for (const re of pay) if (!/\(\?<amount>/.test(re.source) || !/\(\?<name>/.test(re.source)) throw new Error('MC_PAY_PATTERN braucht die Gruppen (?<amount>…) und (?<name>…).');
   for (const re of balance) if (!/\(\?<amount>/.test(re.source)) throw new Error('MC_BALANCE_PATTERN braucht die Gruppe (?<amount>…).');
-  const whisper = whisperPattern ? [compile(whisperPattern, 'MC_WHISPER_PATTERN')] : [];
+  // Standard: HugoSMP-Format „[Nachricht] Name -> Du: Text“ (nur der Server erzeugt Zeilen, die so beginnen).
+  const whisper = [compile(whisperPattern || DEFAULT_WHISPER, 'MC_WHISPER_PATTERN')];
   // Ohne ^ könnte ein Spieler die Nachricht im öffentlichen Chat nachtippen und sich als anderer anmelden.
   for (const re of whisper) if (!re.source.startsWith('^') || !/\(\?<name>/.test(re.source) || !/\(\?<message>/.test(re.source)) throw new Error('MC_WHISPER_PATTERN muss mit ^ beginnen und die Gruppen (?<name>…) und (?<message>…) haben.');
   return { pay, balance, whisper };

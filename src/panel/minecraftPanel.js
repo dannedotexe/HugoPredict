@@ -26,7 +26,7 @@ function codeBlock(lines, max = 1800) {
 
 // Nur Antworten des Servers („[HugoSMP] …“) zeigen, nicht Broadcasts und Chat anderer Spieler.
 // Kam keine solche Zeile, wird alles gezeigt – dann sieht man trotzdem, was ankam.
-const SERVER_TAG = /^\[HugoSMP\]/i;
+const SERVER_TAG = /^\[(?:HugoSMP|Nachricht)\]/i;
 function serverLines(lines) {
   const own = lines.filter((l) => SERVER_TAG.test(l));
   return own.length ? own : lines;
