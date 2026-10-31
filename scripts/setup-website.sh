@@ -84,6 +84,13 @@ mkdir -p data
 git rev-parse HEAD > data/.deployed
 printf '%s\n' "$NODE_BIN" > data/.node-bin
 
+# Zeigt die Domain schon auf diesen Server? Erst dann HTTPS und öffentliche Links.
+IP="$(curl -fs --max-time 5 https://ifconfig.me 2>/dev/null || true)"
+DOMAIN_IPS="$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u || true)"
+if [ -n "$IP" ] && printf '%s\n' "$DOMAIN_IPS" | grep -qx "$IP"; then DOMAIN_READY=true; else DOMAIN_READY=false; fi
+SITE_URL=""
+if $DOMAIN_READY; then SITE_URL="https://$DOMAIN"; fi
+
 step "Konfiguration"
 [ -f .env ] || { cp .env.example .env; chmod 600 .env; }
 KEY="$(get_var .env HUGO_API_KEY)"
@@ -98,8 +105,8 @@ if ! pm2 describe "$WEB_NAME" >/dev/null 2>&1; then
 fi
 set_var .env PORT "$PORT"
 set_var .env HUGO_API_KEY "$KEY"
-set_var .env WEBSITE_URL "https://$DOMAIN"
-set_var .env COOKIE_SECURE true
+set_var .env WEBSITE_URL "$SITE_URL"
+set_var .env COOKIE_SECURE "$DOMAIN_READY"
 set_var .env BOT_ENABLED false
 echo "Website-Port: $PORT (nur lokal, nach außen über HTTPS)"
 
@@ -124,38 +131,11 @@ step "Discord-Bot mit der Website verbinden"
 cp "$BOT_DIR/.env" "$BOT_DIR/.env.backup-$(date +%Y%m%d-%H%M%S)"
 set_var "$BOT_DIR/.env" HUGO_API_URL "http://127.0.0.1:$PORT/api/bot"
 set_var "$BOT_DIR/.env" HUGO_API_KEY "$KEY"
-set_var "$BOT_DIR/.env" WEBSITE_URL "https://$DOMAIN"
+# Ohne erreichbare Domain keine Website-Links im Discord (sie würden ins Leere führen).
+set_var "$BOT_DIR/.env" WEBSITE_URL "$SITE_URL"
 pm2 restart "$BOT_NAME" --update-env >/dev/null
 pm2 save >/dev/null
 echo "Discord-Bot neu gestartet (Minecraft-Bot läuft im selben Prozess mit)."
-
-step "HTTPS für $DOMAIN (Caddy)"
-if ! command -v caddy >/dev/null; then
-  sudo apt-get update -qq
-  sudo apt-get install -y -qq caddy
-fi
-SITE_BLOCK="$DOMAIN {
-	encode gzip
-	reverse_proxy 127.0.0.1:$PORT
-}"
-CADDYFILE="${CADDYFILE:-/etc/caddy/Caddyfile}"
-if grep -q "^$DOMAIN {" "$CADDYFILE" 2>/dev/null; then
-  echo "Caddy kennt $DOMAIN bereits."
-elif grep -qE '^\s*:80\s*\{' "$CADDYFILE" 2>/dev/null && ! grep -q 'reverse_proxy' "$CADDYFILE"; then
-  # Nur die Standard-Beispielseite von Caddy → ersetzen
-  printf '%s\n' "$SITE_BLOCK" | sudo tee "$CADDYFILE" >/dev/null
-else
-  printf '\n%s\n' "$SITE_BLOCK" | sudo tee -a "$CADDYFILE" >/dev/null
-fi
-sudo systemctl enable --now caddy >/dev/null 2>&1 || true
-sudo systemctl reload caddy || sudo systemctl restart caddy
-
-step "Firewall auf dem Server (Ports 80 und 443)"
-for p in 80 443; do
-  sudo iptables -C INPUT -p tcp --dport "$p" -j ACCEPT 2>/dev/null \
-    || sudo iptables -I INPUT 1 -p tcp --dport "$p" -j ACCEPT
-done
-command -v netfilter-persistent >/dev/null && sudo netfilter-persistent save >/dev/null 2>&1 || true
 
 step "Automatische Updates der Website"
 CRON="* * * * * PATH=$PATH bash $BOT_DIR/scripts/auto-update-website.sh $WEB_DIR >> $WEB_DIR/data/update.log 2>&1"
@@ -163,14 +143,51 @@ crontab -l > "$HOME/crontab-backup-$(date +%Y%m%d-%H%M%S).txt" 2>/dev/null || tr
 ( crontab -l 2>/dev/null | grep -vF "auto-update-website.sh" || true; echo "$CRON" ) | crontab -
 echo "Aktiv. Protokoll: $WEB_DIR/data/update.log"
 
-IP="$(curl -fs --max-time 5 https://ifconfig.me 2>/dev/null || echo '<öffentliche IP der VM>')"
-cat <<EOF
+if $DOMAIN_READY; then
+  step "HTTPS für $DOMAIN (Caddy)"
+  if ! command -v caddy >/dev/null; then
+    sudo apt-get update -qq
+    if ! sudo apt-get install -y -qq caddy 2>/dev/null; then
+      # Nicht in den Ubuntu-Paketquellen: offizielle Caddy-Paketquelle einbinden
+      sudo apt-get install -y -qq debian-keyring debian-archive-keyring apt-transport-https curl gnupg
+      curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+      curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null
+      sudo apt-get update -qq
+      sudo apt-get install -y -qq caddy
+    fi
+  fi
+  SITE_BLOCK="$(printf '%s {\n\tencode gzip\n\treverse_proxy 127.0.0.1:%s\n}' "$DOMAIN" "$PORT")"
+  CADDYFILE="${CADDYFILE:-/etc/caddy/Caddyfile}"
+  if grep -q "^$DOMAIN {" "$CADDYFILE" 2>/dev/null; then
+    echo "Caddy kennt $DOMAIN bereits."
+  elif grep -qE '^\s*:80\s*\{' "$CADDYFILE" 2>/dev/null && ! grep -q 'reverse_proxy' "$CADDYFILE"; then
+    # Nur die Standard-Beispielseite von Caddy → ersetzen
+    printf '%s\n' "$SITE_BLOCK" | sudo tee "$CADDYFILE" >/dev/null
+  else
+    printf '\n%s\n' "$SITE_BLOCK" | sudo tee -a "$CADDYFILE" >/dev/null
+  fi
+  sudo systemctl enable --now caddy >/dev/null 2>&1 || true
+  sudo systemctl reload caddy || sudo systemctl restart caddy
 
-Fertig. Website, Discord-Bot und Minecraft-Bot sind verbunden.
+  step "Firewall auf dem Server (Ports 80 und 443)"
+  for p in 80 443; do
+    sudo iptables -C INPUT -p tcp --dport "$p" -j ACCEPT 2>/dev/null \
+      || sudo iptables -I INPUT 1 -p tcp --dport "$p" -j ACCEPT
+  done
+  command -v netfilter-persistent >/dev/null && sudo netfilter-persistent save >/dev/null 2>&1 || true
+fi
 
-Noch zu tun (einmalig, im Browser):
-  1. Domain: Beim Anbieter von $DOMAIN einen A-Eintrag anlegen:  $DOMAIN  →  $IP
-  2. Oracle Cloud: Netzwerk → Virtuelle Cloud-Netzwerke → Subnetz → Sicherheitsliste →
-     Ingress-Regeln hinzufügen: Quelle 0.0.0.0/0, TCP, Zielport 80 und 443.
-Danach holt Caddy das HTTPS-Zertifikat von selbst. Test: https://$DOMAIN
-EOF
+echo
+echo "Fertig. Website, Discord-Bot und Minecraft-Bot sind verbunden."
+if $DOMAIN_READY; then
+  echo
+  echo "Die Website ist unter https://$DOMAIN erreichbar, sobald in Oracle Cloud die Ports offen sind:"
+  echo "  Netzwerk → Virtuelle Cloud-Netzwerke → Subnetz → Sicherheitsliste →"
+  echo "  Ingress-Regeln hinzufügen: Quelle 0.0.0.0/0, TCP, Zielport 80 und 443."
+else
+  echo
+  echo "Noch ohne Domain: Die Website läuft nur intern, HTTPS wurde übersprungen."
+  echo "Wenn die Domain gekauft ist:"
+  echo "  1. Beim Anbieter einen A-Eintrag anlegen:  $DOMAIN  →  ${IP:-<öffentliche IP der VM>}"
+  echo "  2. Dieses Skript nochmal ausführen – dann folgen HTTPS und die Firewall."
+fi
