@@ -5,6 +5,7 @@
 # Nur prüfen (verändert nichts):  bash <(curl -sL <raw-URL dieses Skripts>) pruefen
 # Website einrichten und verbinden:  bash <(curl -sL <raw-URL dieses Skripts>) website [domain]
 # Minecraft-Bot einschalten (fragt nach der E-Mail):  bash <(curl -sL <raw-URL dieses Skripts>) minecraft
+# Alte Website (Port 3001) mit Konten und .env in die aktualisierte umziehen:  ... website-umzug [port]
 set -euo pipefail
 MODE="${1:-install}"
 
@@ -76,6 +77,11 @@ if [ "$MODE" = "website" ]; then
   DOMAIN="${2:-hugopredict.de}"
   [[ "$DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]] || fail "Ungültige Domain: $DOMAIN"
   REMOTE="$UPDATE_BOT && bash ~/HugoPredict/scripts/setup-website.sh $DOMAIN"
+elif [ "$MODE" = "website-umzug" ]; then
+  # Alte, separat gestartete Website (Standard: Port 3001) in die aktualisierte umziehen
+  OLD_PORT="${2:-3001}"
+  [[ "$OLD_PORT" =~ ^[0-9]{2,5}$ ]] || fail "Ungültiger Port: $OLD_PORT"
+  REMOTE="$UPDATE_BOT && bash ~/HugoPredict/scripts/website-umzug.sh $OLD_PORT"
 elif [ "$MODE" = "minecraft" ]; then
   REMOTE="$UPDATE_BOT && bash ~/HugoPredict/scripts/enable-minecraft.sh"
 elif [ "$MODE" = "pruefen" ]; then
