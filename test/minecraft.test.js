@@ -421,3 +421,19 @@ test('Panel: /balance aktualisiert den angezeigten Kontostand auch ohne Kontosta
   assert.equal(paid.balance, 700);
   assert.equal(mc.info().balance, 700);
 });
+
+test('Kein Fehlalarm „Nachricht nicht erkannt“ bei Clan- oder Spieler-Chat', async (t) => {
+  const { world, mc, reports } = setup({ balanceCheck: false });
+  t.after(() => mc.stop());
+  mc.start();
+  await until(() => mc.state.online);
+  const sys = (line) => world.bots[0].emit('messagestr', line, 'system');
+  sys('[V0XY] Fyzoo: kann man maras laterne auch ohne gunst 2 bekommen?');
+  sys('[LIVES] HALFLIVE5: ja aber kannst noch 1 mace bekommen');
+  sys('PREMIUM Nidoyu: hab 500 erhalten lol');
+  await new Promise((r) => setTimeout(r, 30));
+  assert.ok(!reports.some((r) => /nicht erkannt/.test(r.title)));
+  // Echte, aber unbekannte Servermeldung wird weiter gemeldet
+  sys('[HugoSMP] Steve hat dir 500 Gold überwiesen und so');
+  await until(() => reports.some((r) => /nicht erkannt/.test(r.title)));
+});

@@ -348,8 +348,9 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
       scheduleSettle();
       return;
     }
-    // Nur Servermeldungen mit Tag wie „[HugoSMP] …“ – Spieler-Chat kommt hier teils auch als Systemnachricht an.
-    if (LOOKS_LIKE_PAYMENT.test(line) && /\d/.test(line) && /^\s*\[[^\]]{1,24}\]/.test(line)) {
+    // Nur echte Servermeldungen („[HugoSMP] …“). Clan-Chat („[TAG] Name: …“) und Spieler-Chat
+    // kommen hier teils auch als Systemnachricht an und sind nie eine Zahlung.
+    if (LOOKS_LIKE_PAYMENT.test(line) && /\d/.test(line) && /^\[HugoSMP\]/i.test(line)) {
       notify('system', {
         title: 'Minecraft: Nachricht nicht erkannt',
         description: `Sieht nach einer Zahlung aus, passt aber zu keinem Muster:\n\`${line.slice(0, 300)}\`\nGgf. MC_PAY_PATTERN anpassen.`,
