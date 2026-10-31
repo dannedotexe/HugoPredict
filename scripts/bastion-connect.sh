@@ -3,6 +3,7 @@
 # verbindet sich mit dem Server und startet dort scripts/install-server.sh.
 # Aufruf in Cloud Shell:  bash <(curl -sL <raw-URL dieses Skripts>)
 # Nur prüfen (verändert nichts):  bash <(curl -sL <raw-URL dieses Skripts>) pruefen
+# Website einrichten und verbinden:  bash <(curl -sL <raw-URL dieses Skripts>) website [domain]
 set -euo pipefail
 MODE="${1:-install}"
 
@@ -36,11 +37,16 @@ PORT=$(oci bastion session get --session-id "$SESSION" \
   --query 'data."target-resource-details"."target-resource-port"' --raw-output)
 [ "$PORT" = "null" ] && PORT=22
 
-if [ "$MODE" = "pruefen" ]; then
+UPDATE_BOT="if [ -d ~/HugoPredict/.git ]; then git -C ~/HugoPredict pull --ff-only origin $BRANCH; else git clone -b $BRANCH $REPO ~/HugoPredict; fi"
+if [ "$MODE" = "website" ]; then
+  DOMAIN="${2:-hugopredict.de}"
+  [[ "$DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]] || fail "Ungültige Domain: $DOMAIN"
+  REMOTE="$UPDATE_BOT && bash ~/HugoPredict/scripts/setup-website.sh $DOMAIN"
+elif [ "$MODE" = "pruefen" ]; then
   # Nur lesend: das Prüfskript direkt von GitHub ausführen, ohne etwas zu installieren.
   REMOTE="curl -sL https://raw.githubusercontent.com/dannedotexe/HugoPredict/$BRANCH/scripts/diagnose-server.sh | bash"
 else
-  REMOTE="if [ -d ~/HugoPredict/.git ]; then git -C ~/HugoPredict pull --ff-only origin $BRANCH; else git clone -b $BRANCH $REPO ~/HugoPredict; fi && bash ~/HugoPredict/scripts/install-server.sh"
+  REMOTE="$UPDATE_BOT && bash ~/HugoPredict/scripts/install-server.sh"
 fi
 
 echo "==> Verbinde mit $USERNAME@$IP über den Bastion"
