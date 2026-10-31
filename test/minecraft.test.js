@@ -26,6 +26,11 @@ test('Zahlungsmuster erkennen Systemnachrichten, aber keine nachgeahmten Chat-Ze
   assert.equal(hit('[Money] 15.000$ wurden von Steve erhalten.').name, 'Steve');
   assert.equal(hit('Du hast 15k von Alex_99 erhalten!').amount, '15k');
   assert.equal(hit('Steve hat dir 500 gezahlt.').name, 'Steve');
+  // Echtes HugoSMP-Format (Screenshot)
+  const hugo = hit('[HugoSMP] Du hast $1.000 von Reschoo erhalten.');
+  assert.equal(hugo.name, 'Reschoo');
+  assert.equal(parseAmount(hugo.amount), 1000);
+  assert.equal(parseAmount(matchFirst(balance, '[HugoSMP] Dein Kontostand: $1.000').amount), 1000);
   // Chat-Formate „Name: …“ oder „[Rang] Name » …“ dürfen nicht passen.
   assert.equal(hit('Hacker: $15,000 has been received from Hacker.'), null);
   assert.equal(hit('[VIP] Hacker » $15,000 has been received from Hacker.'), null);
