@@ -62,9 +62,15 @@ function mainView(minecraft, result = null) {
   if (result) {
     blocks.push(result.error
       ? { heading: result.title, icon: 'warning', body: ERRORS[result.error] ?? result.error }
-      : { heading: result.title, icon: 'check', text: result.lines.length ? codeBlock(result.lines) : '-# Keine Antwort vom Server.' });
-  } else if (i.recent.length) {
-    blocks.push({ heading: 'Letzte Servernachrichten', icon: 'announce', text: codeBlock(i.recent.slice(-8), 1200) });
+      : { heading: result.title, icon: 'check', text: `${result.lines.length ? codeBlock(result.lines) : '-# Keine Antwort vom Server.'}${result.received ? `\n-# Empfangen: ${result.received.raw} Servernachrichten, davon ${result.received.parsed} lesbar` : ''}` });
+  } else {
+    const st = i.stats ?? { raw: 0, parsed: 0 };
+    const shown = i.recent.length ? i.recent : (i.rawRecent ?? []).map((l) => `(roh) ${l}`);
+    blocks.push({
+      heading: 'Letzte Servernachrichten',
+      icon: 'announce',
+      text: `${shown.length ? codeBlock(shown.slice(-8), 1200) : '-# Noch keine.'}\n-# Seit dem Verbinden: ${st.raw} Servernachrichten empfangen, ${st.parsed} lesbar`,
+    });
   }
   const off = !i.online;
   return card({

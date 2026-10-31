@@ -48,6 +48,10 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
   const recentSystem = [];
   // Zeilen, die gerade für /panel mitgeschrieben werden (Antwort auf einen Befehl).
   const captures = new Set();
+  // Diagnose: rohe Systemnachrichten (vor mineflayer) vs. gelesene – zeigt, ob Nachrichten verloren gehen.
+  const stats = { raw: 0, parsed: 0, lastRawAt: null, lastParsedAt: null };
+  const rawRecent = [];
+  const rawCaptures = new Set();
   // Zeilen, die nach Kontostand/Geld aussehen – helfen beim Einstellen der Erkennung.
   // Spieler-Chat („Name: …“) wird ausgelassen, damit die Meldung nicht im Spam untergeht.
   const MONEY_HINT = /(kontostand|guthaben|balance|money|geld|münzen|coins|[$€⛃])/i;
@@ -426,7 +430,22 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
       if (/^(?:login|anmelden)$/i.test(String(message).trim())) onLoginRequest(name);
     });
 
+    // Rohe Pakete mitzählen und als Klartext merken (nur Anzeige im /panel, nie für Zahlungen).
+    b._client?.on?.('system_chat', (packet) => {
+      stats.raw++;
+      stats.lastRawAt = new Date();
+      const text = componentText(packet?.content).trim();
+      if (!text) return;
+      rawRecent.push(`${packet.isActionBar ? '(Actionbar) ' : ''}${text}`.slice(0, 300));
+      if (rawRecent.length > 15) rawRecent.shift();
+      for (const c of rawCaptures) if (c.length < 20) c.push(text.slice(0, 300));
+    });
+
     b.on('messagestr', (message, position) => {
+      if (position === 'system' || position === 'game_info') {
+        stats.parsed++;
+        stats.lastParsedAt = new Date();
+      }
       // Für /panel alles mitschreiben, auch Nicht-Systemzeilen (mit Kennzeichnung) – nur zur Anzeige.
       const shown = String(message).trim();
       if (shown && captures.size) {
@@ -574,7 +593,10 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
         }
       }
       const lines = [];
+      const raw = [];
       captures.add(lines);
+      rawCaptures.add(raw);
+      const before = { ...stats };
       try {
         await command(cmd);
         await sleep(waitMs);
@@ -582,7 +604,11 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
         return { error: 'offline_bot' };
       } finally {
         captures.delete(lines);
+        rawCaptures.delete(raw);
       }
+      // Kam etwas an, das mineflayer nicht lesen konnte? Dann die Rohfassung zeigen.
+      if (!lines.length && raw.length) lines.push(...raw.map((l) => `(roh) ${l}`));
+      const received = { raw: stats.raw - before.raw, parsed: stats.parsed - before.parsed };
       let balance = db.lastBalance;
       if (moneyRelated && /^\/?(?:bal|balance)\b/i.test(cmd)) {
         // Antwort auf /balance gleich als Kontostand übernehmen
@@ -605,7 +631,7 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
           // Kontostand bleibt der letzte bekannte
         }
       }
-      return { lines, balance };
+      return { lines, balance, received };
     });
   }
 
@@ -672,6 +698,8 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
     balanceCheck: Boolean(config.balanceCheck),
     players: bot?.players ? Object.keys(bot.players).length : null,
     recent: [...recentSystem],
+    rawRecent: [...rawRecent],
+    stats: { ...stats },
   });
 
   return {
@@ -696,6 +724,27 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
   };
 }
 
+/** Klartext aus einer Chat-Komponente (JSON-Text, Objekt oder NBT). */
+function componentText(content) {
+  let c = content;
+  try {
+    if (c && typeof c === 'object' && 'type' in c && 'value' in c) c = JSON.parse(require('prismarine-chat').processNbtMessage(c));
+    else if (typeof c === 'string' && /^[[{"]/.test(c.trim())) c = JSON.parse(c);
+  } catch {
+    return typeof content === 'string' ? content : '';
+  }
+  const walk = (x) => {
+    if (x === null || x === undefined) return '';
+    if (typeof x === 'string' || typeof x === 'number') return String(x);
+    if (Array.isArray(x)) return x.map(walk).join('');
+    let out = x.text ?? x[''] ?? '';
+    if (x.translate) out += x.with ? `${x.translate} ${x.with.map(walk).join(' ')}` : x.translate;
+    if (x.extra) out += x.extra.map(walk).join('');
+    return String(out);
+  };
+  return walk(c).replace(/§[0-9a-fk-or]/gi, '');
+}
+
 // Einstellungen, die /panel ändern darf, mit Prüfung (Rückgabe: Fehlertext oder null).
 const SETTINGS = {
   balanceCheck: (v) => (typeof v === 'boolean' ? null : 'Ungültiger Wert.'),
@@ -714,4 +763,4 @@ const SETTINGS = {
 };
 const pickSettings = (saved) => Object.fromEntries(Object.entries(saved ?? {}).filter(([k, v]) => SETTINGS[k] && !SETTINGS[k](v, { balanceCheck: true, payoutMax: saved.payoutMax ?? 1 })));
 
-module.exports = { createMinecraftService, fill, SETTINGS };
+module.exports = { createMinecraftService, fill, SETTINGS, componentText };
