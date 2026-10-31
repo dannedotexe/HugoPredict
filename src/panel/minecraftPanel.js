@@ -53,6 +53,7 @@ function mainView(minecraft, result = null) {
       intro: 'Der Minecraft-Bot ist ausgeschaltet (MC_ENABLED=false).',
       accent: theme.colors.warning,
       ephemeral: true,
+    logo: false, // Panel-Nachrichten werden bearbeitet – ein Logo-Anhang ginge dabei verloren
     });
   }
   const i = minecraft.info();
@@ -80,6 +81,7 @@ function mainView(minecraft, result = null) {
     )],
     footer: 'Nur für dich sichtbar',
     ephemeral: true,
+    logo: false, // Panel-Nachrichten werden bearbeitet – ein Logo-Anhang ginge dabei verloren
   });
 }
 
@@ -95,6 +97,7 @@ function payConfirmView(name, amount) {
       button('hm:panel:refresh', 'Abbrechen', ButtonStyle.Secondary),
     )],
     ephemeral: true,
+    logo: false, // Panel-Nachrichten werden bearbeitet – ein Logo-Anhang ginge dabei verloren
   });
 }
 

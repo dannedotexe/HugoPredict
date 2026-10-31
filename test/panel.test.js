@@ -50,6 +50,8 @@ test('/panel: nur die eingetragene Discord-ID', async () => {
 test('Panel-Ansicht: Status, Antwort und Buttons innerhalb der Limits', () => {
   const view = mainView(fakeMc(), { title: 'Ausgeführt: /money log', lines: Array(30).fill('x'.repeat(200)) });
   assert.ok(textLength(view) <= TEXT_LIMIT);
+  assert.equal(view.files.length, 0, 'kein Logo-Anhang: Panel wird bearbeitet');
+  assert.doesNotMatch(json(view), /attachment:\/\//);
   const s = json(view);
   assert.match(s, /Online/);
   assert.match(s, /15\.000/);

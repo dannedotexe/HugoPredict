@@ -306,7 +306,6 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
     if (!line) return;
     recentSystem.push(line.slice(0, 200));
     if (recentSystem.length > 15) recentSystem.shift();
-    for (const c of captures) if (c.length < 20) c.push(line.slice(0, 300));
     if (/\d/.test(line) && MONEY_HINT.test(line) && !PLAYER_CHAT.test(line)) {
       moneyLines.push(line.slice(0, 200));
       if (moneyLines.length > 8) moneyLines.shift();
@@ -336,7 +335,8 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
       scheduleSettle();
       return;
     }
-    if (LOOKS_LIKE_PAYMENT.test(line) && /\d/.test(line)) {
+    // Nur Servermeldungen mit Tag wie „[HugoSMP] …“ – Spieler-Chat kommt hier teils auch als Systemnachricht an.
+    if (LOOKS_LIKE_PAYMENT.test(line) && /\d/.test(line) && /^\s*\[[^\]]{1,24}\]/.test(line)) {
       notify('system', {
         title: 'Minecraft: Nachricht nicht erkannt',
         description: `Sieht nach einer Zahlung aus, passt aber zu keinem Muster:\n\`${line.slice(0, 300)}\`\nGgf. MC_PAY_PATTERN anpassen.`,
@@ -423,6 +423,12 @@ function createMinecraftService({ config, api, logger, report, dataDir, createBo
     });
 
     b.on('messagestr', (message, position) => {
+      // Für /panel alles mitschreiben, auch Nicht-Systemzeilen (mit Kennzeichnung) – nur zur Anzeige.
+      const shown = String(message).trim();
+      if (shown && captures.size) {
+        const tagged = position === 'system' ? shown : `(${position}) ${shown}`;
+        for (const c of captures) if (c.length < 20) c.push(tagged.slice(0, 300));
+      }
       // Spieler-Chat wird nie ausgewertet.
       if (position === 'system') onSystemMessage(message);
     });
