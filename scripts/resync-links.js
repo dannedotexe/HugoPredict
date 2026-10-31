@@ -8,7 +8,7 @@
  */
 const fs = require('node:fs');
 const path = require('node:path');
-const env = require('../src/config/env');
+const { env } = require('../src/config/env');
 const { HugoApi, userMessage } = require('../src/lib/hugoApi');
 
 async function main() {
