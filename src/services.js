@@ -201,6 +201,8 @@ export function recordDeposit(mcName, amount, raw, extId = null) {
   });
 }
 
+const autoApprove = () => !!process.env.HUGO_API_KEY && process.env.WITHDRAW_AUTO_APPROVE !== 'false';
+
 export function requestWithdrawal(userId, amount) {
   amount = Number(amount);
   if (!Number.isInteger(amount) || amount < MIN_WITHDRAW) throw new AppError(`Auszahlung: ganze Zahl, mindestens ${MIN_WITHDRAW}`);
@@ -209,8 +211,10 @@ export function requestWithdrawal(userId, amount) {
     if (!u.mc_name) throw new AppError('Verknüpfe zuerst deinen Minecraft-Account');
     const open = db.prepare("SELECT COUNT(*) n FROM withdrawals WHERE user_id = ? AND status IN ('pending', 'approved', 'processing')").get(userId).n;
     if (open >= 3) throw new AppError('Du hast schon 3 offene Auszahlungen');
-    const r = db.prepare('INSERT INTO withdrawals (user_id, mc_name, amount, created_at) VALUES (?, ?, ?, ?)')
-      .run(userId, u.mc_name, amount, now());
+    // Mit dem externen Bot gehen Auszahlungen ohne Freigabe direkt an ihn (WITHDRAW_AUTO_APPROVE=false: Team gibt frei).
+    const status = autoApprove() ? 'approved' : 'pending';
+    const r = db.prepare('INSERT INTO withdrawals (user_id, mc_name, amount, status, created_at) VALUES (?, ?, ?, ?, ?)')
+      .run(userId, u.mc_name, amount, status, now());
     changeBalance(userId, -amount, 'withdraw', `wd#${r.lastInsertRowid}`);
     return { id: Number(r.lastInsertRowid) };
   });
@@ -240,7 +244,8 @@ export function markWithdrawal(id, status, error = null) {
 }
 
 // ---------- Payouts through the external bot ----------
-// The team approves each withdrawal; the bot only ever sees approved ones.
+// The bot only ever sees approved withdrawals: approved right away (default) or by the team
+// when WITHDRAW_AUTO_APPROVE=false. The bot caps each payout (MC_PAYOUT_MAX) and checks it in game.
 
 export function approveWithdrawal(id) {
   const r = db.prepare("UPDATE withdrawals SET status = 'approved' WHERE id = ? AND status = 'pending'").run(id);

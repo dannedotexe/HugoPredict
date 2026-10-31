@@ -438,7 +438,7 @@ async function viewWallet() {
   await refreshMe();
   const me = state.me, s = state.status;
   const { withdrawals } = me.mcName ? await api('/withdrawals') : { withdrawals: [] };
-  const wStatus = { pending: [s.payoutsNeedApproval ? 'Wartet auf Freigabe' : 'Wartet', 'warn'], approved: ['Freigegeben', 'warn'], processing: ['Wird ausgezahlt', 'warn'], uncertain: ['Wird vom Team geprüft', 'warn'], done: ['Ausgezahlt', 'live'], failed: ['Fehlgeschlagen, zurückgebucht', 'bad'], cancelled: ['Storniert', ''] };
+  const wStatus = { pending: [s.payoutsNeedApproval ? 'Wartet auf Freigabe' : 'Wartet', 'warn'], approved: [s.payoutsNeedApproval ? 'Freigegeben' : 'Wird gleich ausgezahlt', 'warn'], processing: ['Wird ausgezahlt', 'warn'], uncertain: ['Wird vom Team geprüft', 'warn'], done: ['Ausgezahlt', 'live'], failed: ['Fehlgeschlagen, zurückgebucht', 'bad'], cancelled: ['Storniert', ''] };
 
   app.innerHTML = `
     <div class="page-title"><div><h1>Wallet</h1><p>Ein- und Auszahlungen laufen über den Bot <b translate="no">${esc(s.botName)}</b> auf Hugo SMP</p></div>

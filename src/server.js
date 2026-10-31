@@ -78,7 +78,7 @@ app.get('/api/status', handle(() => ({
   botOnline: botState.online,
   botEnabled: botState.enabled,
   botName: botState.username,
-  payoutsNeedApproval: !!process.env.HUGO_API_KEY,
+  payoutsNeedApproval: !!process.env.HUGO_API_KEY && process.env.WITHDRAW_AUTO_APPROVE === 'false',
   fee: svc.FEE,
   minWithdraw: svc.MIN_WITHDRAW,
   payCommand: (process.env.PAY_COMMAND || '/pay {player} {amount}').replace('{player}', botState.username).replace('{amount}', '<Betrag>'),

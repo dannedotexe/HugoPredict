@@ -62,6 +62,8 @@ test('deposit report is idempotent and held until the website link', async () =>
 });
 
 test('bot only sees approved payouts; complete and fail settle once', async () => {
+  process.env.WITHDRAW_AUTO_APPROVE = 'false'; // dieser Test prüft den Weg mit Freigabe
+  after(() => { delete process.env.WITHDRAW_AUTO_APPROVE; });
   const uid = userId('caro');
   const payouts = async () => (await call('GET', '/minecraft/payouts?status=approved')).body.payouts;
   const a = svc.requestWithdrawal(uid, 10).id;
@@ -220,4 +222,16 @@ test('Admin-Panel: Kennzahlen, Nutzer, Märkte und Transaktionen nur mit Schlüs
   const tx = (await call('GET', '/admin/transactions?type=deposit&limit=5')).body;
   assert.ok(tx.transactions.every((t) => t.type === 'deposit'));
   assert.equal((await call('GET', '/admin/markets')).status, 200);
+});
+
+test('Auszahlungen gehen ohne Freigabe direkt an den Bot', async () => {
+  const uid = svc.userBySession(loginAs('Auszahl_MC')).id;
+  db.prepare('UPDATE users SET balance = 500 WHERE id = ?').run(uid);
+  const { id } = svc.requestWithdrawal(uid, 200);
+  const list = (await call('GET', '/minecraft/payouts')).body.payouts;
+  assert.ok(list.some((p) => p.id === String(id) && p.minecraftName === 'Auszahl_MC' && p.amount === 200));
+  process.env.WITHDRAW_AUTO_APPROVE = 'false';
+  const second = svc.requestWithdrawal(uid, 100);
+  assert.ok(!(await call('GET', '/minecraft/payouts')).body.payouts.some((p) => p.id === String(second.id)), 'mit Freigabe-Pflicht erst nach Freigabe');
+  delete process.env.WITHDRAW_AUTO_APPROVE;
 });
