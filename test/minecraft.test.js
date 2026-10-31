@@ -83,7 +83,8 @@ function fakeWorld() {
     if (world.withClient) bot._client = new EventEmitter();
     bot.chat = (text) => {
       world.sent.push(text);
-      if (text === '/balance') setImmediate(() => bot.emit('messagestr', `Kontostand: ${world.balance.toLocaleString('de-DE')}$`, 'system'));
+      if (text === '/balance' && world.dropBalance > 0) world.dropBalance -= 1; // Antwort geht unter
+      else if (text === '/balance') setImmediate(() => bot.emit('messagestr', `Kontostand: ${world.balance.toLocaleString('de-DE')}$`, 'system'));
       const pay = text.match(/^\/pay (\w+) (\d+)$/);
       if (pay && world.payWorks) world.balance -= Number(pay[2]);
     };
@@ -129,7 +130,7 @@ function setup(overrides = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hm-mc-'));
   const mc = createMinecraftService({
     config: { ...config, ...overrides }, api, dataDir, createBot: world.createBot, report: (route, e) => reports.push({ route, ...e }),
-    logger: { info() {}, warn() {}, error() {} }, chatDelayMs: 0, settleMs: 5, payoutCheckMs: 5, commandWaitMs: 20,
+    logger: { info() {}, warn() {}, error() {} }, chatDelayMs: 0, settleMs: 5, payoutCheckMs: 5, commandWaitMs: 20, spawnDelayMs: 0, balanceTimeoutMs: 300,
   });
   return { world, api, reports, mc, dataDir };
 }
@@ -436,4 +437,14 @@ test('Kein Fehlalarm „Nachricht nicht erkannt“ bei Clan- oder Spieler-Chat',
   // Echte, aber unbekannte Servermeldung wird weiter gemeldet
   sys('[HugoSMP] Steve hat dir 500 Gold überwiesen und so');
   await until(() => reports.some((r) => /nicht erkannt/.test(r.title)));
+});
+
+test('Kontostand: geht die erste Antwort unter, zweiter Versuch ohne Fehlalarm', async (t) => {
+  const { world, mc, reports } = setup();
+  world.dropBalance = 1;
+  t.after(() => mc.stop());
+  mc.start();
+  await until(() => mc._internal.db.lastBalance === 1000, 3000);
+  assert.equal(world.sent.filter((m) => m === '/balance').length, 2);
+  assert.ok(!reports.some((r) => /Kontostand nicht erkannt/.test(r.title)));
 });

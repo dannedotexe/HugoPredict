@@ -27,7 +27,7 @@ const { LinkCodes } = require('./linkCodes');
 const fill = (template, vars) => template.replace(/\{(\w+)\}/g, (all, k) => (vars[k] === undefined ? all : String(vars[k])));
 const plain = (v) => (typeof v === 'string' ? v : JSON.stringify(v ?? '')).slice(0, 300);
 
-function createMinecraftService({ config: baseConfig, api, logger, report, dataDir, createBot, chatDelayMs = 1100, settleMs = 1500, payoutCheckMs = 2500, reconnectMs = 15_000, commandWaitMs = 2500 }) {
+function createMinecraftService({ config: baseConfig, api, logger, report, dataDir, createBot, chatDelayMs = 1100, settleMs = 1500, payoutCheckMs = 2500, reconnectMs = 15_000, commandWaitMs = 2500, spawnDelayMs = 5000, balanceTimeoutMs = 6000 }) {
   const persisted = new Store(dataDir, { fileName: 'minecraft.json' });
   const db = (persisted.data.minecraft ??= { outbox: {}, payouts: {}, links: {}, lastBalance: null });
   // Im /panel geänderte Einstellungen gelten vor der .env und bleiben nach Neustarts erhalten.
@@ -97,10 +97,16 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
     return p ? { username: p.username, uuid: p.uuid } : null;
   }
 
-  function readBalance(timeoutMs = 6000) {
+  // Ein zweiter Versuch, bevor gemeldet wird: Direkt nach dem Verbinden oder bei viel Chat
+  // geht eine Antwort manchmal unter.
+  function readBalance(timeoutMs = balanceTimeoutMs, attempt = 1) {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         balanceWaiter = null;
+        if (attempt === 1) {
+          readBalance(timeoutMs, 2).then(resolve, reject);
+          return;
+        }
         notify('system', {
           title: 'Minecraft: Kontostand nicht erkannt',
           description: `Auf \`${config.balanceCommand}\` kam keine erkannte Antwort.\nServerzeilen mit Geldbezug (ohne Spieler-Chat):\n${moneyLines.map((l) => `\`${l}\``).join('\n') || '— keine –'}\nBitte im Spiel \`${config.balanceCommand}\` eingeben und die Antwort als Screenshot schicken.`,
@@ -441,6 +447,8 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
       for (const cmd of config.joinCommands) await command(cmd).catch(() => {});
       if (config.joinCommands.length) await sleep(3000);
       // Ohne Kontostand-Prüfung (Standard) wird /balance beim Start nicht gebraucht.
+      // Kurz warten: Direkt nach dem Joinen beantwortet der Server Befehle nicht zuverlässig.
+      if (config.balanceCheck) await sleep(spawnDelayMs);
       if (config.balanceCheck) await exclusive(async () => {
         try {
           settle(await readBalance());
