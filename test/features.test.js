@@ -42,7 +42,7 @@ test('Ankündigung pingt die Rolle nur auf Wunsch', async () => {
 
 test('Marktkarte pingt nur, wenn eine Rolle übergeben wird', () => {
   const m = { id: '1', title: 'T', status: 'open', yesPrice: 0.5 };
-  const env = { currency: 'HugoCoins' };
+  const env = { currency: '$' };
   assert.deepEqual(marketCard(m, env, { pingRoleId: 'R' }).allowedMentions, { roles: ['R'] });
   assert.match(JSON.stringify(marketCard(m, env, { pingRoleId: 'R' }).components[0].toJSON()), /<@&R>/);
   assert.deepEqual(marketCard(m, env).allowedMentions, { parse: [] });
@@ -68,7 +68,7 @@ test('Benachrichtigungs-Karte zieht nach #pings um; alte Nachricht wird entfernt
   const oldMsg = await channels.get('docs').send();
   g.panels.notify = { channelId: 'docs', messageId: oldMsg.id };
   const guild = { id: 'G', client: { user: { id: BOT } }, channels: { cache: channels, fetch: async (id) => channels.get(id) } };
-  const res = await publishPanels(guild, { store, env: { currency: 'HugoCoins', websiteUrl: '' }, statusService: { buildPayload: async () => ({ components: [] }) } });
+  const res = await publishPanels(guild, { store, env: { currency: '$', websiteUrl: '' }, statusService: { buildPayload: async () => ({ components: [] }) } });
   assert.deepEqual(res.errors, []);
   assert.ok(deleted.includes(oldMsg.id), 'alte Karte in #regeln entfernt');
   assert.equal(g.panels.notify.channelId, 'pings');
@@ -490,7 +490,7 @@ test('Bot-Rolle: andere Bots bekommen „| Bots“, der eigene Bot und Menschen 
 test('So-gehts-Karte: erklärt Prognosen und verlinkt die Channels', () => {
   const { panelDefinitions } = require('../src/setup/panels');
   const { textLength, TEXT_LIMIT } = require('../src/lib/ui');
-  const payload = panelDefinitions().find((d) => d.key === 'howto').build({ env: { currency: 'HugoCoins', websiteUrl: '' }, channelIds: { docs: '1', pings: '2', marketOverview: '3', support: '4' } });
+  const payload = panelDefinitions().find((d) => d.key === 'howto').build({ env: { currency: '$', websiteUrl: '' }, channelIds: { docs: '1', pings: '2', marketOverview: '3', support: '4' } });
   const text = JSON.stringify(payload);
   for (const id of ['<#1>', '<#2>', '<#3>', '<#4>']) assert.ok(text.includes(id), id);
   assert.match(text, /Echtgeld/);

@@ -316,7 +316,7 @@ class HugoApi {
 
   /**
    * Meldet eine bestätigte Einzahlung (Betrag in Spielwährung). Den Umrechnungskurs
-   * und die Gutschrift in HugoCoins bestimmt allein die Website.
+   * und die Gutschrift bestimmt allein die Website.
    */
   async reportDeposit({ id, minecraftName, minecraftUuid, amount, receivedAt }) {
     const body = await this.request('POST', '/minecraft/deposits', {

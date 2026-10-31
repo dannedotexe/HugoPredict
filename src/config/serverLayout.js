@@ -245,7 +245,7 @@ const CATEGORIES = [
       },
       {
         key: 'docs', ...named('regeln', 'dokumentation'), type: T, legacy: ['welcome'],
-        topic: 'Plattform, HugoCoins, Gebühren und Prognoseregeln.',
+        topic: 'Plattform, Ingame-Geld, Gebühren und Prognoseregeln.',
         permissions: profiles.publicRead(),
       },
       {

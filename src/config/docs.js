@@ -26,10 +26,10 @@ function sections({ currency, websiteUrl }) {
       ].join('\n'),
     },
     {
-      title: `Virtuelle ${currency}`,
+      title: `Ingame-Geld (${currency})`,
       icon: 'coin',
       body: [
-        `${currency} sind die virtuelle Währung der Plattform. Sie haben keinen realen Geldwert und können weder gegen Echtgeld gekauft noch in Echtgeld ausgezahlt werden.`,
+        `Gehandelt wird mit HugoSMP-Geld (${currency}). Einzahlen: im Spiel per \`/pay\` an den Bot **HugoPredict**. Auszahlen: auf der ${site} beantragen. Echtgeld spielt keine Rolle – HugoPredict kauft und verkauft kein Ingame-Geld gegen Euro.`,
         '',
         `Kontostand, Positionen und Transaktionen werden ausschließlich von der Website geführt. Im Discord rufst du sie privat mit \`/balance\`, \`/portfolio\` und \`/history\` ab – die Antworten sieht nur du.`,
       ].join('\n'),

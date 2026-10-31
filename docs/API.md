@@ -112,7 +112,7 @@ Die Website sollte selbst prüfen, ob `approvedByDiscordId` dazu berechtigt ist.
 Ist `MC_ENABLED=true`, verknüpft der Minecraft-Bot Konten selbst: Er flüstert dem Spieler
 auf HugoSMP einen Code zu, der in Discord eingegeben wird. `POST /verification/start` und
 `GET /verification/status` werden dann nicht genutzt. Beträge sind immer **Spielgeld**;
-wie viele HugoCoins dafür gutgeschrieben werden, entscheidet allein die Website.
+die Website schreibt sie 1:1 in $ gut.
 
 ### `POST /minecraft/links`
 Header `Idempotency-Key: mc-link:<discordId>:<minecraftUuid>`.
@@ -141,12 +141,12 @@ Header `Idempotency-Key: mc-deposit:<id>`. Nicht erreichbare Meldungen wiederhol
 Antwort: `{ "accepted": true, "linked": true, "credited": 1500 }`
 - `linked: false`: Konto noch nicht verknüpft. Die Website **muss** den Betrag trotzdem speichern
   und gutschreiben, sobald die Verknüpfung kommt.
-- `credited`: gutgeschriebene HugoCoins (optional, wird dem Spieler im Spiel angezeigt).
+- `credited`: gutgeschriebener Betrag in $ (optional, wird dem Spieler im Spiel angezeigt).
 
 ### `GET /minecraft/payouts?status=approved`
 Nur Auszahlungen, die das Team freigegeben hat und die noch nicht ausgeführt wurden.
 `{ "payouts": [{ "id": "p_1", "minecraftName": "Steve", "amount": 5000 }] }`
-Die Website zieht die HugoCoins beim Beantragen ab, nicht erst nach der Ausführung.
+Die Website zieht den Betrag beim Beantragen ab, nicht erst nach der Ausführung.
 
 ### `POST /minecraft/payouts/{id}/complete`
 `{ "paidAt": "…" }`, Header `Idempotency-Key: mc-payout-complete:<id>`. Danach darf die
@@ -154,7 +154,7 @@ Auszahlung nicht mehr in der Liste erscheinen.
 
 ### `POST /minecraft/payouts/{id}/fail`
 `{ "reason": "…", "uncertain": false }`, Header `Idempotency-Key: mc-payout-fail:<id>`.
-- `uncertain: false`: Es wurde **nichts** gezahlt (Limit, Bot-Guthaben). HugoCoins zurückbuchen.
+- `uncertain: false`: Es wurde **nichts** gezahlt (Limit, Bot-Guthaben). Betrag zurückbuchen.
 - `uncertain: true`: Der Bot weiß nicht sicher, ob gezahlt wurde. **Nicht** automatisch
   zurückbuchen, das Team prüft im Spiel.
 

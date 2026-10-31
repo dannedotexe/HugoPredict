@@ -16,7 +16,7 @@ const { LinkCodes } = require('./linkCodes');
  *   Discord eingegeben wird.
  * - Einzahlungen: Spieler zahlen per /pay an den Bot. Gutgeschrieben wird nur,
  *   was der Kontostand des Bots tatsächlich bestätigt; die Website rechnet in
- *   HugoCoins um.
+ *   Guthaben um (1:1 in $).
  * - Auszahlungen (optional): vom Team auf der Website freigegebene Beträge
  *   zahlt der Bot per /pay aus und prüft das Ergebnis am Kontostand.
  *
@@ -200,14 +200,14 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
           delete db.outbox[d.id];
           persisted.save();
           whisper(d.minecraftName, res.linked
-            ? `${formatAmount(d.amount)} erhalten${res.credited !== null ? ` – ${formatAmount(res.credited)} HugoCoins gutgeschrieben` : ''}. Danke!`
+            ? `${formatAmount(d.amount)} erhalten${res.credited !== null ? ` – ${formatAmount(res.credited)} $ gutgeschrieben` : ''}. Danke!`
             : `${formatAmount(d.amount)} erhalten. Melde dich auf der Website an oder verknüpfe dein Konto im Discord, dann wird es gutgeschrieben.`);
           notify('audit', {
             title: 'Minecraft: Einzahlung',
             fields: [
               { name: 'Spieler', value: d.minecraftName, inline: true },
               { name: 'Betrag', value: formatAmount(d.amount), inline: true },
-              { name: 'Gutschrift', value: res.credited !== null ? `${formatAmount(res.credited)} HugoCoins` : res.linked ? 'laut Website' : 'nach Verknüpfung', inline: true },
+              { name: 'Gutschrift', value: res.credited !== null ? `${formatAmount(res.credited)} $` : res.linked ? 'laut Website' : 'nach Verknüpfung', inline: true },
             ],
           });
         } catch (err) {

@@ -22,7 +22,7 @@ function panelDefinitions() {
           size: 'lg',
           icon: 'logo',
           title: 'So funktioniert HugoPredict',
-          intro: `Bei **${theme.brand}** sagst du voraus, was passiert – auf **HugoSMP** und darüber hinaus, mit virtuellen ${env.currency} und ganz ohne Echtgeld.`,
+          intro: `Bei **${theme.brand}** sagst du voraus, was passiert – auf **HugoSMP** und darüber hinaus, mit HugoSMP-Geld (${env.currency}) und ganz ohne Echtgeld.`,
           blocks: [
             {
               heading: 'Eine Prognose',
@@ -35,9 +35,9 @@ function panelDefinitions() {
               body: 'Du setzt auf **Ja** oder **Nein**. Liegst du richtig, gewinnst du – und zwar umso mehr, je weniger andere daran geglaubt haben. Liegst du falsch, ist dein Einsatz weg.',
             },
             {
-              heading: `Virtuelle ${env.currency}`,
+              heading: `Ingame-Geld (${env.currency})`,
               icon: 'coin',
-              body: `${env.currency} sind reines Spielgeld. Man kann sie nicht mit Echtgeld kaufen und nicht in Echtgeld auszahlen.`,
+              body: `Gehandelt wird mit HugoSMP-Geld. Einzahlen: im Spiel \`/pay HugoPredict <Betrag>\`. Gewinne lässt du dir auf der Website wieder auszahlen. Echtgeld spielt keine Rolle.`,
             },
             {
               heading: 'Los geht’s',
