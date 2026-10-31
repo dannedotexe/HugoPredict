@@ -18,7 +18,9 @@ export class AppError extends Error {
 
 export const r2 = (x) => Math.round(x * 100) / 100;
 const now = () => Date.now();
-const ADMIN_MC = 'alpha_noah';
+// Admins nur über den bestätigten Minecraft-Namen, nie über den frei wählbaren Username.
+// Alpha_Noah (Website) und HugoPredict (Bot-Konto: Anmeldung nur über /panel des Discord-Inhabers).
+const ADMIN_MC = ['alpha_noah', 'hugopredict'];
 
 // ---------- Balance ----------
 
@@ -70,7 +72,7 @@ export function userBySession(token) {
   const u = db.prepare('SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.created_at > ?')
     .get(token, now() - SESSION_TTL);
   // Only this one Minecraft account is ever admin, never a matching username.
-  if (u) u.isAdmin = (u.mc_name || '').toLowerCase() === ADMIN_MC;
+  if (u) u.isAdmin = ADMIN_MC.includes((u.mc_name || '').toLowerCase());
   return u || null;
 }
 
