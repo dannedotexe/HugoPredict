@@ -6,16 +6,28 @@ const app = document.getElementById('app');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const nf = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 });
 const fmt = (n) => nf.format(Number(n) || 0);
-// Kurz wie im Spiel: 950 · 1,5k · 10k · 2,3m · 1b (abgerundet, nie zu viel angezeigt)
-const nf1 = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 });
-function short(n) {
-  const v = Number(n) || 0, a = Math.abs(v);
-  for (const [unit, size] of [['t', 1e12], ['b', 1e9], ['m', 1e6], ['k', 1e3]]) {
-    if (a >= size) return `${a / size >= 100 ? Math.trunc(v / size) : nf1.format(Math.trunc((v / size) * 10) / 10)}${unit}`;
-  }
-  return fmt(v);
+const money = (n) => `${fmt(n)} $`;
+
+/**
+ * Beträge wie im Spiel eingeben: 500 · 15k · 1,5k · 2.5m · 1b · 15.000 · 15000.
+ * Ergebnis: Zahl oder NaN.
+ */
+function parseAmount(raw) {
+  const s = String(raw ?? '').trim().toLowerCase().replace(/[\s$€]/g, '');
+  const m = s.match(/^([+-]?)(\d[\d.,]*)(k|m|mio|b|mrd|t)?$/);
+  if (!m) return NaN;
+  const [, sign, num, unit] = m;
+  const seps = num.match(/[.,]/g) ?? [];
+  const last = Math.max(num.lastIndexOf('.'), num.lastIndexOf(','));
+  let value;
+  if (!seps.length) value = Number(num);
+  else if (new Set(seps).size > 1) value = Number(`${num.slice(0, last).replace(/[.,]/g, '')}.${num.slice(last + 1)}`); // 15.000,50 / 15,000.50
+  else if (seps.length > 1) value = Number(num.replace(/[.,]/g, '')); // 1.000.000
+  else if (!unit && num[last] === '.' && num.length - last - 1 === 3) value = Number(num.replace('.', '')); // 15.000
+  else value = Number(num.replace(',', '.')); // 1,5 · 1.5k
+  const mult = { k: 1e3, m: 1e6, mio: 1e6, b: 1e9, mrd: 1e9, t: 1e12 }[unit] ?? 1;
+  return (sign === '-' ? -1 : 1) * Math.round(value * mult * 100) / 100;
 }
-const money = (n) => `${short(n)} $`;
 const pct = (p) => (p < 0.005 ? '<1 %' : p > 0.995 ? '>99 %' : `${Math.round(p * 100)} %`);
 const cents = (p) => `${Math.max(1, Math.min(99, Math.round(p * 100)))}¢`;
 const df = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -382,7 +394,7 @@ async function viewMarket(id, query) {
       <div class="pick${bin ? '' : ' pick-many'}" role="group" aria-label="Ausgang wählen">
         ${sortedOutcomes(m).map((x) => `<button type="button" class="${bin ? (x.id === m.outcomes[0].id ? 'p-yes' : 'p-no') : 'p-yes'}" data-pick="${x.id}" aria-pressed="${x.id === o.id}"><span>${esc(x.label)}</span> <b>${cents(x.price)}</b></button>`).join('')}</div>
       <label class="amount" for="amt"><span>${buying ? 'Betrag' : `Anteile (du hast ${fmt(pos?.shares || 0)})`}</span>
-        <span class="amount-in"><input id="amt" name="amount" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(trade.amount)}">${buying ? '<i>$</i>' : ''}</span></label>
+        <span class="amount-in"><input id="amt" name="amount" inputmode="text" autocomplete="off" autocapitalize="off" placeholder="0" value="${esc(trade.amount)}">${buying ? '<i>$</i>' : ''}</span></label>
       <div class="quick">${(buying ? ['+1', '+20', '+100', 'Max'] : ['25 %', '50 %', 'Alle']).map((q) => `<button type="button" data-q="${q}">${q}</button>`).join('')}</div>
       <dl class="receipt" id="receipt"></dl>
       <p class="why" id="why" role="alert"></p>
@@ -393,7 +405,7 @@ async function viewMarket(id, query) {
 
     const input = el.querySelector('#amt');
     const update = () => {
-      const amt = Number(input.value.replace(',', '.')) || 0;
+      const amt = parseAmount(input.value) || 0;
       let rows = '', why = '';
       trade.amount = input.value;
       if (buying) {
@@ -422,7 +434,7 @@ async function viewMarket(id, query) {
     el.querySelectorAll('[data-side]').forEach((b) => b.onclick = () => { trade.side = b.dataset.side; trade.amount = ''; renderTrade(); });
     el.querySelectorAll('[data-pick]').forEach((b) => b.onclick = () => { trade.outcomeId = Number(b.dataset.pick); renderTrade(); });
     el.querySelectorAll('[data-q]').forEach((b) => b.onclick = () => {
-      const q = b.dataset.q, cur = Number(input.value.replace(',', '.')) || 0;
+      const q = b.dataset.q, cur = parseAmount(input.value) || 0;
       if (buying) input.value = q === 'Max' ? Math.floor((state.me?.balance || 0) * 100) / 100 : cur + Number(q.slice(1));
       else input.value = Math.floor((pos?.shares || 0) * (q === 'Alle' ? 1 : parseInt(q, 10) / 100) * 100) / 100;
       update();
@@ -514,8 +526,8 @@ async function viewWallet() {
         <section class="panel"><h2>Auszahlen</h2>
           ${me.mcName ? `
             <form id="wd-form">
-              <div class="field"><label for="wd">Betrag in Dollar, mindestens ${s.minWithdraw}</label>
-                <input class="input" id="wd" name="amount" inputmode="numeric" autocomplete="off" placeholder="z.B. 250…"></div>
+              <div class="field"><label for="wd">Betrag (auch 15k, 1m …), mindestens ${s.minWithdraw}</label>
+                <input class="input" id="wd" name="amount" inputmode="text" autocomplete="off" autocapitalize="off" placeholder="z.B. 250, 15k oder 1m…"></div>
               <div style="display:flex;gap:8px"><button class="btn btn-gold" style="flex:1">Auszahlung anfordern</button>
                 <button class="btn" type="button" id="wd-all">Alles</button></div>
             </form>
@@ -542,7 +554,9 @@ async function viewWallet() {
     btn.disabled = true;
     btn.textContent = 'Wird angefordert…';
     try {
-      await api('/withdrawals', { amount: Number(document.getElementById('wd').value) });
+      const amount = parseAmount(document.getElementById('wd').value);
+      if (!Number.isFinite(amount)) throw new Error('Ungültiger Betrag. Beispiele: 250, 15k, 1,5m');
+      await api('/withdrawals', { amount });
       toast('Auszahlung angefordert');
       viewWallet();
     } catch (err) {
@@ -919,7 +933,7 @@ async function adminPlayersTab(body, { run }) {
     const { user: u } = await api(`/admin/users/${id}`);
     box.innerHTML = `
       <form class="credit-row" data-credit="${u.id}">
-        <input class="input" name="amount" placeholder="±Betrag, z. B. 500 oder -200" required autocomplete="off" inputmode="decimal">
+        <input class="input" name="amount" placeholder="±Betrag, z. B. 500, 10k oder -200" required autocomplete="off" autocapitalize="off">
         <input class="input" name="note" placeholder="Grund…" autocomplete="off">
         <button class="btn btn-sm">Buchen</button></form>
       <div class="admin-actions" style="margin:10px 0">
@@ -931,7 +945,7 @@ async function adminPlayersTab(body, { run }) {
     box.querySelector('[data-credit]').onsubmit = (e) => {
       e.preventDefault();
       const v = Object.fromEntries(new FormData(e.target));
-      run(() => api('/admin/credit', { username: u.username, amount: Number(String(v.amount).replace(',', '.')), note: v.note }), 'Gebucht');
+      run(() => api('/admin/credit', { username: u.username, amount: parseAmount(v.amount), note: v.note }), 'Gebucht');
     };
     box.querySelector('[data-ban]').onclick = async (e) => {
       const to = e.target.dataset.to === '1';
