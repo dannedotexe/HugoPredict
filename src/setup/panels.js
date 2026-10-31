@@ -30,9 +30,9 @@ function panelDefinitions() {
               body: 'Jede Prognose ist eine Frage zu einem Ereignis – rund um HugoSMP, Minecraft, Streams, Sport und mehr. Zum Beispiel:\n**„Gewinnt Team Nord das Event am Samstag?“**\nJa **62 %** · Nein **38 %**\nDie Prozente zeigen, wie wahrscheinlich die Community das Ergebnis findet.',
             },
             {
-              heading: 'So tippst du',
+              heading: 'So bietest du',
               icon: 'open',
-              body: 'Du setzt auf **Ja** oder **Nein**. Liegst du richtig, gewinnst du – und zwar umso mehr, je weniger andere daran geglaubt haben. Liegst du falsch, ist dein Einsatz weg.',
+              body: 'Du bietest auf **Ja** oder **Nein**. Liegst du richtig, gewinnst du – und zwar umso mehr, je weniger andere daran geglaubt haben. Liegst du falsch, ist dein Einsatz weg.',
             },
             {
               heading: `Ingame-Geld (${env.currency})`,
@@ -67,7 +67,7 @@ function panelDefinitions() {
             heading: 'So geht’s',
             icon: 'info',
             body: [
-              '1. Unten auf **Verknüpfen** tippen',
+              '1. Unten auf **Verknüpfen** drücken',
               '2. Du bekommst einen Befehl wie `/msg HugoPredict KE2KM`',
               '3. Den Befehl auf HugoSMP im Chat abschicken',
               '4. Fertig – du wirst automatisch verifiziert',
