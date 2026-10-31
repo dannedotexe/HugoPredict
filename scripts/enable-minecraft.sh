@@ -28,6 +28,12 @@ elif [ "${1:-}" = "--kontostand-aus" ] || [ "${1:-}" = "--kontostand-an" ]; then
 else
   ACCOUNT="${1:-}"
   HOST="${2:-hugosmp.net}"
+  # Ohne Angabe im Terminal nachfragen (z. B. über das Bastion-Skript)
+  if [ -z "$ACCOUNT" ] && [ -t 0 ]; then
+    while read -r -t 0.2 _; do :; done || true
+    read -rp "E-Mail des Microsoft-Kontos vom Minecraft-Bot: " ACCOUNT
+    ACCOUNT="$(printf '%s' "$ACCOUNT" | tr -d '[:space:]')"
+  fi
   if ! [[ "$ACCOUNT" =~ ^[^[:space:]@|]+@[^[:space:]@|]+\.[^[:space:]@|]+$ ]]; then
     echo "Bitte die E-Mail des Microsoft-Kontos des Bots angeben:"
     echo "  bash $0 bot@beispiel.de"

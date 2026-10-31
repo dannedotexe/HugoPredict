@@ -4,6 +4,7 @@
 # Aufruf in Cloud Shell:  bash <(curl -sL <raw-URL dieses Skripts>)
 # Nur prüfen (verändert nichts):  bash <(curl -sL <raw-URL dieses Skripts>) pruefen
 # Website einrichten und verbinden:  bash <(curl -sL <raw-URL dieses Skripts>) website [domain]
+# Minecraft-Bot einschalten (fragt nach der E-Mail):  bash <(curl -sL <raw-URL dieses Skripts>) minecraft
 set -euo pipefail
 MODE="${1:-install}"
 
@@ -75,6 +76,8 @@ if [ "$MODE" = "website" ]; then
   DOMAIN="${2:-hugopredict.de}"
   [[ "$DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]] || fail "Ungültige Domain: $DOMAIN"
   REMOTE="$UPDATE_BOT && bash ~/HugoPredict/scripts/setup-website.sh $DOMAIN"
+elif [ "$MODE" = "minecraft" ]; then
+  REMOTE="$UPDATE_BOT && bash ~/HugoPredict/scripts/enable-minecraft.sh"
 elif [ "$MODE" = "pruefen" ]; then
   # Nur lesend: das Prüfskript direkt von GitHub ausführen, ohne etwas zu installieren.
   REMOTE="curl -sL https://raw.githubusercontent.com/dannedotexe/HugoPredict/$BRANCH/scripts/diagnose-server.sh | bash"
