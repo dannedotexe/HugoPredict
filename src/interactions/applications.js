@@ -68,7 +68,7 @@ function applicationCard(a) {
 
 /** Prüft, ob sich die Person für die Stelle bewerben darf. Gibt eine Fehlermeldung oder null zurück. */
 function blockReason(member, pos, g, deps, now = Date.now()) {
-  if (!deps.ctx.hasRoleKey(member, 'member')) return ['Erst die Regeln akzeptieren', 'Akzeptiere zuerst die Regeln in #regeln, dann kannst du dich bewerben.'];
+  if (!deps.ctx.hasRoleKey(member, 'member')) return ['Erst verifizieren', 'Verknüpfe zuerst dein Konto in #verifizieren, dann kannst du dich bewerben.'];
   if (deps.ctx.hasRoleKey(member, pos.role)) return ['Schon im Team', `Du hast die Rolle für **${pos.label}** bereits.`];
   const mine = Object.values(g.applications).filter((a) => a.userId === member.id);
   if (mine.some((a) => a.status === 'open')) return ['Bewerbung läuft', 'Du hast schon eine offene Bewerbung. Wir melden uns per Direktnachricht.'];

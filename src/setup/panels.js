@@ -43,7 +43,7 @@ function panelDefinitions() {
               heading: 'Los geht’s',
               icon: 'check',
               body: [
-                `1. Regeln in ${ref('docs', '#regeln')} akzeptieren`,
+                `1. Konto in ${ref('verify', '#verifizieren')} verknüpfen – damit bist du dabei`,
                 `2. In ${ref('pings', '#pings')} auswählen, worüber du informiert wirst`,
                 `3. Prognosen in ${ref('marketOverview', '#prognosen')} ansehen oder selbst eine vorschlagen`,
                 `Fragen? Wir helfen dir in ${ref('support', '#support')}.`,
@@ -76,7 +76,7 @@ function panelDefinitions() {
           {
             heading: 'Was du davon hast',
             icon: 'check',
-            body: `Die Rolle Verifiziert, dein Minecraft-Name als Server-Name und Kontoabfragen wie \`/balance\`.${channelIds.docs ? ` Vorher bitte die Regeln in <#${channelIds.docs}> akzeptieren.` : ''}`,
+            body: `Die Rolle Verifiziert, dein Minecraft-Name als Server-Name und Kontoabfragen wie \`/balance\` – und Zugang zur ganzen Community.${channelIds.docs ? ` Es gelten die Regeln in <#${channelIds.docs}>.` : ''}`,
           },
           { heading: 'Sicherheit', icon: 'lock', body: 'Schick nur einen Befehl ab, den du selbst hier bekommen hast – niemals einen, den dir jemand anderes gibt.' },
         ],
@@ -97,17 +97,13 @@ function panelDefinitions() {
           .replace(/#support/g, channelIds.support ? `<#${channelIds.support}>` : '#support')
           .replace(/#verifizieren/g, channelIds.verify ? `<#${channelIds.verify}>` : '#verifizieren');
         const blocks = sections({ currency: env.currency, websiteUrl: env.websiteUrl }).map((s) => ({ heading: s.title, icon: s.icon, body: link(s.body) }));
-        const buttons = [
-          withEmoji(new ButtonBuilder().setCustomId('hm:rules:accept').setStyle(ButtonStyle.Success).setLabel('Regeln akzeptieren'), 'check'),
-        ];
         return card({
           size: 'lg',
           icon: 'logo',
           title: 'Regeln & Infos',
-          intro: `Alles Wichtige zu **${theme.brand}** auf einen Blick.\nBitte lies die Regeln, bevor du der Community beitrittst.`,
+          intro: `Alles Wichtige zu **${theme.brand}** auf einen Blick.\nMit dem Beitritt zum Server stimmst du diesen Regeln zu.`,
           blocks,
-          footer: 'Mit „Regeln akzeptieren“ erhältst du Zugang zur Community',
-          actions: [new ActionRowBuilder().addComponents(buttons)],
+          footer: `Zugang zur Community: Konto in ${channelIds.verify ? `<#${channelIds.verify}>` : '#verifizieren'} verknüpfen`,
         });
       },
     },
@@ -190,7 +186,7 @@ function panelDefinitions() {
         intro: 'Du willst HugoPredict mit aufbauen? Wähle unten die Stelle, die zu dir passt, und füll das kurze Formular aus.',
         blocks: [
           { heading: 'Offene Stellen', icon: 'info', body: APPLICATION_POSITIONS.map((p) => `**${p.label}**\n${p.description}`).join('\n') },
-          { heading: 'Gut zu wissen', icon: 'lock', body: `Bewerben kannst du dich, nachdem du die Regeln${channelIds.docs ? ` in <#${channelIds.docs}>` : ''} akzeptiert hast.\nPro Person ist eine Bewerbung gleichzeitig möglich, die Antwort kommt per Direktnachricht.` },
+          { heading: 'Gut zu wissen', icon: 'lock', body: `Bewerben kannst du dich, nachdem du dein Konto${channelIds.verify ? ` in <#${channelIds.verify}>` : ''} verknüpft hast.\nPro Person ist eine Bewerbung gleichzeitig möglich, die Antwort kommt per Direktnachricht.` },
         ],
         footer: 'Bewerbungen sieht nur die Serverleitung',
         actions: [new ActionRowBuilder().addComponents(

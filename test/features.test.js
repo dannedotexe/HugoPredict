@@ -392,7 +392,7 @@ test('Bewerbungen: nur nach Regeln, eine offene pro Person, Annahme vergibt die 
       channel: async () => review, audit: async (...x) => audits.push(x), can: () => true,
     },
   };
-  assert.match(apps.blockReason(member, pos, g, deps)[0], /Regeln/);
+  assert.match(apps.blockReason(member, pos, g, deps)[0], /verifizieren/);
   has.member = true;
   assert.equal(apps.blockReason(member, pos, g, deps), null);
 
@@ -490,9 +490,9 @@ test('Bot-Rolle: andere Bots bekommen „| Bots“, der eigene Bot und Menschen 
 test('So-gehts-Karte: erklärt Prognosen und verlinkt die Channels', () => {
   const { panelDefinitions } = require('../src/setup/panels');
   const { textLength, TEXT_LIMIT } = require('../src/lib/ui');
-  const payload = panelDefinitions().find((d) => d.key === 'howto').build({ env: { currency: '$', websiteUrl: '' }, channelIds: { docs: '1', pings: '2', marketOverview: '3', support: '4' } });
+  const payload = panelDefinitions().find((d) => d.key === 'howto').build({ env: { currency: '$', websiteUrl: '' }, channelIds: { docs: '1', pings: '2', marketOverview: '3', support: '4', verify: '5' } });
   const text = JSON.stringify(payload);
-  for (const id of ['<#1>', '<#2>', '<#3>', '<#4>']) assert.ok(text.includes(id), id);
+  for (const id of ['<#2>', '<#3>', '<#4>', '<#5>']) assert.ok(text.includes(id), id);
   assert.match(text, /Echtgeld/);
   assert.ok(textLength(payload) <= TEXT_LIMIT);
 });
