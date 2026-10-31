@@ -95,6 +95,7 @@ const routes = [
   [/^\/portfolio$/, viewPortfolio, 'portfolio'],
   [/^\/wallet$/, viewWallet, 'wallet'],
   [/^\/leaderboard$/, viewLeaderboard, 'leaderboard'],
+  [/^\/player\/([^/]+)$/, viewPlayer, 'leaderboard'],
   [/^\/admin$/, viewAdmin, 'admin'],
   [/^\/login$/, viewLogin, ''],
 ];
@@ -269,7 +270,9 @@ async function viewMarket(id, query) {
           <div class="market-head"><span class="slot lg" aria-hidden="true">${esc(m.emoji)}</span><div>
             <h1>${esc(m.title)}</h1>
             <div class="meta"><span>${CATS[m.category]}</span><span class="tag ${cls}">${label}</span><span>${money(m.volume)} Volumen</span>
-              ${m.closesAt ? `<span>Handel bis ${date(m.closesAt)}</span>` : ''}</div></div></div>
+              ${m.closesAt ? `<span>Handel bis ${date(m.closesAt)}</span>` : ''}</div></div>
+            <button class="btn btn-sm share" type="button" id="share" aria-label="Prognose teilen">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M5 14v6h14v-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Teilen</button></div>
           <div class="odds-big"><b class="blue">${pct(lead.price)}</b><span class="muted">${bin ? 'Chance auf Ja' : `für ${esc(lead.label)}`}</span></div>
           ${bin ? '' : `<div class="legend">${m.outcomes.map((o) => `<span style="--c:${o.color}">${esc(o.label)} ${pct(o.price)}</span>`).join('')}</div>`}
           ${chart(m)}
@@ -285,7 +288,7 @@ async function viewMarket(id, query) {
 
         <section class="panel"><h2>Letzte Trades</h2>
           ${m.recent.length ? `<div class="feed">${m.recent.map((t) => `
-            <div class="feed-row">${head(t.username, 'sm')}<span><b>${esc(t.username)}</b> ${t.side === 'buy'
+            <div class="feed-row">${head(t.username, 'sm')}<span><a href="${playerLink(t.username)}" style="text-decoration:none"><b>${esc(t.username)}</b></a> ${t.side === 'buy'
                 ? `bot <b>${money(t.amount)}</b> auf <b>${esc(byId[t.outcome_id]?.label)}</b>`
                 : `verkaufte <b>${esc(byId[t.outcome_id]?.label)}</b> für <b>${money(t.amount)}</b>`}</span>
               <span class="when">${ago(t.created_at)}</span></div>`).join('')}</div>`
@@ -300,6 +303,15 @@ async function viewMarket(id, query) {
             <span>${fmt(p.shares)} Anteile, wert ${money(p.shares * byId[p.outcome_id].price)}</span></div>`).join('')}</div></section>` : ''}
       </aside>
     </div>`;
+  document.getElementById('share')?.addEventListener('click', async () => {
+    const url = `${location.origin}/m/${m.id}`;
+    try {
+      if (navigator.share) await navigator.share({ title: m.title, text: `${m.emoji} ${m.title}`, url });
+      else { await navigator.clipboard.writeText(url); toast('Link kopiert – in Discord einfügen, dort erscheint eine Vorschau.'); }
+    } catch {
+      // Teilen abgebrochen
+    }
+  });
 
   app.querySelectorAll('.outcome-row [data-o]').forEach((b) => b.addEventListener('click', () => {
     Object.assign(trade, { side: 'buy', outcomeId: Number(b.dataset.o) });
@@ -509,17 +521,68 @@ async function viewWallet() {
 
 // ---------- Leaderboard ----------
 
-async function viewLeaderboard() {
-  const { leaders } = await api('/leaderboard');
+const playerLink = (name) => `#/player/${encodeURIComponent(name)}`;
+const PERIOD_LABEL = { week: 'Woche', month: 'Monat', all: 'Gesamt' };
+
+async function viewLeaderboard(query) {
+  const period = PERIOD_LABEL[query?.get('p')] ? query.get('p') : 'all';
+  const { leaders } = await api(`/leaderboard?period=${period}`);
+  const name = (l) => l.mcName || l.username;
+  const top = leaders.slice(0, 3);
+  // Podest: 2 – 1 – 3
+  const podium = top.length >= 3 ? `<div class="podium">${[1, 0, 2].map((i) => `
+    <a class="podium-spot p${i + 1}" href="${playerLink(name(top[i]))}">
+      <img class="podium-head" src="https://mc-heads.net/avatar/${encodeURIComponent(name(top[i]))}/64" width="56" height="56" alt="">
+      <b>${esc(name(top[i]))}</b><span class="${top[i].profit >= 0 ? 'ja' : 'nein'}">${top[i].profit >= 0 ? '+' : ''}${money(top[i].profit)}</span>
+      <div class="podium-block">${i + 1}</div></a>`).join('')}</div>` : '';
   app.innerHTML = `
-    <div class="page-title"><div><h1>Rangliste</h1><p>Wer auf Hugo SMP am besten vorhersagt, sortiert nach Gewinn</p></div></div>
+    <div class="page-title"><div><h1>Rangliste</h1><p>${period === 'all'
+      ? 'Wer auf Hugo SMP am besten vorhersagt, sortiert nach Gewinn'
+      : `Gewinn aus Prognosen, die in ${period === 'week' ? 'dieser Woche' : 'diesem Monat'} entschieden wurden`}</p></div></div>
+    <div class="filters" role="group" aria-label="Zeitraum">${Object.entries(PERIOD_LABEL).map(([k, v]) =>
+      `<button type="button" data-p="${k}" aria-pressed="${k === period}">${v}</button>`).join('')}</div>
+    ${podium}
     <section class="panel">${leaders.length ? `<div class="table-wrap"><table class="table">
-      <thead><tr><th>Platz</th><th>Spieler</th><th class="r">Gewinn</th><th class="r hide-sm">Vermögen</th></tr></thead><tbody>
+      <thead><tr><th>Platz</th><th>Spieler</th><th class="r">Gewinn</th>${period === 'all' ? '<th class="r hide-sm">Vermögen</th>' : '<th class="r hide-sm">Prognosen</th>'}</tr></thead><tbody>
       ${leaders.map((l, i) => `<tr><td class="rank ${i < 3 ? `r${i + 1}` : ''}">${i + 1}</td>
-        <td><div class="who">${head(l.mcName || l.username)}<b>${esc(l.mcName || l.username)}</b></div></td>
+        <td><a class="who" href="${playerLink(name(l))}" style="text-decoration:none">${head(name(l))}<b>${esc(name(l))}</b></a></td>
         <td class="r ${l.profit >= 0 ? 'ja' : 'nein'}">${l.profit >= 0 ? '+' : ''}${money(l.profit)}</td>
-        <td class="r hide-sm">${money(l.netWorth)}</td></tr>`).join('')}
-      </tbody></table></div>` : '<div class="empty"><p>Noch niemand auf der Rangliste. Der erste Gewinn bringt dich auf Platz 1.</p><a class="btn btn-ja" href="#/">Markt aussuchen</a></div>'}</section>`;
+        <td class="r hide-sm">${period === 'all' ? money(l.netWorth) : fmt(l.markets)}</td></tr>`).join('')}
+      </tbody></table></div>` : `<div class="empty"><p>${period === 'all' ? 'Noch niemand auf der Rangliste. Der erste Gewinn bringt dich auf Platz 1.' : 'In diesem Zeitraum wurde noch keine Prognose entschieden.'}</p><a class="btn btn-ja" href="#/">Markt aussuchen</a></div>`}</section>`;
+  app.querySelectorAll('[data-p]').forEach((b) => b.onclick = () => { location.hash = `#/leaderboard?p=${b.dataset.p}`; });
+}
+
+// ---------- Player profile ----------
+
+async function viewPlayer(rawName) {
+  const { player: p } = await api(`/players/${encodeURIComponent(decodeURIComponent(rawName))}`);
+  const name = p.mcName || p.username;
+  const st = p.stats;
+  const signed = (v) => `${v >= 0 ? '+' : ''}${money(v)}`;
+  app.innerHTML = `
+    <a href="#/leaderboard" class="back">Rangliste</a>
+    <div class="profile-head panel">
+      <img class="profile-avatar" src="https://mc-heads.net/avatar/${encodeURIComponent(name)}/96" width="72" height="72" alt="">
+      <div><h1>${esc(name)}</h1><p class="muted">${p.rank ? `Platz <b style="color:var(--text)">${p.rank}</b> · ` : ''}dabei seit ${date(p.since)}</p></div>
+    </div>
+    <div class="stat-grid">
+      <div class="panel stat"><small>Gewinn</small><b class="${p.profit >= 0 ? 'ja' : 'nein'}">${signed(p.profit)}</b></div>
+      <div class="panel stat"><small>Trefferquote</small><b>${st.hitRate === null ? '—' : `${Math.round(st.hitRate * 100)} %`}</b><span class="muted">${st.wins} von ${st.resolved}</span></div>
+      <div class="panel stat"><small>Größter Gewinn</small><b class="ja">${st.biggestWin > 0 ? `+${money(st.biggestWin)}` : '—'}</b></div>
+      <div class="panel stat"><small>Laufende Gebote</small><b>${st.openBets}</b></div>
+    </div>
+    <div class="split-2" style="margin-top:16px">
+      <section class="panel"><h2>Laufende Gebote</h2>
+        ${p.open.length ? `<div class="feed">${p.open.map((o) => `<a class="feed-row" style="text-decoration:none" href="#/market/${o.marketId}">
+          <span class="slot" aria-hidden="true">${esc(o.emoji)}</span><span><b>${esc(o.title)}</b><br><span class="muted">auf <b style="color:${o.color}">${esc(o.label)}</b> · ${money(o.spent)} geboten</span></span>
+          <span class="when">wert ${money(o.value)}</span></a>`).join('')}</div>` : '<p class="muted">Gerade keine laufenden Gebote.</p>'}
+      </section>
+      <section class="panel"><h2>Entschiedene Prognosen</h2>
+        ${p.history.length ? `<div class="feed">${p.history.map((h) => `<a class="feed-row" style="text-decoration:none" href="#/market/${h.marketId}">
+          <span class="slot" aria-hidden="true">${esc(h.emoji)}</span><span><b>${esc(h.title)}</b><br><span class="muted">Ergebnis: ${esc(h.result ?? '—')}</span></span>
+          <span class="when ${h.pnl >= 0 ? 'ja' : 'nein'}" style="font-weight:700">${signed(h.pnl)}</span></a>`).join('')}</div>` : '<p class="muted">Noch keine entschiedene Prognose.</p>'}
+      </section>
+    </div>`;
 }
 
 // ---------- Admin ----------

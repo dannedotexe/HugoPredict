@@ -235,3 +235,30 @@ test('Auszahlungen gehen ohne Freigabe direkt an den Bot', async () => {
   assert.ok(!(await call('GET', '/minecraft/payouts')).body.payouts.some((p) => p.id === String(second.id)), 'mit Freigabe-Pflicht erst nach Freigabe');
   delete process.env.WITHDRAW_AUTO_APPROVE;
 });
+
+test('Profil, Rangliste nach Zeitraum und Ergebnisse für Discord', async () => {
+  const a = svc.userBySession(loginAs('Profil_A')).id;
+  const b = svc.userBySession(loginAs('Profil_B')).id;
+  db.prepare('UPDATE users SET balance = 1000 WHERE id IN (?, ?)').run(a, b);
+  const { id } = svc.createMarket({ title: 'Profil-Test?', category: 'server', outcomes: ['Ja', 'Nein'] });
+  const m = svc.getMarket(id);
+  svc.buy(a, id, m.outcomes[0].id, 100);
+  svc.buy(b, id, m.outcomes[1].id, 100);
+  svc.saveDiscordLink('333333333333333333', 'a_dc', 'Profil_A', 'uuid-profil-a');
+  svc.resolveMarket(id, m.outcomes[0].id);
+
+  const p = svc.playerProfile('Profil_A');
+  assert.equal(p.stats.resolved, 1);
+  assert.equal(p.stats.wins, 1);
+  assert.ok(p.history[0].pnl > 0);
+  assert.equal(svc.playerProfile('Profil_B').stats.wins, 0);
+  assert.throws(() => svc.playerProfile('Gibtsnicht'), /nicht gefunden/);
+
+  const week = svc.leaderboard({ period: 'week' });
+  assert.ok(week.find((l) => l.username === 'Profil_A').profit > 0);
+  assert.ok(week.find((l) => l.username === 'Profil_B').profit < 0);
+
+  const res = (await call('GET', `/markets/${id}/results`)).body;
+  assert.equal(res.result, 'Ja');
+  assert.deepEqual(res.results.map((r) => [r.discordId, r.won]), [['333333333333333333', true]], 'nur verknüpfte Spieler');
+});

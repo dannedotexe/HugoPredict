@@ -168,6 +168,9 @@ botApi.get('/admin/transactions', handle((req) => svc.panelTransactions({
   type: /^[a-z_]{1,20}$/.test(String(req.query.type || '')) ? String(req.query.type) : '', limit: intParam(req.query.limit, 15, 1, 50),
 })));
 
+// Ergebnis einer entschiedenen Prognose pro verknüpftem Discord-Konto (für DMs).
+botApi.get('/markets/:id/results', handle((req) => svc.marketResults(Number(req.params.id))));
+
 botApi.get('/minecraft/payouts', handle(() => ({ payouts: svc.approvedPayouts() })));
 botApi.post('/minecraft/payouts/:id/complete', handle((req) => svc.completePayout(Number(req.params.id))));
 botApi.post('/minecraft/payouts/:id/fail', handle((req) =>

@@ -583,7 +583,21 @@ export function panelTransactions({ type = '', limit = 15 } = {}) {
   };
 }
 
-export function leaderboard() {
+const PERIODS = { week: 7 * 86400e3, month: 30 * 86400e3 };
+
+/**
+ * Rangliste. period „all“: Gewinn inkl. Wert offener Anteile. „week“/„month“: Gewinn aus
+ * Prognosen, die in diesem Zeitraum entschieden wurden (Auszahlung minus Einsatz).
+ */
+export function leaderboard({ period = 'all' } = {}) {
+  if (PERIODS[period]) {
+    const since = now() - PERIODS[period];
+    return db.prepare(`SELECT u.username, u.mc_name mcName, ROUND(SUM(l.amount), 2) profit, COUNT(DISTINCT m.id) markets
+      FROM ledger l JOIN users u ON u.id = l.user_id
+      JOIN markets m ON l.ref = 'm#' || m.id AND m.status = 'resolved' AND m.resolved_at >= ?
+      GROUP BY u.id HAVING profit <> 0 ORDER BY profit DESC LIMIT 25`).all(since)
+      .map((r) => ({ username: r.username, mcName: r.mcName, profit: r.profit, markets: r.markets }));
+  }
   const prices = priceMap();
   const values = new Map();
   for (const p of db.prepare('SELECT user_id, outcome_id, shares FROM positions WHERE shares > 0').all())
@@ -600,6 +614,45 @@ export function leaderboard() {
     .filter((u) => u.netWorth > 0 || u.profit !== 0)
     .sort((a, b) => b.profit - a.profit)
     .slice(0, 25);
+}
+
+/** Öffentliches Spielerprofil: laufende Gebote, entschiedene Prognosen, Trefferquote. */
+export function playerProfile(name) {
+  const u = db.prepare('SELECT * FROM users WHERE mc_name = ? OR username = ?').get(String(name), String(name));
+  if (!u) throw new AppError('Spieler nicht gefunden', 404);
+  const prices = priceMap();
+  const open = db.prepare(`SELECT p.shares, p.spent, p.outcome_id, o.label, o.color, m.id market_id, m.title, m.emoji
+    FROM positions p JOIN outcomes o ON o.id = p.outcome_id JOIN markets m ON m.id = p.market_id
+    WHERE p.user_id = ? AND p.shares > 0 AND m.status IN ('open', 'closed') ORDER BY p.spent DESC LIMIT 20`).all(u.id)
+    .map((p) => ({ marketId: p.market_id, title: p.title, emoji: p.emoji, label: p.label, color: p.color, spent: r2(p.spent), value: r2(p.shares * (prices.get(p.outcome_id) ?? 0)) }));
+  const history = db.prepare(`SELECT m.id, m.title, m.emoji, m.resolved_at, o.label result, ROUND(SUM(l.amount), 2) pnl,
+      SUM(CASE WHEN l.type = 'payout' THEN 1 ELSE 0 END) > 0 won
+    FROM ledger l JOIN markets m ON l.ref = 'm#' || m.id AND m.status = 'resolved'
+    LEFT JOIN outcomes o ON o.id = m.resolved_outcome_id
+    WHERE l.user_id = ? GROUP BY m.id ORDER BY m.resolved_at DESC`).all(u.id)
+    .map((h) => ({ marketId: h.id, title: h.title, emoji: h.emoji, result: h.result, pnl: h.pnl, won: !!h.won, resolvedAt: h.resolved_at }));
+  const wins = history.filter((h) => h.won).length;
+  const all = leaderboard();
+  const rank = all.findIndex((l) => l.username === u.username);
+  return {
+    username: u.username, mcName: u.mc_name, since: u.created_at,
+    rank: rank >= 0 ? rank + 1 : null, profit: rank >= 0 ? all[rank].profit : 0,
+    stats: { resolved: history.length, wins, hitRate: history.length ? wins / history.length : null, biggestWin: history.reduce((a, h) => Math.max(a, h.pnl), 0), openBets: open.length },
+    open, history: history.slice(0, 20),
+  };
+}
+
+/** Für Discord-DMs nach der Entscheidung: Ergebnis pro verknüpftem Spieler. */
+export function marketResults(marketId) {
+  const m = db.prepare('SELECT * FROM markets WHERE id = ?').get(marketId);
+  if (!m) throw new AppError('Markt nicht gefunden', 404);
+  if (m.status !== 'resolved') return { status: m.status, results: [] };
+  const result = db.prepare('SELECT label FROM outcomes WHERE id = ?').get(m.resolved_outcome_id)?.label ?? null;
+  const rows = db.prepare(`SELECT d.discord_id, u.mc_name, ROUND(SUM(l.amount), 2) pnl,
+      ROUND(SUM(CASE WHEN l.type = 'payout' THEN l.amount ELSE 0 END), 2) payout
+    FROM ledger l JOIN users u ON u.id = l.user_id JOIN discord_links d ON d.mc_name = u.mc_name
+    WHERE l.ref = ? GROUP BY d.discord_id`).all(`m#${marketId}`);
+  return { status: m.status, title: m.title, result, results: rows.map((r) => ({ discordId: r.discord_id, mcName: r.mc_name, pnl: r.pnl, payout: r.payout, won: r.payout > 0 })) };
 }
 
 export function adminOverview() {

@@ -288,6 +288,26 @@ textarea.input { resize: vertical; min-height: 84px; }
 .bot-status::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 8px; background: var(--faint); vertical-align: 1px; }
 .bot-status.on::before { background: var(--yes); }
 
+/* ---------- Share, podium, profile ---------- */
+.market-head .share { margin-left: auto; align-self: flex-start; }
+.podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: end; margin-bottom: 16px; }
+.podium-spot { display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; text-align: center; min-width: 0; }
+.podium-spot b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.podium-spot span { font-size: 13px; font-weight: 600; }
+.podium-head { width: 56px; height: 56px; border-radius: 12px; image-rendering: pixelated; background: var(--panel); }
+.podium-block { width: 100%; margin-top: 6px; border-radius: 10px 10px 4px 4px; display: grid; place-items: center; font-size: 22px; font-weight: 800; color: #0d141b; }
+.podium-spot.p1 .podium-block { height: 86px; background: var(--gold); }
+.podium-spot.p2 .podium-block { height: 62px; background: #d8dee4; }
+.podium-spot.p3 .podium-block { height: 46px; background: #e0915a; }
+.podium-spot.p1 .podium-head { width: 68px; height: 68px; }
+.profile-head { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.profile-avatar { width: 72px; height: 72px; border-radius: 14px; image-rendering: pixelated; background: var(--panel-hi); }
+.stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.stat { display: flex; flex-direction: column; gap: 2px; }
+.stat small { color: var(--muted); font-size: 13px; }
+.stat b { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
+.stat span { font-size: 13px; }
+
 /* ---------- Nav icons (bottom bar on phones) ---------- */
 .nav svg { display: none; width: 22px; height: 22px; }
 .show-sm { display: none; }
@@ -344,6 +364,8 @@ textarea.input { resize: vertical; min-height: 84px; }
   .table.stackable td.title { grid-column: 1 / -1; font-weight: 600; margin-bottom: 4px; }
   .table.stackable td[data-label]::before { content: attr(data-label); display: block; font-size: 12px; color: var(--faint); }
   .split-2, .row-gap { grid-template-columns: minmax(0, 1fr); }
+  .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat b { font-size: 20px; }
   .panel { padding: 16px; }
   .chart text { font-size: 26px; }
   .wrap, .bar-in { padding-left: 16px; padding-right: 16px; }

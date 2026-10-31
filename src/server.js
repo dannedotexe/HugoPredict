@@ -105,7 +105,33 @@ app.get('/api/me', handle((req) => ({ user: req.user ? svc.publicUser(req.user) 
 
 app.get('/api/markets', handle((req) => ({ markets: svc.listMarkets(req.query) })));
 app.get('/api/markets/:id', handle((req) => ({ market: svc.getMarket(Number(req.params.id), req.user?.id) })));
-app.get('/api/leaderboard', handle(() => ({ leaders: svc.leaderboard() })));
+app.get('/api/leaderboard', handle((req) => ({ leaders: svc.leaderboard({ period: String(req.query.period || 'all') }) })));
+app.get('/api/players/:name', handle((req) => ({ player: svc.playerProfile(req.params.name) })));
+
+// Teilen: /m/<id> liefert eine Vorschau (Discord, WhatsApp …) und leitet zur Prognose weiter.
+const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+app.get('/m/:id', (req, res) => {
+  let m;
+  try {
+    m = svc.getMarket(Number(req.params.id));
+  } catch {
+    return res.redirect('/');
+  }
+  const pctOf = (p) => (p < 0.005 ? '<1 %' : p > 0.995 ? '>99 %' : `${Math.round(p * 100)} %`);
+  const odds = [...m.outcomes].sort((a, b) => b.price - a.price).slice(0, 4).map((o) => `${o.label} ${pctOf(o.price)}`).join(' · ');
+  const site = (process.env.WEBSITE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
+  const target = `/#/market/${m.id}`;
+  res.type('html').send(`<!doctype html><html lang="de"><head><meta charset="utf-8">
+<title>${escHtml(m.title)} – HugoPredict</title>
+<meta property="og:site_name" content="HugoPredict">
+<meta property="og:title" content="${escHtml(`${m.emoji} ${m.title}`)}">
+<meta property="og:description" content="${escHtml(`${odds} – Biete mit auf HugoPredict.`)}">
+<meta property="og:image" content="${escHtml(`${site}/logo.png`)}">
+<meta property="og:url" content="${escHtml(`${site}/m/${m.id}`)}">
+<meta name="theme-color" content="#33c26d">
+<meta http-equiv="refresh" content="0;url=${escHtml(target)}">
+</head><body><a href="${escHtml(target)}">Zur Prognose</a></body></html>`);
+});
 
 // ---------- Logged in ----------
 
