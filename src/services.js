@@ -118,14 +118,21 @@ function claimDeposits(userId, mcName) {
 // ---------- Login through the Minecraft bot ----------
 // The site shows a code, the player whispers it to the bot, and the browser that holds the secret is logged in.
 
-const LOGIN_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
+// 5 Zeichen, Großbuchstaben und Ziffern ohne leicht verwechselbare (0/O, 1/I/L): 31^5 ≈ 29 Mio.
+// Raten bringt nichts: Wer einen fremden Code errät, meldet den fremden Browser in SEIN Konto an.
+const LOGIN_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const LOGIN_LENGTH = 5;
 const LOGIN_TTL = 5 * 60e3;
 const hashCode = (code) => crypto.createHash('sha256').update(code).digest('hex');
 
 export function startLogin() {
   return tx(() => {
     db.prepare('DELETE FROM login_requests WHERE expires_at <= ?').run(now());
-    const code = Array.from(crypto.randomBytes(12), (b) => LOGIN_ALPHABET[b % LOGIN_ALPHABET.length]).join('');
+    // Aktive Codes sind eindeutig (code_hash ist Primärschlüssel) – bei Kollision neu würfeln.
+    let code;
+    do {
+      code = Array.from(crypto.randomBytes(LOGIN_LENGTH), (b) => LOGIN_ALPHABET[b % LOGIN_ALPHABET.length]).join('');
+    } while (db.prepare('SELECT 1 FROM login_requests WHERE code_hash = ?').get(hashCode(code)));
     const secret = crypto.randomBytes(32).toString('hex');
     db.prepare('INSERT INTO login_requests (code_hash, secret_hash, expires_at) VALUES (?, ?, ?)').run(hashCode(code), hashCode(secret), now() + LOGIN_TTL);
     return { code, secret, expiresInSeconds: LOGIN_TTL / 1000 };
@@ -134,7 +141,7 @@ export function startLogin() {
 
 export function confirmLogin(mcName, code) {
   const res = db.prepare('UPDATE login_requests SET mc_name = ? WHERE code_hash = ? AND mc_name IS NULL AND expires_at > ?')
-    .run(mcName, hashCode(String(code || '').trim().toLowerCase()), now());
+    .run(mcName, hashCode(String(code || '').trim().toUpperCase()), now());
   if (!res.changes) throw new AppError('Code ungültig oder abgelaufen', 404);
 }
 

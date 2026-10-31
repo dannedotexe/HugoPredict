@@ -111,11 +111,11 @@ test('markets use the shape the bot expects', async () => {
 test('whispered code logs the waiting browser in, once, and claims held deposits', async () => {
   await deposit('held-1', 70, 'Alpha_Noah');
   const { code, secret } = svc.startLogin();
-  assert.equal(code.length, 12);
+  assert.match(code, /^[A-Z2-9]{5}$/);
   assert.equal(svc.pollLogin(secret), null);
   assert.equal((await post('/minecraft/login-confirm', { minecraftName: 'x y', code })).status, 422);
   assert.equal((await post('/minecraft/login-confirm', { minecraftName: 'Alpha_Noah', code: 'falsch' })).status, 404);
-  assert.equal((await post('/minecraft/login-confirm', { minecraftName: 'Alpha_Noah', code: code.toUpperCase() })).status, 200);
+  assert.equal((await post('/minecraft/login-confirm', { minecraftName: 'Alpha_Noah', code: code.toLowerCase() })).status, 200);
   // A second player cannot take over a code that is already confirmed.
   assert.equal((await post('/minecraft/login-confirm', { minecraftName: 'Dieb_MC', code })).status, 404);
 
