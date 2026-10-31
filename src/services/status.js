@@ -51,7 +51,7 @@ function createStatusService({ api, store, env, logger, minecraft = null }) {
         },
         { heading: 'Prognosen', body: state.lastSyncAt ? line(state.lastSyncOk, `${state.lastSyncOk ? 'Synchron' : 'Gestört'} · ${discordTime(state.lastSyncAt, 'R')}`) : line(null, 'Noch keine Synchronisierung') },
       ],
-      footer: `Zuletzt geprüft ${discordTime(new Date(), 't')}`,
+      footer: `Aktualisiert sich automatisch · Stand ${discordTime(new Date(), 't')}`,
     });
   }
 
@@ -76,7 +76,7 @@ function createStatusService({ api, store, env, logger, minecraft = null }) {
         { heading: 'Discord-Bot', body: line(true, `Online · seit ${discordTime(startedAt, 'R')}`) },
         { heading: 'Minecraft-Bot', body: pub(mcOk, 'Auf HugoSMP online', 'Gerade nicht verbunden', 'Kommt bald') },
       ],
-      footer: `Wird alle 5 Minuten aktualisiert · zuletzt ${discordTime(new Date(), 't')}`,
+      footer: `Aktualisiert sich automatisch · Stand ${discordTime(new Date(), 't')}`,
     });
   }
 
@@ -97,8 +97,22 @@ function createStatusService({ api, store, env, logger, minecraft = null }) {
     }
   }
 
-  async function tick(client) {
+  // Panels werden nur bearbeitet, wenn sich etwas geändert hat (oder spätestens alle 10 Minuten).
+  // So kann oft geprüft werden, ohne Discord mit Bearbeitungen zu überfluten.
+  const REFRESH_MS = 10 * 60_000;
+  let lastSig = null;
+  let lastEdit = 0;
+  const signature = () => JSON.stringify([
+    api.configured, state.apiOk, state.apiError, state.lastSyncOk,
+    minecraft ? [minecraft.state.online, minecraft.state.since?.valueOf?.() ?? null, minecraft.state.lastError] : null,
+  ]);
+
+  async function tick(client, { force = false } = {}) {
     await checkApi();
+    const sig = signature();
+    if (!force && sig === lastSig && Date.now() - lastEdit < REFRESH_MS) return;
+    lastSig = sig;
+    lastEdit = Date.now();
     const payload = await buildPayload();
     const publicPayload = await buildPublicPayload();
     for (const guild of client.guilds.cache.values()) {

@@ -86,7 +86,7 @@ const deps = {
     restartBot: () => shutdown('Neustart über /panel', 1),
     runFeedsNow: () => {
       marketFeed.tick(client).catch((err) => logger.error('Prognosen:', err));
-      status.tick(client).catch((err) => logger.error('Status:', err));
+      status.tick(client, { force: true }).catch((err) => logger.error('Status:', err));
     },
   },
 
@@ -216,7 +216,8 @@ function wire({ stats, welcome, membersIntent }) {
       run();
       intervals.push(setInterval(run, ms));
     };
-    every(5 * 60_000, status.tick, 'Status');
+    // Status alle 15 Sekunden prüfen; bearbeitet wird nur bei Änderungen.
+    every(15_000, status.tick, 'Status');
     every(env.marketFeedIntervalSeconds * 1000, marketFeed.tick, 'Prognosen');
     every(60 * 60_000, stats.tick, 'Statistik');
     // Wird der „Server Members Intent“ später freigeschaltet, startet der Bot neu, um ihn zu nutzen.
