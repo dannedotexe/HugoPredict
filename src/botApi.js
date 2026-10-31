@@ -66,9 +66,11 @@ function marketForBot(m) {
 }
 
 let heartbeatTimer;
-function heartbeat({ online, username }) {
+function heartbeat({ online, username, balance }) {
   clearTimeout(heartbeatTimer);
   botState.online = online === true;
+  // Kontostand des Bots im Spiel (für die Deckungsanzeige im Admin-Bereich)
+  if (typeof balance === 'number' && Number.isFinite(balance) && balance >= 0) Object.assign(botState, { balance, balanceAt: Date.now() });
   if (typeof username === 'string' && MC_NAME.test(username)) botState.username = username;
   heartbeatTimer = setTimeout(() => { botState.online = false; }, HEARTBEAT_TTL);
   heartbeatTimer.unref?.();

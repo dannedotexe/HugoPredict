@@ -131,6 +131,13 @@ if (!db.prepare('PRAGMA table_info(deposits)').all().some((c) => c.name === 'ext
 }
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_deposits_ext ON deposits(ext_id) WHERE ext_id IS NOT NULL');
 
+// Admin: hervorgehobene Prognose (Startseite) und gesperrte Spieler.
+const addColumn = (table, column, def) => {
+  if (!db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
+};
+addColumn('markets', 'featured', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'banned', 'INTEGER NOT NULL DEFAULT 0');
+
 export function tx(fn) {
   db.exec('BEGIN IMMEDIATE');
   try {

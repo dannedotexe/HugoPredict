@@ -83,6 +83,7 @@ export function publicUser(u) {
     balance: u.balance,
     mcName: u.mc_name,
     isAdmin: u.isAdmin,
+    banned: !!u.banned,
     verifyCode: !u.mc_name && u.verify_expires > now() ? u.verify_code : null,
   };
 }
@@ -206,6 +207,7 @@ export function recordDeposit(mcName, amount, raw, extId = null) {
 const autoApprove = () => !!process.env.HUGO_API_KEY && process.env.WITHDRAW_AUTO_APPROVE !== 'false';
 
 export function requestWithdrawal(userId, amount) {
+  notBanned(userId);
   amount = Number(amount);
   if (!Number.isInteger(amount) || amount < MIN_WITHDRAW) throw new AppError(`Auszahlung: ganze Zahl, mindestens ${MIN_WITHDRAW}`);
   return tx(() => {
@@ -309,6 +311,7 @@ function marketView(m) {
     closesAt: m.closes_at,
     resolvedOutcomeId: m.resolved_outcome_id,
     createdAt: m.created_at,
+    featured: !!m.featured,
     volume: r2(m.volume ?? 0),
     outcomes: outs.map((o, i) => ({ id: o.id, label: o.label, color: o.color, q: o.q, price: ps[i] })),
   };
@@ -372,6 +375,10 @@ export function createMarket({ title, description = '', category, emoji, closesA
   });
 }
 
+function notBanned(userId) {
+  if (db.prepare('SELECT banned FROM users WHERE id = ?').get(userId)?.banned) throw new AppError('Dein Konto ist gesperrt. Melde dich beim Support.', 403);
+}
+
 function tradableMarket(marketId) {
   const m = db.prepare('SELECT * FROM markets WHERE id = ?').get(marketId);
   if (!m) throw new AppError('Markt nicht gefunden', 404);
@@ -387,6 +394,7 @@ function recordTrade(userId, m, outs, idx, side, shares, amount, fee) {
 }
 
 export function buy(userId, marketId, outcomeId, amount) {
+  notBanned(userId);
   amount = r2(Number(amount));
   if (!(amount >= 1)) throw new AppError('Mindesteinsatz ist 1');
   return tx(() => {
@@ -409,6 +417,7 @@ export function buy(userId, marketId, outcomeId, amount) {
 }
 
 export function sell(userId, marketId, outcomeId, shares) {
+  notBanned(userId);
   shares = Number(shares);
   if (!(shares > 0)) throw new AppError('Ungültige Anzahl Anteile');
   return tx(() => {
@@ -686,4 +695,112 @@ export function adminCredit(username, amount, note) {
     if (!u) throw new AppError('User nicht gefunden', 404);
     return { balance: changeBalance(u.id, amount, 'admin', String(note || '').slice(0, 100) || null) };
   });
+}
+
+// ---------- Admin-Bereich ----------
+
+const DAY = 86400e3;
+const sumSince = (sql, since) => r2(db.prepare(sql).get(since)?.s ?? 0);
+
+/** Kennzahlen, Deckung und Zeiträume für die Admin-Übersicht. */
+export function adminStats(bot = {}) {
+  const prices = priceMap();
+  let positions = 0;
+  for (const p of db.prepare('SELECT outcome_id, shares FROM positions WHERE shares > 0').all()) positions += p.shares * (prices.get(p.outcome_id) ?? 0);
+  const balances = r2(db.prepare('SELECT COALESCE(SUM(balance), 0) s FROM users').get().s);
+  const openWithdrawals = r2(db.prepare("SELECT COALESCE(SUM(amount), 0) s FROM withdrawals WHERE status IN ('pending', 'approved', 'processing', 'uncertain')").get().s);
+  // Einzahlungen von Spielern ohne Konto gehören ihnen trotzdem (werden bei der ersten Anmeldung gutgeschrieben)
+  const unclaimed = r2(db.prepare('SELECT COALESCE(SUM(amount), 0) s FROM deposits WHERE user_id IS NULL').get().s);
+  const owed = r2(balances + positions + openWithdrawals + unclaimed);
+  const period = (since) => ({
+    deposits: sumSince('SELECT COALESCE(SUM(amount), 0) s FROM deposits WHERE created_at >= ?', since),
+    withdrawals: sumSince("SELECT COALESCE(SUM(amount), 0) s FROM withdrawals WHERE status = 'done' AND COALESCE(processed_at, created_at) >= ?", since),
+    volume: sumSince('SELECT COALESCE(SUM(amount), 0) s FROM trades WHERE created_at >= ?', since),
+    fees: sumSince('SELECT COALESCE(SUM(fee), 0) s FROM trades WHERE created_at >= ?', since),
+    newUsers: db.prepare('SELECT COUNT(*) n FROM users WHERE created_at >= ?').get(since).n,
+  });
+  const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
+  return {
+    users: db.prepare('SELECT COUNT(*) n FROM users').get().n,
+    balances, positions: r2(positions), openWithdrawals, unclaimed, owed,
+    openWithdrawalCount: db.prepare("SELECT COUNT(*) n FROM withdrawals WHERE status IN ('pending', 'approved', 'processing', 'uncertain')").get().n,
+    activeMarkets: db.prepare("SELECT COUNT(*) n FROM markets WHERE status IN ('open', 'closed')").get().n,
+    fees: r2(db.prepare('SELECT COALESCE(SUM(fee), 0) s FROM trades').get().s),
+    // Deckung: Kontostand des Bots im Spiel gegen alles, was den Spielern gehört
+    cover: bot.balance === null || bot.balance === undefined ? null : { bot: r2(bot.balance), at: bot.balanceAt ?? null, diff: r2(bot.balance - owed) },
+    today: period(startOfDay.getTime()),
+    week: period(now() - 7 * DAY),
+  };
+}
+
+/** Prognose nachträglich bearbeiten (Ausgänge bleiben, damit Gebote gültig bleiben). */
+export function editMarket(marketId, { title, description, category, emoji, closesAt }) {
+  const m = db.prepare('SELECT * FROM markets WHERE id = ?').get(marketId);
+  if (!m) throw new AppError('Markt nicht gefunden', 404);
+  if (!['open', 'closed'].includes(m.status)) throw new AppError('Entschiedene oder stornierte Märkte lassen sich nicht mehr bearbeiten');
+  const t = title === undefined ? m.title : String(title).trim();
+  if (t.length < 5) throw new AppError('Titel ist zu kurz');
+  const cat = category === undefined ? m.category : category;
+  if (!CATEGORIES.includes(cat)) throw new AppError('Ungültige Kategorie');
+  let closes = m.closes_at;
+  if (closesAt !== undefined) {
+    closes = closesAt ? new Date(closesAt).getTime() : null;
+    if (closes !== null && !Number.isFinite(closes)) throw new AppError('Ungültige Schlusszeit');
+  }
+  db.prepare('UPDATE markets SET title = ?, description = ?, category = ?, emoji = ?, closes_at = ? WHERE id = ?')
+    .run(t, description === undefined ? m.description : String(description), cat, emoji === undefined ? m.emoji : String(emoji || '🎲').slice(0, 8), closes, marketId);
+  // Wieder öffnen, wenn der Handel nur wegen der Schlusszeit beendet war und die neue in der Zukunft liegt
+  if (m.status === 'closed' && closesAt !== undefined && closes && closes > now() && m.closes_at && m.closes_at <= now()) {
+    db.prepare("UPDATE markets SET status = 'open' WHERE id = ?").run(marketId);
+  }
+  return { ok: true };
+}
+
+/** Was passiert beim Entscheiden? Für die Sicherheitsabfrage. */
+export function resolvePreview(marketId, outcomeId) {
+  const m = db.prepare('SELECT * FROM markets WHERE id = ?').get(marketId);
+  if (!m) throw new AppError('Markt nicht gefunden', 404);
+  const o = db.prepare('SELECT * FROM outcomes WHERE id = ? AND market_id = ?').get(outcomeId, marketId);
+  if (!o) throw new AppError('Outcome gehört nicht zu diesem Markt');
+  const winners = db.prepare('SELECT COUNT(DISTINCT user_id) n, COALESCE(SUM(shares), 0) s FROM positions WHERE market_id = ? AND outcome_id = ? AND shares > 0').get(marketId, outcomeId);
+  const losers = db.prepare('SELECT COUNT(DISTINCT user_id) n FROM positions WHERE market_id = ? AND outcome_id <> ? AND shares > 0 AND user_id NOT IN (SELECT user_id FROM positions WHERE market_id = ? AND outcome_id = ? AND shares > 0)').get(marketId, outcomeId, marketId, outcomeId).n;
+  return { title: m.title, outcome: o.label, winners: winners.n, payout: r2(winners.s), losers };
+}
+
+/** Eine Prognose oben auf der Startseite anzeigen (oder Hervorhebung entfernen). */
+export function featureMarket(marketId, on = true) {
+  return tx(() => {
+    if (!db.prepare('SELECT 1 FROM markets WHERE id = ?').get(marketId)) throw new AppError('Markt nicht gefunden', 404);
+    db.prepare('UPDATE markets SET featured = 0 WHERE featured = 1').run();
+    if (on) db.prepare('UPDATE markets SET featured = 1 WHERE id = ?').run(marketId);
+    return { featured: !!on };
+  });
+}
+
+/** Spielerliste für den Admin-Bereich (Suche nach Username, Minecraft- oder Discord-Name). */
+export function adminUsers({ q = '', limit = 50 } = {}) {
+  const like = `%${String(q).trim().replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+  const prices = priceMap();
+  const value = new Map();
+  for (const p of db.prepare('SELECT user_id, outcome_id, shares FROM positions WHERE shares > 0').all()) value.set(p.user_id, (value.get(p.user_id) || 0) + p.shares * (prices.get(p.outcome_id) ?? 0));
+  return db.prepare(`SELECT u.id, u.username, u.mc_name, u.balance, u.banned, u.created_at, d.discord_username,
+      (SELECT COUNT(*) FROM trades t WHERE t.user_id = u.id) trades
+    FROM users u LEFT JOIN discord_links d ON d.mc_name = u.mc_name
+    WHERE u.username LIKE ? ESCAPE '\\' OR u.mc_name LIKE ? ESCAPE '\\' OR d.discord_username LIKE ? ESCAPE '\\'
+    ORDER BY u.balance DESC LIMIT ?`).all(like, like, like, Math.min(Number(limit) || 50, 200))
+    .map((u) => ({ id: u.id, username: u.username, mcName: u.mc_name, balance: r2(u.balance), inPositions: r2(value.get(u.id) || 0), banned: !!u.banned, trades: u.trades, discordName: u.discord_username ?? null, createdAt: u.created_at }));
+}
+
+/** Einzelner Spieler mit letzten Buchungen. */
+export function adminUser(userId) {
+  const u = db.prepare('SELECT id, username, mc_name, balance, banned, created_at FROM users WHERE id = ?').get(userId);
+  if (!u) throw new AppError('Spieler nicht gefunden', 404);
+  const ledger = db.prepare('SELECT type, amount, ref, created_at FROM ledger WHERE user_id = ? ORDER BY id DESC LIMIT 30').all(userId);
+  return { id: u.id, username: u.username, mcName: u.mc_name, balance: r2(u.balance), banned: !!u.banned, createdAt: u.created_at, ledger };
+}
+
+export function setBanned(userId, banned) {
+  const r = db.prepare('UPDATE users SET banned = ? WHERE id = ?').run(banned ? 1 : 0, userId);
+  if (!r.changes) throw new AppError('Spieler nicht gefunden', 404);
+  return { banned: !!banned };
 }

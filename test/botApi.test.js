@@ -269,3 +269,37 @@ test('Spieler-Suche für Vorschläge: Teilwort, Platzhalter werden nicht ausgewe
   assert.deepEqual(svc.searchPlayers('%'), []);
   assert.deepEqual(svc.searchPlayers(''), []);
 });
+
+test('Admin: Deckung, Bearbeiten, Vorschau beim Entscheiden, Hervorheben, Sperren', async () => {
+  const uid = svc.userBySession(loginAs('Admin_Test_MC')).id;
+  db.prepare('UPDATE users SET balance = 500 WHERE id = ?').run(uid);
+  const { id } = svc.createMarket({ title: 'Admin-Test Markt?', category: 'server', outcomes: ['Ja', 'Nein'] });
+  const m = svc.getMarket(id);
+  svc.buy(uid, id, m.outcomes[0].id, 100);
+
+  const st = svc.adminStats({ balance: 1e9, balanceAt: Date.now() });
+  assert.ok(st.owed > 0 && st.cover.diff > 0);
+  assert.equal(svc.adminStats({}).cover, null, 'ohne Kontostand keine Deckungsangabe');
+
+  svc.editMarket(id, { title: 'Admin-Test Markt geändert?', description: 'Neu' });
+  assert.equal(svc.getMarket(id).title, 'Admin-Test Markt geändert?');
+  assert.throws(() => svc.editMarket(id, { title: 'x' }), /zu kurz/);
+
+  const pv = svc.resolvePreview(id, m.outcomes[0].id);
+  assert.equal(pv.winners, 1);
+  assert.ok(pv.payout > 100);
+  assert.equal(pv.losers, 0);
+
+  svc.featureMarket(id, true);
+  assert.equal(svc.listMarkets().filter((x) => x.featured).map((x) => x.id).join(), String(id));
+  svc.featureMarket(id, false);
+  assert.equal(svc.listMarkets().filter((x) => x.featured).length, 0);
+
+  svc.setBanned(uid, true);
+  assert.throws(() => svc.buy(uid, id, m.outcomes[1].id, 10), /gesperrt/);
+  assert.throws(() => svc.requestWithdrawal(uid, 50), /gesperrt/);
+  assert.ok(svc.adminUsers({ q: 'Admin_Test' })[0].banned);
+  svc.setBanned(uid, false);
+  svc.buy(uid, id, m.outcomes[1].id, 10);
+  assert.ok(svc.adminUser(uid).ledger.length >= 2);
+});

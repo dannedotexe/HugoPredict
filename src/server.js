@@ -153,6 +153,13 @@ app.get('/api/admin/overview', handle((req) => {
   return { ...svc.adminOverview(), bot: botState };
 }));
 app.post('/api/admin/markets', handle((req) => (admin(req), svc.createMarket(req.body))));
+app.get('/api/admin/stats', handle((req) => (admin(req), svc.adminStats(botState))));
+app.post('/api/admin/markets/:id/edit', handle((req) => (admin(req), svc.editMarket(Number(req.params.id), req.body))));
+app.get('/api/admin/markets/:id/resolve-preview', handle((req) => (admin(req), svc.resolvePreview(Number(req.params.id), Number(req.query.o)))));
+app.post('/api/admin/markets/:id/feature', handle((req) => (admin(req), svc.featureMarket(Number(req.params.id), req.body.on !== false))));
+app.get('/api/admin/users', handle((req) => (admin(req), { users: svc.adminUsers({ q: req.query.q }) })));
+app.get('/api/admin/users/:id', handle((req) => (admin(req), { user: svc.adminUser(Number(req.params.id)) })));
+app.post('/api/admin/users/:id/ban', handle((req) => (admin(req), svc.setBanned(Number(req.params.id), req.body.banned === true))));
 app.post('/api/admin/markets/:id/close', handle((req) => (admin(req), svc.closeMarket(Number(req.params.id)))));
 app.post('/api/admin/markets/:id/resolve', handle((req) =>
   (admin(req), svc.resolveMarket(Number(req.params.id), Number(req.body.outcomeId)))));

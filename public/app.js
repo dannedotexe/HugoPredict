@@ -236,7 +236,8 @@ async function viewMarkets() {
   renderGrid();
 
   const featureEl = document.getElementById('feature');
-  const top = [...open].sort((a, b) => b.volume - a.volume)[0];
+  // Oben: die vom Admin hervorgehobene Prognose, sonst die mit dem meisten Volumen
+  const top = open.find((m) => m.featured) ?? [...open].sort((a, b) => b.volume - a.volume)[0];
   if (!top) { featureEl.remove(); return; }
   const { market: m } = await api(`/markets/${top.id}`);
   const lead = sortedOutcomes(m)[0];
@@ -587,101 +588,252 @@ async function viewPlayer(rawName) {
 
 // ---------- Admin ----------
 
-async function viewAdmin() {
+/** Bestätigungsdialog (statt confirm()), ok/abbrechen → true/false. */
+function confirmDialog({ title, body, ok = 'Bestätigen', danger = false }) {
+  return new Promise((resolve) => {
+    const d = document.createElement('dialog');
+    d.className = 'dialog';
+    d.innerHTML = `<h2>${title}</h2><div class="dialog-body">${body}</div>
+      <div class="dialog-actions"><button class="btn" type="button" data-x="0">Abbrechen</button>
+      <button class="btn ${danger ? 'btn-nein' : 'btn-ja'}" type="button" data-x="1">${ok}</button></div>`;
+    document.body.append(d);
+    const done = (v) => { d.close(); d.remove(); resolve(v); };
+    d.addEventListener('click', (e) => { const b = e.target.closest('[data-x]'); if (b) done(b.dataset.x === '1'); else if (e.target === d) done(false); });
+    d.addEventListener('cancel', (e) => { e.preventDefault(); done(false); });
+    d.showModal();
+  });
+}
+
+const ADMIN_TABS = { overview: 'Übersicht', markets: 'Prognosen', payouts: 'Auszahlungen', deposits: 'Einzahlungen', players: 'Spieler' };
+const TEMPLATES = [
+  { key: 'yesno', label: 'Ja / Nein', emoji: '❓', category: 'server', title: 'Passiert … bis …?', outcomes: 'Ja\nNein' },
+  { key: 'clan', label: 'Clan Fight', emoji: '⚔️', category: 'clan', title: 'Wer gewinnt den Clan Fight zwischen … und …?', outcomes: 'Clan A\nClan B' },
+  { key: 'overunder', label: 'Über / Unter', emoji: '📊', category: 'irl', title: 'Wie viel …?', outcomes: 'Über …\nUnter …' },
+  { key: 'many', label: 'Mehrere', emoji: '🎲', category: 'meta', title: 'Was wird …?', outcomes: 'Option 1\nOption 2\nOption 3' },
+];
+const PREVIEW_COLORS = ['#4da3ff', '#ffb547', '#b27cff', '#2fd6c4', '#ff7ac6', '#c7d36f', '#ff8a4c', '#8f9bb3', '#3ddc84', '#ff5d6c'];
+const localInput = (t) => { const d = new Date(t); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+
+async function viewAdmin(query) {
   if (needLogin('Der Admin-Bereich ist nur für Admins.')) return;
   if (!state.me.isAdmin) { app.innerHTML = '<div class="panel empty"><p>Dieser Bereich ist nur für Admins.</p></div>'; return; }
-  const [ov, { markets }] = await Promise.all([api('/admin/overview'), api('/markets')]);
-  const active = markets.filter((m) => m.status === 'open' || m.status === 'closed');
-  const soon = new Date(Date.now() + 7 * 86400e3);
-  soon.setMinutes(soon.getMinutes() - soon.getTimezoneOffset());
-
+  const tab = ADMIN_TABS[query?.get('t')] ? query.get('t') : 'overview';
+  const [ov, st] = await Promise.all([api('/admin/overview'), api('/admin/stats')]);
   app.innerHTML = `
-    <div class="page-title"><div><h1>Admin</h1><p>Märkte anlegen und entscheiden, Ein- und Auszahlungen im Blick behalten</p></div>
+    <div class="page-title"><div><h1>Admin</h1></div>
       <span class="tag ${ov.bot.online ? 'live' : 'bad'}">Bot ${ov.bot.enabled ? (ov.bot.online ? 'online' : 'offline') : 'deaktiviert'}</span></div>
-    ${ov.bot.lastError ? `<section class="panel" style="margin-bottom:20px"><p><b class="nein">Letzter Bot-Fehler:</b> ${esc(ov.bot.lastError)}</p></section>` : ''}
-    <section class="panel" style="margin-bottom:20px"><div class="meta" style="font-size:16px;gap:8px 32px">
-      <span>${ov.users} Spieler</span><span>${money(ov.totalBalance)} Guthaben im Umlauf</span><span class="gold">${money(ov.fees)} Gebühren eingenommen</span></div></section>
-    <div class="split-2">
-      <section class="panel"><h2>Neuer Markt</h2>
-        <form id="create">
-          <div class="field"><label for="f-title">Frage</label><input class="input" id="f-title" name="title" required autocomplete="off" placeholder="Wer gewinnt den Clan Fight am Samstag?"></div>
-          <div class="row-gap">
-            <div class="field"><label for="f-cat">Kategorie</label><select class="input" id="f-cat" name="category">
-              ${Object.entries(CATS).filter(([k]) => k !== 'all').map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div>
-            <div class="field"><label for="f-emoji">Symbol (ein Emoji)</label><input class="input" id="f-emoji" name="emoji" value="⚔️" autocomplete="off"></div>
-          </div>
-          <div class="field"><label for="f-out">Ausgänge, einer pro Zeile. „Ja“ und „Nein“ ergibt einen Ja/Nein-Markt.</label>
-            <textarea class="input" id="f-out" name="outcomes" rows="4">Ja\nNein</textarea></div>
-          <div class="row-gap">
-            <div class="field"><label for="f-close">Handel endet</label><input class="input" id="f-close" type="datetime-local" name="closesAt" value="${soon.toISOString().slice(0, 16)}"></div>
-            <div class="field"><label for="f-b">Liquidität</label><input class="input" id="f-b" name="b" inputmode="numeric" autocomplete="off" placeholder="Standard: 100…"></div>
-          </div>
-          <div class="field"><label for="f-desc">So wird entschieden</label><textarea class="input" id="f-desc" name="description" rows="3" placeholder="Wann zählt welcher Ausgang als gewonnen?…"></textarea></div>
-          <button class="btn btn-ja btn-block">Markt erstellen</button>
-        </form>
-      </section>
-      <div class="stack">
-        <section class="panel"><h2>Laufende Märkte</h2>
-          ${active.length ? active.map((m) => `<div style="padding:14px 0;border-top:1px solid var(--line)">
-            <p><a href="#/market/${m.id}"><b>${esc(m.title)}</b></a> <span class="tag ${STATUS[m.status][1]}">${STATUS[m.status][0]}</span></p>
-            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-              <select class="input" style="flex:1;min-width:150px;padding:7px 10px" data-sel="${m.id}" aria-label="Gewinner für ${esc(m.title)}">
-                ${m.outcomes.map((o) => `<option value="${o.id}">${esc(o.label)} (${pct(o.price)})</option>`).join('')}</select>
-              <button class="btn btn-sm btn-ja" type="button" data-resolve="${m.id}">Entscheiden</button>
-              ${m.status === 'open' ? `<button class="btn btn-sm" type="button" data-close="${m.id}">Handel stoppen</button>` : ''}
-              <button class="btn btn-sm btn-nein" type="button" data-cancelm="${m.id}">Stornieren</button>
-            </div></div>`).join('') : '<p class="muted">Keine laufenden Märkte. Leg links einen an.</p>'}
-        </section>
-        <section class="panel"><h2>Guthaben korrigieren</h2>
-          <form id="credit" style="display:flex;gap:8px;flex-wrap:wrap">
-            <input class="input" name="username" aria-label="Website-Username" placeholder="Username…" style="flex:2;min-width:140px" required autocomplete="off" spellcheck="false">
-            <input class="input" name="amount" aria-label="Betrag, negativ zum Abziehen" placeholder="±Betrag…" style="flex:1;min-width:90px" required autocomplete="off">
-            <input class="input" name="note" aria-label="Notiz" placeholder="Grund…" style="flex:2;min-width:140px" autocomplete="off">
-            <button class="btn">Buchen</button>
-          </form>
-        </section>
-      </div>
-    </div>
-    <div class="split-2" style="margin-top:20px">
-      <section class="panel"><h2>Auszahlungen</h2><div class="table-wrap"><table class="table"><tbody>
-        ${ov.withdrawals.map((w) => `<tr><td><div class="who">${head(w.mc_name)}<span><b>${esc(w.mc_name)}</b>${w.username && w.username !== w.mc_name ? `<br><small class="muted">${esc(w.username)}</small>` : ''}</span></div></td><td style="white-space:nowrap">${money(w.amount)}</td>
-          <td><span class="tag ${w.status === 'done' ? 'live' : w.status === 'failed' ? 'bad' : 'warn'}">${WITHDRAW_STATUS[w.status] || esc(w.status)}</span></td><td class="muted">${ago(w.created_at)}</td>
-          <td class="r">${w.status === 'pending' && state.status?.payoutsNeedApproval ? `<button class="btn btn-sm btn-ja" type="button" data-approve="${w.id}">Freigeben</button>` : ''}</td></tr>`).join('') || '<tr><td class="muted">Noch keine Auszahlungen</td></tr>'}
-      </tbody></table></div></section>
-      <section class="panel"><h2>Einzahlungen</h2><div class="table-wrap"><table class="table"><tbody>
-        ${ov.deposits.map((d) => `<tr><td><div class="who">${head(d.mc_name)}<span><b>${esc(d.mc_name)}</b>${d.username ? (d.username !== d.mc_name ? `<br><small class="muted">${esc(d.username)}</small>` : '') : '<br><span class="tag warn">noch kein Konto</span>'}</span></div></td>
-          <td class="ja r" style="white-space:nowrap">+${money(d.amount)}<br><small class="muted">${ago(d.created_at)}</small></td></tr>`).join('') || '<tr><td class="muted">Noch keine Einzahlungen</td></tr>'}
-      </tbody></table></div></section>
-    </div>`;
+    <div class="filters admin-tabs" role="tablist">${Object.entries(ADMIN_TABS).map(([k, v]) => `<button type="button" role="tab" data-tab="${k}" aria-pressed="${k === tab}">${v}${k === 'payouts' && st.openWithdrawalCount ? ` <span class="badge">${st.openWithdrawalCount}</span>` : ''}</button>`).join('')}</div>
+    <div id="admin-body"></div>`;
+  app.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => { location.hash = `#/admin?t=${b.dataset.tab}`; });
+  const body = document.getElementById('admin-body');
+  const reload = async (msg) => { if (msg) toast(msg); await refreshMe(); viewAdmin(query); };
+  const run = async (fn, msg) => { try { await fn(); await reload(msg); } catch (err) { toast(err.message, true); } };
+  ({ overview: adminOverviewTab, markets: adminMarketsTab, payouts: adminPayoutsTab, deposits: adminDepositsTab, players: adminPlayersTab })[tab](body, { ov, st, run, reload });
+}
 
-  const run = async (fn, msg) => {
-    try { await fn(); toast(msg); await refreshMe(); viewAdmin(); } catch (err) { toast(err.message, true); }
+function adminOverviewTab(body, { ov, st }) {
+  const c = st.cover;
+  const coverHtml = c
+    ? `<section class="panel cover ${c.diff >= -0.01 ? 'ok' : 'bad'}">
+        <div class="cover-head"><span class="cover-icon">${c.diff >= -0.01 ? '✓' : '!'}</span><div>
+          <h2>${c.diff >= -0.01 ? 'Alles gedeckt' : 'Nicht gedeckt'}</h2>
+          <p class="muted">${c.diff >= -0.01 ? 'Der Bot hat genug Geld im Spiel, um alle Spieler auszuzahlen.' : 'Der Bot hat weniger Geld im Spiel, als den Spielern gehört. Prüfen, bevor Auszahlungen laufen!'}</p></div></div>
+        <div class="cover-grid">
+          <div><small>Bot im Spiel</small><b>${money(c.bot)}</b></div>
+          <div><small>Gehört den Spielern</small><b>${money(st.owed)}</b></div>
+          <div><small>${c.diff >= 0 ? 'Überschuss' : 'Fehlbetrag'}</small><b class="${c.diff >= -0.01 ? 'ja' : 'nein'}">${c.diff >= 0 ? '+' : ''}${money(c.diff)}</b></div>
+        </div>
+        <p class="muted" style="font-size:13px;margin-top:10px">Spieler: ${money(st.balances)} Guthaben + ${money(st.positions)} in Anteilen + ${money(st.openWithdrawals)} offene Auszahlungen${st.unclaimed ? ` + ${money(st.unclaimed)} Einzahlungen ohne Konto` : ''}${c.at ? ` · Kontostand ${ago(c.at)}` : ''}</p>
+      </section>`
+    : `<section class="panel cover"><h2>Deckung</h2><p class="muted">Der Bot hat noch keinen Kontostand gemeldet. Er meldet ihn, sobald er online ist und die Kontostand-Prüfung an ist.</p></section>`;
+  const tile = (label, value, sub = '') => `<div class="panel stat"><small>${label}</small><b>${value}</b>${sub ? `<span class="muted">${sub}</span>` : ''}</div>`;
+  const row = (label, f) => `<tr><td>${label}</td><td class="r">${f(st.today)}</td><td class="r">${f(st.week)}</td></tr>`;
+  body.innerHTML = `${coverHtml}
+    <div class="stat-grid" style="margin-top:16px">
+      ${tile('Spieler', fmt(st.users), `+${st.week.newUsers} diese Woche`)}
+      ${tile('Guthaben im Umlauf', money(st.balances))}
+      ${tile('In Anteilen', money(st.positions))}
+      ${tile('Gebühren gesamt', money(st.fees))}
+      ${tile('Offene Auszahlungen', fmt(st.openWithdrawalCount), money(st.openWithdrawals))}
+      ${tile('Laufende Prognosen', fmt(st.activeMarkets))}
+    </div>
+    <section class="panel" style="margin-top:16px"><h2>Zeiträume</h2><div class="table-wrap"><table class="table">
+      <thead><tr><th></th><th class="r">Heute</th><th class="r">7 Tage</th></tr></thead><tbody>
+      ${row('Einzahlungen', (p) => money(p.deposits))}${row('Auszahlungen', (p) => money(p.withdrawals))}
+      ${row('Gebote (Volumen)', (p) => money(p.volume))}${row('Gebühren', (p) => money(p.fees))}${row('Neue Spieler', (p) => fmt(p.newUsers))}
+    </tbody></table></div></section>
+    ${ov.bot.lastError ? `<section class="panel" style="margin-top:16px"><p><b class="nein">Letzter Bot-Fehler:</b> ${esc(ov.bot.lastError)}</p></section>` : ''}`;
+}
+
+async function adminMarketsTab(body, { run }) {
+  const { markets } = await api('/markets?category=all&status=all');
+  const active = markets.filter((m) => m.status === 'open' || m.status === 'closed');
+  const soon = Date.now() + 7 * 86400e3;
+  body.innerHTML = `<div class="split-2">
+    <section class="panel"><h2>Neue Prognose</h2>
+      <div class="templates">${TEMPLATES.map((t) => `<button class="btn btn-sm" type="button" data-tpl="${t.key}">${t.emoji} ${t.label}</button>`).join('')}</div>
+      <form id="create">
+        <div class="field"><label for="f-title">Frage</label><input class="input" id="f-title" name="title" required autocomplete="off" placeholder="Wer gewinnt den Clan Fight am Samstag?"></div>
+        <div class="row-gap">
+          <div class="field"><label for="f-cat">Kategorie</label><select class="input" id="f-cat" name="category">
+            ${Object.entries(CATS).filter(([k]) => k !== 'all').map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div>
+          <div class="field"><label for="f-emoji">Symbol (ein Emoji)</label><input class="input" id="f-emoji" name="emoji" value="⚔️" autocomplete="off"></div>
+        </div>
+        <div class="field"><label for="f-out">Ausgänge, einer pro Zeile. „Ja“ und „Nein“ ergibt einen Ja/Nein-Markt.</label>
+          <textarea class="input" id="f-out" name="outcomes" rows="4">Ja\nNein</textarea></div>
+        <div class="row-gap">
+          <div class="field"><label for="f-close">Handel endet</label><input class="input" id="f-close" type="datetime-local" name="closesAt" value="${localInput(soon)}"></div>
+          <div class="field"><label for="f-b">Liquidität</label><input class="input" id="f-b" name="b" inputmode="numeric" autocomplete="off" placeholder="Standard: 100…"></div>
+        </div>
+        <div class="field"><label for="f-desc">So wird entschieden</label><textarea class="input" id="f-desc" name="description" rows="3" placeholder="Wann zählt welcher Ausgang als gewonnen?…"></textarea></div>
+        <p class="muted" style="font-size:13px;margin:4px 0 8px">Vorschau</p>
+        <div id="preview" class="preview"></div>
+        <button class="btn btn-ja btn-block" style="margin-top:14px">Prognose erstellen</button>
+      </form>
+    </section>
+    <section class="panel"><h2>Laufende Prognosen</h2>
+      ${active.length ? active.map((m) => `<div class="admin-market">
+        <p><span aria-hidden="true">${esc(m.emoji)}</span> <a href="#/market/${m.id}"><b>${esc(m.title)}</b></a>
+          <span class="tag ${STATUS[m.status][1]}">${STATUS[m.status][0]}</span>${m.featured ? ' <span class="tag warn">★ Oben</span>' : ''}</p>
+        <p class="muted" style="font-size:13px">${money(m.volume)} Volumen${m.closesAt ? ` · bis ${date(m.closesAt)}` : ''}</p>
+        <div class="admin-actions">
+          <select class="input" data-sel="${m.id}" aria-label="Gewinner für ${esc(m.title)}">
+            ${sortedOutcomes(m).map((o) => `<option value="${o.id}">${esc(o.label)} (${pct(o.price)})</option>`).join('')}</select>
+          <button class="btn btn-sm btn-ja" type="button" data-resolve="${m.id}">Entscheiden</button>
+        </div>
+        <div class="admin-actions">
+          <button class="btn btn-sm" type="button" data-edit="${m.id}">Bearbeiten</button>
+          <button class="btn btn-sm" type="button" data-feature="${m.id}" data-on="${m.featured ? 0 : 1}">${m.featured ? 'Nicht mehr oben' : '★ Oben anzeigen'}</button>
+          ${m.status === 'open' ? `<button class="btn btn-sm" type="button" data-close="${m.id}">Handel stoppen</button>` : ''}
+          <button class="btn btn-sm btn-nein" type="button" data-cancelm="${m.id}">Stornieren</button>
+        </div>
+        <form class="edit-form hidden" data-editform="${m.id}">
+          <div class="field"><label>Frage</label><input class="input" name="title" value="${esc(m.title)}" required></div>
+          <div class="row-gap">
+            <div class="field"><label>Kategorie</label><select class="input" name="category">${Object.entries(CATS).filter(([k]) => k !== 'all').map(([k, v]) => `<option value="${k}"${k === m.category ? ' selected' : ''}>${v}</option>`).join('')}</select></div>
+            <div class="field"><label>Symbol</label><input class="input" name="emoji" value="${esc(m.emoji)}"></div>
+          </div>
+          <div class="field"><label>Handel endet</label><input class="input" type="datetime-local" name="closesAt" value="${m.closesAt ? localInput(m.closesAt) : ''}"></div>
+          <div class="field"><label>So wird entschieden</label><textarea class="input" name="description" rows="3">${esc(m.description || '')}</textarea></div>
+          <p class="muted" style="font-size:13px;margin-bottom:10px">Die Ausgänge bleiben gleich, damit bisherige Gebote gültig bleiben.</p>
+          <button class="btn btn-sm btn-ja">Speichern</button>
+        </form>
+      </div>`).join('') : '<p class="muted">Keine laufenden Prognosen. Leg links eine an.</p>'}
+    </section></div>`;
+
+  // Vorlagen und Live-Vorschau
+  const f = document.getElementById('create');
+  const preview = () => {
+    const labels = f.outcomes.value.split('\n').map((l) => l.trim()).filter(Boolean).slice(0, 10);
+    const outs = labels.map((label, i) => ({ id: -1 - i, label, price: labels.length ? 1 / labels.length : 0, color: PREVIEW_COLORS[i % PREVIEW_COLORS.length] }));
+    document.getElementById('preview').innerHTML = labels.length >= 2
+      ? marketCard({ id: 0, title: f.title.value || 'Deine Frage …', emoji: f.emoji.value || '🎲', category: f.category.value, status: 'open', volume: 0, closesAt: f.closesAt.value ? new Date(f.closesAt.value).getTime() : null, outcomes: outs })
+      : '<p class="muted">Mindestens zwei Ausgänge eintragen.</p>';
   };
-  document.getElementById('create').onsubmit = (e) => {
-    e.preventDefault();
-    const f = Object.fromEntries(new FormData(e.target));
-    run(() => api('/admin/markets', { ...f, outcomes: f.outcomes.split('\n'), closesAt: f.closesAt ? new Date(f.closesAt).toISOString() : null }), 'Markt erstellt');
-  };
-  const creditUser = document.querySelector('#credit [name="username"]');
-  attachSuggest(creditUser, async (q) => (await api(`/players?q=${encodeURIComponent(q)}`)).players.map((p) => ({
-    iconUrl: `https://mc-heads.net/avatar/${encodeURIComponent(p.mcName || p.username)}/24`, label: p.username, sub: p.mcName && p.mcName !== p.username ? `Minecraft: ${p.mcName}` : 'Spieler', value: p.username,
-  })), (it) => { creditUser.value = it.value; });
-  document.getElementById('credit').onsubmit = (e) => {
-    e.preventDefault();
-    const f = Object.fromEntries(new FormData(e.target));
-    run(() => api('/admin/credit', { ...f, amount: Number(f.amount.replace(',', '.')) }), 'Gebucht');
-  };
-  app.querySelectorAll('[data-resolve]').forEach((b) => b.onclick = () => {
-    const sel = app.querySelector(`[data-sel="${b.dataset.resolve}"]`);
-    if (!confirm(`Markt mit „${sel.selectedOptions[0].text}“ als Gewinner entscheiden? Das lässt sich nicht rückgängig machen.`)) return;
-    run(() => api(`/admin/markets/${b.dataset.resolve}/resolve`, { outcomeId: Number(sel.value) }), 'Markt entschieden, Gewinne ausgezahlt');
+  f.addEventListener('input', preview);
+  preview();
+  app.querySelectorAll('[data-tpl]').forEach((b) => b.onclick = () => {
+    const t = TEMPLATES.find((x) => x.key === b.dataset.tpl);
+    Object.assign(f.title, { value: t.title }); f.outcomes.value = t.outcomes; f.emoji.value = t.emoji; f.category.value = t.category;
+    preview();
+    f.title.focus();
+    f.title.setSelectionRange(0, 0);
   });
-  app.querySelectorAll('[data-approve]').forEach((b) => b.onclick = () => run(() => api(`/admin/withdrawals/${b.dataset.approve}/approve`, {}), 'Auszahlung freigegeben'));
+  f.onsubmit = (e) => {
+    e.preventDefault();
+    const v = Object.fromEntries(new FormData(f));
+    run(() => api('/admin/markets', { ...v, outcomes: v.outcomes.split('\n'), closesAt: v.closesAt ? new Date(v.closesAt).toISOString() : null }), 'Prognose erstellt');
+  };
+
+  app.querySelectorAll('[data-edit]').forEach((b) => b.onclick = () => app.querySelector(`[data-editform="${b.dataset.edit}"]`).classList.toggle('hidden'));
+  app.querySelectorAll('[data-editform]').forEach((form) => form.onsubmit = (e) => {
+    e.preventDefault();
+    const v = Object.fromEntries(new FormData(form));
+    run(() => api(`/admin/markets/${form.dataset.editform}/edit`, { ...v, closesAt: v.closesAt ? new Date(v.closesAt).toISOString() : null }), 'Gespeichert');
+  });
+  app.querySelectorAll('[data-resolve]').forEach((b) => b.onclick = async () => {
+    const id = b.dataset.resolve;
+    const sel = app.querySelector(`[data-sel="${id}"]`);
+    let pv;
+    try { pv = await api(`/admin/markets/${id}/resolve-preview?o=${sel.value}`); } catch (err) { toast(err.message, true); return; }
+    const ok = await confirmDialog({
+      title: 'Prognose entscheiden?',
+      body: `<p><b>${esc(pv.title)}</b></p><p style="margin-top:8px">Gewinner: <b class="ja">${esc(pv.outcome)}</b></p>
+        <ul class="dialog-list"><li><b>${pv.winners}</b> Spieler bekommen zusammen <b class="ja">${money(pv.payout)}</b></li><li><b>${pv.losers}</b> Spieler verlieren ihren Einsatz</li></ul>
+        <p class="muted" style="margin-top:8px">Das lässt sich nicht rückgängig machen.</p>`,
+      ok: 'Ja, entscheiden',
+    });
+    if (ok) run(() => api(`/admin/markets/${id}/resolve`, { outcomeId: Number(sel.value) }), 'Entschieden, Gewinne ausgezahlt');
+  });
+  app.querySelectorAll('[data-feature]').forEach((b) => b.onclick = () => run(() => api(`/admin/markets/${b.dataset.feature}/feature`, { on: b.dataset.on === '1' }), b.dataset.on === '1' ? 'Wird jetzt oben angezeigt' : 'Nicht mehr oben'));
   app.querySelectorAll('[data-close]').forEach((b) => b.onclick = () => run(() => api(`/admin/markets/${b.dataset.close}/close`, {}), 'Handel gestoppt'));
-  app.querySelectorAll('[data-cancelm]').forEach((b) => b.onclick = () => {
-    if (!confirm('Markt stornieren und alle Einsätze erstatten?')) return;
-    run(() => api(`/admin/markets/${b.dataset.cancelm}/cancel`, {}), 'Markt storniert, Einsätze erstattet');
+  app.querySelectorAll('[data-cancelm]').forEach((b) => b.onclick = async () => {
+    if (await confirmDialog({ title: 'Prognose stornieren?', body: '<p>Alle Einsätze werden erstattet. Das lässt sich nicht rückgängig machen.</p>', ok: 'Stornieren', danger: true })) {
+      run(() => api(`/admin/markets/${b.dataset.cancelm}/cancel`, {}), 'Storniert, Einsätze erstattet');
+    }
   });
+}
+
+function adminPayoutsTab(body, { ov, run }) {
+  body.innerHTML = `<section class="panel"><h2>Auszahlungen</h2><div class="table-wrap"><table class="table"><tbody>
+    ${ov.withdrawals.map((w) => `<tr><td><div class="who">${head(w.mc_name)}<span><b>${esc(w.mc_name)}</b>${w.username && w.username !== w.mc_name ? `<br><small class="muted">${esc(w.username)}</small>` : ''}</span></div></td><td style="white-space:nowrap">${money(w.amount)}</td>
+      <td><span class="tag ${w.status === 'done' ? 'live' : w.status === 'failed' ? 'bad' : 'warn'}">${WITHDRAW_STATUS[w.status] || esc(w.status)}</span>${w.error ? `<br><small class="muted">${esc(w.error)}</small>` : ''}</td><td class="muted">${ago(w.created_at)}</td>
+      <td class="r">${w.status === 'pending' && state.status?.payoutsNeedApproval ? `<button class="btn btn-sm btn-ja" type="button" data-approve="${w.id}">Freigeben</button>` : ''}</td></tr>`).join('') || '<tr><td class="muted">Noch keine Auszahlungen</td></tr>'}
+  </tbody></table></div></section>`;
+  body.querySelectorAll('[data-approve]').forEach((b) => b.onclick = () => run(() => api(`/admin/withdrawals/${b.dataset.approve}/approve`, {}), 'Freigegeben'));
+}
+
+function adminDepositsTab(body, { ov }) {
+  body.innerHTML = `<section class="panel"><h2>Einzahlungen</h2><div class="table-wrap"><table class="table"><tbody>
+    ${ov.deposits.map((d) => `<tr><td><div class="who">${head(d.mc_name)}<span><b>${esc(d.mc_name)}</b>${d.username ? (d.username !== d.mc_name ? `<br><small class="muted">${esc(d.username)}</small>` : '') : '<br><span class="tag warn">noch kein Konto</span>'}</span></div></td>
+      <td class="ja r" style="white-space:nowrap">+${money(d.amount)}<br><small class="muted">${ago(d.created_at)}</small></td></tr>`).join('') || '<tr><td class="muted">Noch keine Einzahlungen</td></tr>'}
+  </tbody></table></div></section>`;
+}
+
+async function adminPlayersTab(body, { run }) {
+  body.innerHTML = `<section class="panel"><h2>Spieler</h2>
+    <div class="field"><input class="input" id="player-q" placeholder="Suchen: Minecraft-, Website- oder Discord-Name…" autocomplete="off" spellcheck="false"></div>
+    <div id="player-list" class="player-list"></div></section>`;
+  const list = document.getElementById('player-list');
+  const load = async (q = '') => {
+    const { users } = await api(`/admin/users?q=${encodeURIComponent(q)}`);
+    list.innerHTML = users.length ? users.map((u) => `<div class="player-row" data-uid="${u.id}">
+      <button class="player-head" type="button" data-open="${u.id}">${head(u.mcName || u.username)}
+        <span class="player-name"><b>${esc(u.mcName || u.username)}</b>${u.banned ? ' <span class="tag bad">gesperrt</span>' : ''}<br>
+          <small class="muted">${u.discordName ? `Discord: ${esc(u.discordName)} · ` : ''}${fmt(u.trades)} Gebote</small></span>
+        <span class="r"><b>${money(u.balance)}</b><br><small class="muted">+ ${money(u.inPositions)} in Anteilen</small></span></button>
+      <div class="player-detail hidden" data-detail="${u.id}"></div></div>`).join('') : '<p class="muted">Keine Spieler gefunden.</p>';
+    list.querySelectorAll('[data-open]').forEach((b) => b.onclick = () => openPlayer(Number(b.dataset.open)));
+  };
+  const openPlayer = async (id) => {
+    const box = list.querySelector(`[data-detail="${id}"]`);
+    if (!box.classList.contains('hidden')) { box.classList.add('hidden'); return; }
+    const { user: u } = await api(`/admin/users/${id}`);
+    box.innerHTML = `
+      <form class="credit-row" data-credit="${u.id}">
+        <input class="input" name="amount" placeholder="±Betrag, z. B. 500 oder -200" required autocomplete="off" inputmode="decimal">
+        <input class="input" name="note" placeholder="Grund…" autocomplete="off">
+        <button class="btn btn-sm">Buchen</button></form>
+      <div class="admin-actions" style="margin:10px 0">
+        <a class="btn btn-sm" href="${playerLink(u.mcName || u.username)}">Profil</a>
+        <button class="btn btn-sm ${u.banned ? 'btn-ja' : 'btn-nein'}" type="button" data-ban="${u.id}" data-to="${u.banned ? 0 : 1}">${u.banned ? 'Entsperren' : 'Sperren'}</button></div>
+      <div class="feed">${u.ledger.length ? u.ledger.map((l) => `<div class="feed-row"><span><b>${LEDGER[l.type] || esc(l.type)}</b>${l.type === 'admin' && l.ref ? ` <span class="muted">· ${esc(l.ref)}</span>` : ''}</span>
+        <span class="when ${l.amount >= 0 ? 'ja' : 'nein'}">${l.amount >= 0 ? '+' : ''}${money(l.amount)} · ${ago(l.created_at)}</span></div>`).join('') : '<p class="muted">Noch keine Buchungen.</p>'}</div>`;
+    box.classList.remove('hidden');
+    box.querySelector('[data-credit]').onsubmit = (e) => {
+      e.preventDefault();
+      const v = Object.fromEntries(new FormData(e.target));
+      run(() => api('/admin/credit', { username: u.username, amount: Number(String(v.amount).replace(',', '.')), note: v.note }), 'Gebucht');
+    };
+    box.querySelector('[data-ban]').onclick = async (e) => {
+      const to = e.target.dataset.to === '1';
+      if (to && !(await confirmDialog({ title: `${esc(u.mcName || u.username)} sperren?`, body: '<p>Die Person kann dann nicht mehr bieten, verkaufen oder auszahlen. Ihr Guthaben bleibt erhalten.</p>', ok: 'Sperren', danger: true }))) return;
+      run(() => api(`/admin/users/${u.id}/ban`, { banned: to }), to ? 'Gesperrt' : 'Entsperrt');
+    };
+  };
+  let t;
+  document.getElementById('player-q').addEventListener('input', (e) => { clearTimeout(t); t = setTimeout(() => load(e.target.value), 150); });
+  await load();
 }
 
 // ---------- Login ----------
