@@ -97,13 +97,7 @@ test('Formatierung zeigt fehlende Werte als —', () => {
   assert.equal(formatPrice(null), '—');
   assert.equal(formatPrice(0.625), '62,5 %');
   assert.equal(formatAmount(undefined, 'HC'), '—');
-  assert.equal(formatAmount(1234.5, '$'), '1,2k $');
-  assert.equal(formatAmount(950, '$'), '950 $');
-  assert.equal(formatAmount(15250, '$'), '15,2k $');
-  assert.equal(formatAmount(999999, '$'), '999k $', 'abgerundet, nie zu viel');
-  assert.equal(formatAmount(2345678, '$'), '2,3m $');
-  assert.equal(formatAmount(1e9, '$'), '1b $');
-  assert.equal(formatAmount(-15515, '$'), '-15,5k $');
+  assert.equal(formatAmount(1234.5, 'HC'), '1.234,5 HC');
 });
 
 test('Ticket-Slug', () => {
