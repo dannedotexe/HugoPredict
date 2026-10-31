@@ -58,9 +58,13 @@ crontab -l > "$HOME/crontab-backup-$(date +%Y%m%d-%H%M%S).txt" 2>/dev/null || tr
 echo "Startet auch nach einem Server-Neustart automatisch."
 
 if tmux has-session -t "$SESSION" 2>/dev/null; then
+  step "Remote Control läuft schon – aktueller Bildschirm:"
+  tmux capture-pane -p -t "$SESSION" | grep -v '^\s*$' | tail -25 || true
   echo
-  echo "Remote Control läuft schon (tmux-Sitzung „$SESSION“). Fertig."
-  exit 0
+  echo "Gleich öffnet sich dieser Bildschirm. Wartet dort eine Frage (y/n), mit  y  und Enter"
+  echo "antworten. Läuft alles, die Cloud Shell einfach schließen – es läuft weiter."
+  read -rp "Weiter mit Enter … " _ || true
+  exec tmux attach -t "$SESSION"
 fi
 
 step "Remote Control starten"
