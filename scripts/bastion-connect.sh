@@ -70,7 +70,7 @@ PORT=$(oci bastion session get --session-id "$SESSION" \
 
 # Direkt auf dem Server geänderte Dateien blockieren das Update: sie werden per
 # git stash gesichert (nichts geht verloren, ansehen mit: git -C ~/HugoPredict stash list).
-UPDATE_BOT="if [ -d ~/HugoPredict/.git ]; then cd ~/HugoPredict && { [ -z \"\$(git status --porcelain --untracked-files=no)\" ] || { git stash push -m server-aenderungen-\$(date +%Y%m%d-%H%M) && echo '==> Lokale Änderungen auf dem Server gesichert (git stash list)'; }; } && git pull --ff-only origin $BRANCH; else git clone -b $BRANCH $REPO ~/HugoPredict; fi"
+UPDATE_BOT="if [ -d ~/HugoPredict/.git ]; then cd ~/HugoPredict && { [ -z \"\$(git status --porcelain --untracked-files=no)\" ] || { git stash push -m server-aenderungen-\$(date +%Y%m%d-%H%M) && echo '==> Lokale Änderungen auf dem Server gesichert (git stash list)'; }; } && git fetch -q origin $BRANCH && git checkout -q -B $BRANCH FETCH_HEAD -f && echo \"==> Bot auf Stand \$(git rev-parse --short HEAD)\"; else git clone -b $BRANCH $REPO ~/HugoPredict; fi"
 if [ "$MODE" = "website" ]; then
   DOMAIN="${2:-hugopredict.de}"
   [[ "$DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]] || fail "Ungültige Domain: $DOMAIN"
