@@ -291,6 +291,17 @@ input.input::-webkit-date-and-time-value { text-align: left; }
 .bot-status::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 8px; background: var(--faint); vertical-align: 1px; }
 .bot-status.on::before { background: var(--yes); }
 
+/* ---------- App (PWA) ---------- */
+html { overscroll-behavior-y: none; }
+.bar { padding-top: env(safe-area-inset-top); }
+.standalone .nav a, .standalone .brand { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.install { position: fixed; left: 12px; right: 12px; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 55; display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 14px; background: #0f1720; border: 1px solid var(--line); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5); animation: rise 240ms var(--ease); }
+.install img { border-radius: 10px; flex-shrink: 0; }
+.install-text { display: flex; flex-direction: column; min-width: 0; flex: 1; font-size: 13px; color: var(--muted); }
+.install-text b { color: var(--text); font-size: 15px; }
+.install-x { border: 0; background: none; color: var(--muted); font-size: 16px; padding: 6px; cursor: pointer; }
+@media (min-width: 721px) { .install { left: auto; right: 20px; bottom: 20px; max-width: 380px; } }
+
 /* ---------- Vorschläge (Dropdown) ---------- */
 .suggest { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 50; display: flex; flex-direction: column; padding: 6px; border-radius: 12px; background: #0f1720; border: 1px solid var(--line); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5); max-height: 60vh; overflow-y: auto; }
 .suggest-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none; text-align: left; cursor: pointer; color: var(--text); }

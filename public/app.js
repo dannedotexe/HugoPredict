@@ -820,5 +820,42 @@ document.getElementById('search-form').addEventListener('submit', (e) => {
   if ((location.hash.slice(1) || '/').split('?')[0] !== '/') location.hash = '#/';
 });
 window.addEventListener('hashchange', router);
+
+// ---------- Als App (PWA) ----------
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+document.documentElement.classList.toggle('standalone', standalone);
+const installEl = document.getElementById('install');
+const hideInstall = () => {
+  installEl.classList.add('hidden');
+  try { localStorage.setItem('hp_install_hidden', String(Date.now())); } catch { /* egal */ }
+};
+const installDismissed = () => {
+  try { return Date.now() - Number(localStorage.getItem('hp_install_hidden') || 0) < 14 * 86400e3; } catch { return false; }
+};
+function showInstall(html, onInstall) {
+  if (standalone || installDismissed()) return;
+  installEl.innerHTML = `<img src="/icon-192.png" width="44" height="44" alt=""><div class="install-text"><b>HugoPredict als App</b><span>${html}</span></div>
+    ${onInstall ? '<button class="btn btn-ja btn-sm" type="button" id="install-go">Installieren</button>' : ''}
+    <button class="install-x" type="button" id="install-x" aria-label="Schließen">✕</button>`;
+  installEl.classList.remove('hidden');
+  document.getElementById('install-x').onclick = hideInstall;
+  document.getElementById('install-go')?.addEventListener('click', onInstall);
+}
+// Android/Chrome: echter Installieren-Knopf
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  showInstall('Schneller Start vom Home-Bildschirm, ohne Browserleiste.', async () => {
+    e.prompt();
+    await e.userChoice.catch(() => {});
+    hideInstall();
+  });
+});
+// iPhone/iPad (Safari): Anleitung, weil iOS keinen Knopf anbietet
+if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !standalone) {
+  setTimeout(() => showInstall('Tippe auf <b>Teilen</b> <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" style="vertical-align:-2px"><path d="M12 3v12M7 8l5-5 5 5M5 12v8h14v-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> und dann auf <b>„Zum Home-Bildschirm“</b>.'), 2500);
+}
 refreshMe().catch(() => {}).finally(router);
 setInterval(() => refreshMe().catch(() => {}), 30000);
