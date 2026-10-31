@@ -376,6 +376,8 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
     const recent = (loginTries.get(key) ?? []).filter((t) => Date.now() - t < 60_000);
     if (recent.length >= 5) return;
     loginTries.set(key, [...recent, Date.now()]);
+    // Discord-Codes werden hier geprüft, alles andere geht an die Website.
+    if (await tryDiscordCode(name, text)) return;
     if (!api.configured) {
       logger.warn('Minecraft: Login-Code erhalten, aber die Website ist nicht eingerichtet (HUGO_API_URL, HUGO_API_KEY).');
       whisper(name, 'Die Anmeldung ist gerade nicht moeglich.');
@@ -563,6 +565,58 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
     return { player };
   }
 
+  // --- Verknüpfung per /msg: Discord zeigt einen Code, der Spieler flüstert ihn dem Bot ---
+  const DISCORD_CODE_TTL = 10 * 60_000;
+  const DISCORD_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const discordCodes = new Map(); // code → { discordId, discordUsername, createdAt }
+  let onDiscordLinked = null;
+
+  /** Neuer Code für eine Discord-ID (ersetzt einen älteren). Ergebnis: { code, expiresAt }. */
+  function startDiscordLink(discordId, discordUsername) {
+    for (const [c, e] of discordCodes) if (e.discordId === discordId || Date.now() - e.createdAt > DISCORD_CODE_TTL) discordCodes.delete(c);
+    let code;
+    do {
+      code = Array.from(crypto.randomBytes(5), (b) => DISCORD_ALPHABET[b % DISCORD_ALPHABET.length]).join('');
+    } while (discordCodes.has(code));
+    discordCodes.set(code, { discordId, discordUsername, createdAt: Date.now() });
+    return { code, expiresAt: new Date(Date.now() + DISCORD_CODE_TTL) };
+  }
+
+  /** Wird aufgerufen, wenn ein Spieler einen Discord-Code geflüstert hat. true = es war ein Discord-Code. */
+  async function tryDiscordCode(name, text) {
+    const code = text.toUpperCase();
+    const entry = discordCodes.get(code);
+    if (!entry) return false;
+    discordCodes.delete(code);
+    if (Date.now() - entry.createdAt > DISCORD_CODE_TTL) {
+      whisper(name, 'Der Code ist abgelaufen. Hol dir in Discord einen neuen.');
+      return true;
+    }
+    const player = findPlayer(name) ?? { username: name, uuid: null };
+    if (!player.uuid) {
+      whisper(name, 'Das hat nicht geklappt, bitte versuch es gleich nochmal.');
+      return true;
+    }
+    const taken = Object.entries(db.links).find(([id, l]) => id !== entry.discordId && l.uuid === player.uuid);
+    if (taken) {
+      whisper(name, 'Dieses Minecraft-Konto ist schon mit einem anderen Discord-Konto verknuepft. Melde dich im Support.');
+      return true;
+    }
+    let synced = false;
+    try {
+      ({ synced } = await saveLink({ discordId: entry.discordId, discordUsername: entry.discordUsername, player }));
+    } catch (err) {
+      logger.warn('Verknüpfung an die Website:', err.message);
+    }
+    whisper(name, 'Dein Discord-Konto ist jetzt mit HugoPredict verknuepft.');
+    try {
+      await onDiscordLinked?.({ discordId: entry.discordId, player, synced });
+    } catch (err) {
+      logger.warn('Verknüpfung in Discord:', err.message);
+    }
+    return true;
+  }
+
   const confirmLinkCode = (discordId, code) => codes.verify(discordId, code);
   const hasPendingCode = (discordId) => codes.pending(discordId);
 
@@ -739,6 +793,8 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
     start,
     stop,
     sendLinkCode,
+    startDiscordLink,
+    setDiscordLinkHandler: (fn) => { onDiscordLinked = fn; },
     confirmLinkCode,
     hasPendingCode,
     saveLink,

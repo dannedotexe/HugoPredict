@@ -116,6 +116,9 @@ const deps = {
   },
 };
 
+// Kontoverknüpfung per /msg: Der Minecraft-Bot meldet, wer welchen Discord-Code geflüstert hat.
+minecraft?.setDiscordLinkHandler?.((event) => require('./interactions/verification').completeFromGame(event, deps, client));
+
 async function handleCommand(interaction) {
   const cmd = commands.get(interaction.commandName);
   if (!cmd) return;

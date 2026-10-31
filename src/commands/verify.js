@@ -7,7 +7,7 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('verify')
     .setDescription('Verknüpft dein Discord-Konto mit deinem HugoPredict-Konto')
-    .addStringOption((o) => o.setName('minecraft_name').setDescription('Dein Minecraft-Name').setRequired(true).setMinLength(3).setMaxLength(16)),
+    .addStringOption((o) => o.setName('minecraft_name').setDescription('Nur nötig, wenn der Minecraft-Bot aus ist').setRequired(false).setMinLength(3).setMaxLength(16)),
   rateLimit: 'verify',
-  execute: (interaction, deps) => startVerification(interaction, interaction.options.getString('minecraft_name', true), deps),
+  execute: (interaction, deps) => startVerification(interaction, interaction.options.getString('minecraft_name') ?? '', deps),
 };

@@ -496,3 +496,25 @@ test('So-gehts-Karte: erklärt Prognosen und verlinkt die Channels', () => {
   assert.match(text, /Echtgeld/);
   assert.ok(textLength(payload) <= TEXT_LIMIT);
 });
+
+test('Konto verknüpfen zeigt /msg-Befehl, nach dem Flüstern Rollen und Name automatisch', async () => {
+  const { startVerification, completeFromGame } = require('../src/interactions/verification');
+  const replies = [];
+  const added = [];
+  const member = { id: '1', nickname: null, roles: { cache: new Collection(), add: async (ids) => added.push(...ids) }, setNickname: async (n) => { member.nickname = n; } };
+  const interaction = {
+    guild: { id: 'G' }, user: { id: '1', username: 'steve' }, member, replied: false, deferred: false,
+    deferReply: async () => { interaction.deferred = true; }, editReply: async (p) => replies.push(p), followUp: async (p) => replies.push(p), reply: async (p) => replies.push(p),
+  };
+  const deps = {
+    minecraft: { startDiscordLink: () => ({ code: 'KE2KM', expiresAt: new Date(Date.now() + 600000) }), info: () => ({ username: 'HugoPredict' }), state: { online: true } },
+    ctx: { roleId: (g, k) => ({ member: 'M', verified: 'V' })[k], audit: async () => {}, hasRoleKey: () => false }, logger: console,
+  };
+  await startVerification(interaction, '', deps);
+  assert.match(JSON.stringify(replies.at(-1).components.map((c) => c.toJSON())), /\/msg HugoPredict KE2KM/);
+  const guild = { id: 'G', members: { fetch: async () => member } };
+  await completeFromGame({ discordId: '1', player: { username: 'Steve', uuid: 'u' }, synced: true }, deps, { guilds: { cache: new Collection([['G', guild]]) } });
+  assert.deepEqual(added.sort(), ['M', 'V']);
+  assert.equal(member.nickname, 'Steve');
+  assert.match(JSON.stringify(replies.at(-1).components.map((c) => c.toJSON())), /Konto verknüpft/);
+});

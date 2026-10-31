@@ -375,3 +375,33 @@ test('Systemnachrichten aus dem Paket: voller Text, auch wenn mineflayer ihn kü
   assert.equal(api.calls.deposits.length, 1);
   assert.equal(mc.info().stats.raw, 2);
 });
+
+test('Discord-Verknüpfung per /msg: Code aus Discord, Absender aus der Systemzeile', async (t) => {
+  const { world, api, mc } = setup();
+  t.after(() => mc.stop());
+  const linked = [];
+  mc.setDiscordLinkHandler(async (e) => linked.push(e));
+  api.confirmLogin = async () => false;
+  mc.start();
+  await until(() => mc.state.online);
+  const sys = (line) => world.bots[0].emit('messagestr', line, 'system');
+  const { code } = mc.startDiscordLink('111111111111111111', 'steve_dc');
+  assert.match(code, /^[A-Z2-9]{5}$/);
+  // Nachgemacht im Chat → nichts
+  sys(`Hacker: [Nachricht] Steve -> Du: ${code}`);
+  sys(`[Nachricht] Steve -> Du: ${code.toLowerCase()}`);
+  await until(() => linked.length === 1);
+  assert.equal(linked[0].discordId, '111111111111111111');
+  assert.deepEqual(linked[0].player, { username: 'Steve', uuid: 'uuid-steve' });
+  assert.equal(api.calls.links[0].minecraftUuid, 'uuid-steve');
+  assert.ok(world.sent.some((m) => m.startsWith('/msg Steve Dein Discord-Konto ist jetzt')));
+  // Code gilt nur einmal → danach Website-Pfad („Code ungültig“)
+  sys(`[Nachricht] Steve -> Du: ${code}`);
+  await until(() => world.sent.some((m) => m.startsWith('/msg Steve Code ungueltig')));
+  assert.equal(linked.length, 1);
+  // Dasselbe Minecraft-Konto kann kein zweites Discord-Konto verknüpfen
+  const second = mc.startDiscordLink('222222222222222222', 'other');
+  sys(`[Nachricht] Steve -> Du: ${second.code}`);
+  await until(() => world.sent.some((m) => m.includes('schon mit einem anderen Discord-Konto')));
+  assert.equal(linked.length, 1);
+});
