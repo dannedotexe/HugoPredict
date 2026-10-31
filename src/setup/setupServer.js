@@ -486,6 +486,18 @@ async function syncChannelNames(guild, store) {
   const g = store.guild(guild.id);
   const renamed = [];
   const warnings = [];
+  // Kategorien mit neuem Namen (z. B. „INTERN · PRIVAT“ → „TEAM“)
+  for (const cat of CATEGORIES) {
+    const ch = guild.channels.cache.get(g.categories[cat.key]);
+    if (!ch || ch.name === cat.name || !(cat.previousNames ?? []).includes(ch.name)) continue;
+    const from = ch.name;
+    try {
+      await ch.setName(cat.name, REASON);
+      renamed.push(`${from} → ${cat.name}`);
+    } catch (err) {
+      warnings.push(`${from}: ${err.message}`);
+    }
+  }
   for (const def of CATEGORIES.flatMap((c) => c.channels)) {
     const ch = guild.channels.cache.get(g.channels[def.key]);
     if (!ch || ch.name === def.name || !(def.previousNames ?? []).includes(ch.name)) continue;

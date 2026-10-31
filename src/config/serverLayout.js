@@ -323,7 +323,8 @@ const CATEGORIES = [
   },
   {
     key: 'internal',
-    name: 'INTERN · PRIVAT',
+    name: 'TEAM',
+    previousNames: ['INTERN · PRIVAT'],
     legacy: ['team'],
     permissions: profiles.staff(STAFF),
     channels: [

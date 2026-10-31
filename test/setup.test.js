@@ -456,3 +456,17 @@ test('syncRoleIcons: Icons der ersten Version ohne Farben werden einmalig übern
   assert.deepEqual((await syncRoleIcons(guild, store)).set, ['| Mitglied']);
   assert.equal(g.roleIconsColored, true);
 });
+
+test('syncChannelNames benennt die Kategorie „INTERN · PRIVAT“ in „TEAM“ um', async () => {
+  const { syncChannelNames } = require('../src/setup/setupServer');
+  const guild = fakeGuild(allBot);
+  const store = tmpStore();
+  await runSetup(guild, store);
+  const cat = guild.channels.cache.get(store.guild('G').categories.internal);
+  assert.equal(cat.name, 'TEAM');
+  cat.name = 'INTERN · PRIVAT';
+  for (const c of guild.channels.cache.values()) c.setName = async (n) => { c.name = n; };
+  const res = await syncChannelNames(guild, store);
+  assert.ok(res.renamed.includes('INTERN · PRIVAT → TEAM'));
+  assert.equal(cat.name, 'TEAM');
+});
