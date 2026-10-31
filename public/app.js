@@ -23,7 +23,6 @@ const head = (name, cls = '') =>
   name
     ? `<img class="head ${cls}" src="https://mc-heads.net/avatar/${encodeURIComponent(name)}/32" width="32" height="32" alt="" loading="lazy">`
     : `<span class="head ${cls}"></span>`;
-const icon = (id, cls = '', w = 22, h = 16) => `<svg class="px ${cls}" width="${w}" height="${h}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
 
 const CATS = { all: 'Alle', clan: 'Clan Fights', meta: 'Meta', server: 'Server', irl: 'Echte Welt' };
 const LEDGER = {
@@ -32,7 +31,9 @@ const LEDGER = {
 };
 const STATUS = { open: ['Läuft', 'live'], closed: ['Handel beendet', 'warn'], resolved: ['Entschieden', ''], cancelled: ['Storniert', 'bad'] };
 
-const state = { me: null, status: null, filter: { category: 'all', status: 'open' } };
+const WITHDRAW_STATUS = { pending: 'Wartet auf Freigabe', approved: 'Freigegeben', processing: 'Wird ausgezahlt', uncertain: 'Unklar, ingame prüfen', done: 'Ausgezahlt', failed: 'Fehlgeschlagen', cancelled: 'Storniert' };
+
+const state = { me: null, status: null, filter: { category: 'all', status: 'open' }, markets: [], search: '' };
 
 async function api(path, body) {
   const res = await fetch(`/api${path}`, {
@@ -68,7 +69,7 @@ async function refreshMe() {
 function renderHeader() {
   const me = state.me;
   document.getElementById('account').innerHTML = me
-    ? `<a href="#/wallet" class="purse" aria-label="Guthaben ${money(me.balance)}">${icon('emerald', '', 18, 18)}<b>${money(me.balance)}</b></a>
+    ? `<a href="#/wallet" class="purse" aria-label="Guthaben ${money(me.balance)}"><small>Guthaben</small><b>${money(me.balance)}</b></a>
        <a href="#/wallet" aria-label="Wallet von ${esc(me.mcName || me.username)}">${head(me.mcName || me.username)}</a>
        <button class="btn btn-quiet btn-sm" id="logout">Abmelden</button>`
     : '<a class="btn btn-ja btn-sm" href="#/login">Anmelden</a>';
@@ -128,76 +129,88 @@ function needLogin(what) {
 
 // ---------- Shared pieces ----------
 
-function offerRow(o, { tag = 'a', href = '', pressed = null, won = false } = {}) {
-  const attrs = tag === 'a' ? `href="${href}"` : `type="button" data-o="${o.id}" aria-pressed="${pressed}"`;
-  return `<${tag} class="offer${won ? ' won' : ''}" ${attrs} style="--c:${o.color}">
-    <span class="offer-price">${cents(o.price)}</span>
-    ${icon('arrow', 'offer-arrow')}
-    <span class="offer-label"><span>${esc(o.label)}</span><span class="meter"><i style="width:${o.price * 100}%"></i></span></span>
-    <span class="offer-pct">${pct(o.price)}</span></${tag}>`;
-}
+const yesLike = (m, o) => !isBinary(m) || o.id === m.outcomes[0].id;
 
 function chart(m) {
-  const W = 720, H = 240, P = { l: 4, r: 46, t: 10, b: 26 };
+  const W = 720, H = 260, P = { l: 0, r: 44, t: 12, b: 26 };
   const h = m.history;
   const series = isBinary(m) ? [0] : m.outcomes.map((_, i) => i);
   const t0 = h[0].t, t1 = Math.max(h.at(-1).t, t0 + 1);
   const x = (t) => P.l + ((t - t0) / (t1 - t0)) * (W - P.l - P.r);
   const y = (p) => P.t + (1 - p) * (H - P.t - P.b);
   const grid = [0, 0.25, 0.5, 0.75, 1].map((g) => `
-    <line x1="${P.l}" x2="${W - P.r}" y1="${y(g)}" y2="${y(g)}" stroke="var(--line)" stroke-width="1" ${g % 0.5 ? 'stroke-dasharray="2 6"' : ''}/>
-    <text x="${W - P.r + 10}" y="${y(g) + 4}">${g * 100}&nbsp;%</text>`).join('');
+    <line x1="${P.l}" x2="${W - P.r}" y1="${y(g)}" y2="${y(g)}" stroke="var(--line)" stroke-width="1" stroke-dasharray="2 5"/>
+    <text x="${W - 4}" y="${y(g) + 4}" text-anchor="end">${g * 100}&nbsp;%</text>`).join('');
   const lines = series.map((i) => {
     const pts = h.map((pt, k) => {
       const px = x(pt.t).toFixed(1);
       return `${k ? `${px},${y(h[k - 1].p[i]).toFixed(1)} ` : ''}${px},${y(pt.p[i]).toFixed(1)}`;
     }).join(' ');
-    const c = m.outcomes[i].color, last = h.at(-1);
-    return `<polyline points="${pts}" fill="none" stroke="${c}" stroke-width="2.5" stroke-linejoin="miter"/>
-      <rect x="${x(last.t) - 4}" y="${y(last.p[i]) - 4}" width="8" height="8" fill="${c}"/>`;
+    const c = isBinary(m) ? 'var(--blue)' : m.outcomes[i].color, last = h.at(-1);
+    return `<polyline class="chart-line" pathLength="1" points="${pts}" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/>
+      <circle class="chart-dot" cx="${x(last.t)}" cy="${y(last.p[i])}" r="4" fill="${c}"/>`;
   }).join('');
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Verlauf der Wahrscheinlichkeiten seit ${date(t0)}">${grid}${lines}
     <text x="${P.l}" y="${H - 6}">${date(t0)}</text><text x="${W - P.r}" y="${H - 6}" text-anchor="end">jetzt</text></svg>`;
 }
 
+function gauge(p) {
+  const color = p >= 0.5 ? 'var(--yes)' : 'var(--no)';
+  return `<span class="gauge" role="img" aria-label="${pct(p)} Chance auf Ja">
+    <svg viewBox="0 0 60 34" aria-hidden="true">
+      <path d="M5 30a25 25 0 0 1 50 0" pathLength="100" fill="none" stroke="var(--line)" stroke-width="5"/>
+      <path class="gauge-fill" d="M5 30a25 25 0 0 1 50 0" pathLength="100" fill="none" stroke="${color}" stroke-width="5" stroke-dasharray="${(p * 100).toFixed(1)} 100"/>
+    </svg><b>${pct(p)}</b><small>Chance</small></span>`;
+}
+
 // ---------- Markets ----------
 
-function marketCard(m) {
+function marketCard(m, i = 0) {
   const bin = isBinary(m);
   const [label, cls] = STATUS[m.status];
   const winner = m.outcomes.find((o) => o.id === m.resolvedOutcomeId);
   let body;
   if (bin) {
     const [ja, nein] = m.outcomes;
-    body = `<div class="versus">
-        <div class="versus-bar" aria-hidden="true"><i style="width:${ja.price * 100}%"></i><i style="flex:1"></i></div>
-        <div class="versus-legend"><span class="ja">Ja ${pct(ja.price)}</span><span class="nein">Nein ${pct(nein.price)}</span></div></div>
-      ${m.status === 'open'
-        ? `<div class="actions"><a class="btn btn-ja btn-sm" href="#/market/${m.id}?o=${ja.id}">Auf Ja setzen</a>
-            <a class="btn btn-nein btn-sm" href="#/market/${m.id}?o=${nein.id}">Auf Nein setzen</a></div>`
-        : winner ? `<p>Ergebnis: <b class="${winner === ja ? 'ja' : 'nein'}">${esc(winner.label)}</b></p>` : ''}`;
+    body = m.status === 'open'
+      ? `<div class="actions"><a class="btn btn-yes" href="#/market/${m.id}?o=${ja.id}">Ja kaufen</a>
+          <a class="btn btn-no" href="#/market/${m.id}?o=${nein.id}">Nein kaufen</a></div>`
+      : winner ? `<p class="result">Ergebnis: <b class="${winner === ja ? 'ja' : 'nein'}">${esc(winner.label)}</b></p>` : '';
   } else {
     const top = sortedOutcomes(m).slice(0, 3);
     body = `<div class="mini">${top.map((o) => `
-        <div class="mini-row"><span>${o.id === m.resolvedOutcomeId ? 'Gewonnen: ' : ''}${esc(o.label)}</span>
-          <span class="meter" style="--c:${o.color}"><i style="width:${o.price * 100}%"></i></span><b>${pct(o.price)}</b></div>`).join('')}
-        ${m.outcomes.length > 3 ? `<span class="muted" style="font-size:14px">und ${m.outcomes.length - 3} weitere</span>` : ''}</div>`;
+        <a class="mini-row" href="#/market/${m.id}?o=${o.id}"><span>${o.id === m.resolvedOutcomeId ? 'Gewonnen: ' : ''}${esc(o.label)}</span><b>${pct(o.price)}</b></a>`).join('')}
+        ${m.outcomes.length > 3 ? `<span class="muted more">und ${m.outcomes.length - 3} weitere</span>` : ''}</div>`;
   }
-  return `<article class="card${m.status === 'open' ? '' : ' done'}">
-    <div class="card-top"><span class="slot sm" aria-hidden="true">${esc(m.emoji)}</span>
-      <h3><a href="#/market/${m.id}">${esc(m.title)}</a></h3></div>
+  return `<article class="card${m.status === 'open' ? '' : ' done'}" style="--i:${Math.min(i, 11)}">
+    <div class="card-top"><span class="slot" aria-hidden="true">${esc(m.emoji)}</span>
+      <h3><a href="#/market/${m.id}">${esc(m.title)}</a></h3>${bin ? gauge(m.outcomes[0].price) : ''}</div>
     ${body}
-    <div class="foot-line"><span>${money(m.volume)} gehandelt</span>
+    <div class="foot-line"><span>${money(m.volume)} Volumen</span>
       <span>${m.status === 'open' ? (m.closesAt ? `bis ${date(m.closesAt)}` : '') : `<span class="tag ${cls}">${label}</span>`}</span></div>
   </article>`;
 }
 
+function renderGrid() {
+  const el = document.getElementById('markets');
+  if (!el) return;
+  const q = state.search.trim().toLowerCase();
+  const list = state.markets.filter((m) => !q || m.title.toLowerCase().includes(q));
+  el.innerHTML = list.length
+    ? list.map(marketCard).join('')
+    : `<div class="panel empty" style="grid-column:1/-1"><p>${q ? `Kein Markt passt zu „${esc(state.search)}“.` : 'In dieser Kategorie gibt es gerade keine Märkte.'}</p>
+        <button class="btn btn-sm" type="button" id="reset-filter">Alle Märkte zeigen</button></div>`;
+  document.getElementById('reset-filter')?.addEventListener('click', () => {
+    state.filter = { category: 'all', status: 'open' };
+    state.search = '';
+    document.getElementById('search').value = '';
+    viewMarkets();
+  });
+}
+
 async function viewMarkets() {
-  const s = state.status;
   app.innerHTML = `
-    <section class="panel feature" id="feature" aria-label="Meistgehandelter Markt"><div class="skeleton" style="grid-column:1/-1"></div></section>
-    <p class="howto">Einzahlen auf Hugo SMP mit <code translate="no">${esc(s?.payCommand || '/pay HugoPredict <Betrag>')}</code>
-      <span>Gewinne zahlt dir der Bot ingame wieder aus.</span></p>
+    <section class="feature" id="feature" aria-label="Meistgehandelter Markt"><div class="skeleton" style="grid-column:1/-1"></div></section>
     <div class="filters" id="filters" role="toolbar" aria-label="Märkte filtern">
       ${Object.entries(CATS).map(([k, v]) => `<button type="button" data-cat="${k}" aria-pressed="${state.filter.category === k}">${v}</button>`).join('')}
       <span class="gap"></span>
@@ -218,11 +231,8 @@ async function viewMarkets() {
     api(`/markets?category=${state.filter.category}&status=${state.filter.status}`),
     api('/markets?status=open'),
   ]);
-  document.getElementById('markets').innerHTML = markets.length
-    ? markets.map(marketCard).join('')
-    : `<div class="panel empty" style="grid-column:1/-1"><p>In dieser Kategorie gibt es gerade keine Märkte.</p>
-        <button class="btn btn-sm" type="button" id="reset-filter">Alle Märkte zeigen</button></div>`;
-  document.getElementById('reset-filter')?.addEventListener('click', () => { state.filter = { category: 'all', status: 'open' }; viewMarkets(); });
+  state.markets = markets;
+  renderGrid();
 
   const featureEl = document.getElementById('feature');
   const top = [...open].sort((a, b) => b.volume - a.volume)[0];
@@ -232,14 +242,12 @@ async function viewMarkets() {
   featureEl.innerHTML = `
     <div class="feature-q">
       <div class="lead"><span class="slot lg" aria-hidden="true">${esc(m.emoji)}</span>
-        <div><h1><a href="#/market/${m.id}">${esc(m.title)}</a></h1>
-          <div class="meta" style="margin-top:8px"><span>${CATS[m.category]}</span><span>${money(m.volume)} gehandelt</span>${m.closesAt ? `<span>Handel bis ${date(m.closesAt)}</span>` : ''}</div></div></div>
-      <div class="odds-big"><b style="color:${lead.color}">${pct(lead.price)}</b><span class="muted">${isBinary(m) ? 'Chance auf Ja' : `für ${esc(lead.label)}`}</span></div>
-      ${chart(m)}
+        <div><div class="meta"><span>${CATS[m.category]}</span><span>${money(m.volume)} Volumen</span></div>
+          <h1><a href="#/market/${m.id}">${esc(m.title)}</a></h1></div></div>
+      <div class="odds-big"><b class="${yesLike(m, lead) ? 'blue' : ''}">${pct(lead.price)}</b><span class="muted">${isBinary(m) ? 'Chance auf Ja' : `für ${esc(lead.label)}`}</span></div>
+      <div class="feature-outcomes">${sortedOutcomes(m).slice(0, 4).map((o, i) => `<a class="btn ${isBinary(m) ? (i ? 'btn-no' : 'btn-yes') : ''}" href="#/market/${m.id}?o=${o.id}">${esc(o.label)} ${cents(o.price)}</a>`).join('')}</div>
     </div>
-    <div class="offers-wrap"><h2>Handelsangebote</h2>
-      <div class="offers">${sortedOutcomes(m).slice(0, 5).map((o) => offerRow(o, { href: `#/market/${m.id}?o=${o.id}` })).join('')}</div>
-      <a class="btn" href="#/market/${m.id}" style="align-self:flex-start">Markt öffnen</a></div>`;
+    <div class="feature-chart">${chart(m)}</div>`;
 }
 
 // ---------- Market detail ----------
@@ -251,46 +259,48 @@ async function viewMarket(id, query) {
   const byId = Object.fromEntries(m.outcomes.map((o) => [o.id, o]));
   const [label, cls] = STATUS[m.status];
   const lead = sortedOutcomes(m)[0];
-  const trade = { side: 'buy', outcomeId: byId[Number(query.get('o'))] ? Number(query.get('o')) : lead.id };
+  const trade = { side: 'buy', outcomeId: byId[Number(query.get('o'))] ? Number(query.get('o')) : lead.id, amount: '' };
 
   app.innerHTML = `
-    <a href="#/" class="back">Zurück zu allen Märkten</a>
+    <a href="#/" class="back">Alle Märkte</a>
     <div class="market">
       <div class="stack">
-        <section class="panel">
+        <section class="detail">
           <div class="market-head"><span class="slot lg" aria-hidden="true">${esc(m.emoji)}</span><div>
-            <div class="meta"><span>${CATS[m.category]}</span><span class="tag ${cls}">${label}</span><span>${money(m.volume)} gehandelt</span>
-              ${m.closesAt ? `<span>Handel bis ${date(m.closesAt)}</span>` : ''}</div>
-            <h1>${esc(m.title)}</h1></div></div>
-          <div class="odds-big"><b style="color:${lead.color}">${pct(lead.price)}</b><span class="muted">${bin ? 'Chance auf Ja' : `für ${esc(lead.label)}`}</span></div>
-          <div class="legend">${(bin ? [m.outcomes[0]] : m.outcomes).map((o) => `<span style="--c:${o.color}">${esc(o.label)} ${pct(o.price)}</span>`).join('')}</div>
+            <h1>${esc(m.title)}</h1>
+            <div class="meta"><span>${CATS[m.category]}</span><span class="tag ${cls}">${label}</span><span>${money(m.volume)} Volumen</span>
+              ${m.closesAt ? `<span>Handel bis ${date(m.closesAt)}</span>` : ''}</div></div></div>
+          <div class="odds-big"><b class="blue">${pct(lead.price)}</b><span class="muted">${bin ? 'Chance auf Ja' : `für ${esc(lead.label)}`}</span></div>
+          ${bin ? '' : `<div class="legend">${m.outcomes.map((o) => `<span style="--c:${o.color}">${esc(o.label)} ${pct(o.price)}</span>`).join('')}</div>`}
           ${chart(m)}
         </section>
 
-        <section class="panel"><h2>Alle Ausgänge</h2>
-          <div class="offers">${sortedOutcomes(m).map((o) => offerRow(o, { tag: 'button', pressed: false, won: o.id === m.resolvedOutcomeId })).join('')}</div>
-        </section>
+        ${bin ? '' : `<section class="panel"><h2>Alle Ausgänge</h2>
+          <div class="rows">${sortedOutcomes(m).map((o) => `
+            <div class="outcome-row${o.id === m.resolvedOutcomeId ? ' won' : ''}"><span class="outcome-name">${esc(o.label)}</span><b>${pct(o.price)}</b>
+              ${open ? `<button class="btn btn-yes btn-sm" type="button" data-o="${o.id}">Kaufen ${cents(o.price)}</button>` : ''}</div>`).join('')}</div>
+        </section>`}
 
         ${m.description ? `<section class="panel"><h2>So wird entschieden</h2><p class="rules">${esc(m.description)}</p></section>` : ''}
 
         <section class="panel"><h2>Letzte Trades</h2>
           ${m.recent.length ? `<div class="feed">${m.recent.map((t) => `
             <div class="feed-row">${head(t.username, 'sm')}<span><b>${esc(t.username)}</b> ${t.side === 'buy' ? 'kaufte' : 'verkaufte'}
-              ${fmt(t.shares)} <b style="color:${byId[t.outcome_id]?.color}">${esc(byId[t.outcome_id]?.label)}</b> für ${money(t.amount)}</span>
+              ${fmt(t.shares)} <b>${esc(byId[t.outcome_id]?.label)}</b> für ${money(t.amount)}</span>
               <span class="when">${ago(t.created_at)}</span></div>`).join('')}</div>`
             : '<p class="muted">Noch hat niemand gehandelt. Der erste Trade bewegt den Preis am stärksten.</p>'}
         </section>
       </div>
 
-      <aside class="stack">
+      <aside class="stack side">
         <section class="trader" id="trade" aria-label="Handeln"></section>
         ${m.positions.length ? `<section class="panel"><h2>Deine Anteile</h2><div class="holdings">
-          ${m.positions.map((p) => `<div><b style="color:${byId[p.outcome_id].color}">${esc(byId[p.outcome_id].label)}</b>
+          ${m.positions.map((p) => `<div><b>${esc(byId[p.outcome_id].label)}</b>
             <span>${fmt(p.shares)} Anteile, wert ${money(p.shares * byId[p.outcome_id].price)}</span></div>`).join('')}</div></section>` : ''}
       </aside>
     </div>`;
 
-  app.querySelectorAll('.market .panel [data-o]').forEach((b) => b.addEventListener('click', () => {
+  app.querySelectorAll('.outcome-row [data-o]').forEach((b) => b.addEventListener('click', () => {
     Object.assign(trade, { side: 'buy', outcomeId: Number(b.dataset.o) });
     renderTrade();
     document.getElementById('trade').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -303,8 +313,8 @@ async function viewMarket(id, query) {
   function renderTrade() {
     if (!open) {
       const w = byId[m.resolvedOutcomeId];
-      el.innerHTML = `<h2>${label}</h2><p>${
-        m.status === 'resolved' ? `Gewonnen hat <b style="color:#11723f">${esc(w.label)}</b>. Die Gewinne wurden automatisch gutgeschrieben.`
+      el.innerHTML = `<h2>${label}</h2><p class="muted">${
+        m.status === 'resolved' ? `Gewonnen hat <b class="ja">${esc(w.label)}</b>. Die Gewinne wurden automatisch gutgeschrieben.`
         : m.status === 'cancelled' ? 'Dieser Markt wurde storniert. Alle Einsätze wurden erstattet.'
         : 'Der Handel ist beendet. Sobald das Ergebnis feststeht, wird der Markt entschieden und ausgezahlt.'}</p>`;
       return;
@@ -315,48 +325,42 @@ async function viewMarket(id, query) {
     const buying = trade.side === 'buy';
 
     el.innerHTML = `
-      <h2>Handeln</h2>
       <div class="seg" role="group" aria-label="Kaufen oder verkaufen">
         <button type="button" data-side="buy" aria-pressed="${buying}">Kaufen</button>
         <button type="button" data-side="sell" aria-pressed="${!buying}">Verkaufen</button></div>
-      <div class="offers" role="group" aria-label="Ausgang wählen">${sortedOutcomes(m).map((x) => offerRow(x, { tag: 'button', pressed: x.id === o.id })).join('')}</div>
-      <div class="exchange" id="exchange">
-        <label class="big-slot"><small>${buying ? 'Du zahlst' : `Du verkaufst (hast ${fmt(pos?.shares || 0)})`}</small>
-          <input id="amt" name="amount" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="${buying ? 'Einsatz in Dollar' : 'Anzahl Anteile'}"></label>
-        <span id="arrow">${icon('arrow', 'arrow', 44, 31)}</span>
-        <div class="big-slot out" aria-live="polite"><small id="out-label">${buying ? `Anteile ${esc(o.label)}` : 'Du bekommst'}</small><b id="out">0</b></div>
-      </div>
-      <div class="quick">${(buying ? ['+10', '+50', '+100', 'Alles'] : ['25 %', '50 %', 'Alle']).map((q) => `<button type="button" data-q="${q}">${q}</button>`).join('')}</div>
+      <div class="pick${bin ? '' : ' pick-many'}" role="group" aria-label="Ausgang wählen">
+        ${sortedOutcomes(m).map((x) => `<button type="button" class="${bin ? (x.id === m.outcomes[0].id ? 'p-yes' : 'p-no') : 'p-yes'}" data-pick="${x.id}" aria-pressed="${x.id === o.id}"><span>${esc(x.label)}</span> <b>${cents(x.price)}</b></button>`).join('')}</div>
+      <label class="amount" for="amt"><span>${buying ? 'Betrag' : `Anteile (du hast ${fmt(pos?.shares || 0)})`}</span>
+        <span class="amount-in"><input id="amt" name="amount" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(trade.amount)}">${buying ? '<i>$</i>' : ''}</span></label>
+      <div class="quick">${(buying ? ['+1', '+20', '+100', 'Max'] : ['25 %', '50 %', 'Alle']).map((q) => `<button type="button" data-q="${q}">${q}</button>`).join('')}</div>
       <dl class="receipt" id="receipt"></dl>
-      <p class="why" id="why"></p>
+      <p class="why" id="why" role="alert"></p>
       ${state.me
-        ? `<button class="btn btn-block ${buying ? (bin && idx === 1 ? 'btn-nein' : 'btn-ja') : 'btn-gold'}" id="go" type="button">${buying ? `${esc(o.label)} kaufen` : `${esc(o.label)} verkaufen`}</button>
+        ? `<button class="btn btn-primary btn-block" id="go" type="button">${buying ? `${esc(o.label)} kaufen` : `${esc(o.label)} verkaufen`}</button>
            <p class="note">Guthaben ${money(state.me.balance)}, Gebühr ${fmt(fee * 100)}&nbsp;%</p>`
-        : '<a class="btn btn-ja btn-block" href="#/login">Anmelden, um zu handeln</a>'}`;
+        : '<a class="btn btn-primary btn-block" href="#/login">Anmelden, um zu handeln</a>'}`;
 
     const input = el.querySelector('#amt');
     const update = () => {
       const amt = Number(input.value.replace(',', '.')) || 0;
-      let out = 0, rows = '', why = '';
+      let rows = '', why = '';
+      trade.amount = input.value;
       if (buying) {
-        if (amt > 0) {
-          out = lmsr.sharesForAmount(qs, m.b, idx, amt * (1 - fee));
-          const after = qs.slice(); after[idx] += out;
-          rows = `<div><dt>Durchschnittspreis</dt><dd>${fmt((amt / out) * 100)}¢</dd></div>
-            <div><dt>Chance danach</dt><dd>${pct(lmsr.prices(after, m.b)[idx])}</dd></div>
-            <div class="win"><dt>Auszahlung, wenn ${esc(o.label)} gewinnt</dt><dd>${money(out)}</dd></div>`;
-        }
+        const out = amt > 0 ? lmsr.sharesForAmount(qs, m.b, idx, amt * (1 - fee)) : 0;
+        const after = qs.slice(); after[idx] += out;
+        rows = `<div><dt>Durchschnittspreis</dt><dd>${out ? `${fmt((amt / out) * 100)}¢` : cents(o.price)}</dd></div>
+          <div><dt>Chance danach</dt><dd>${pct(lmsr.prices(after, m.b)[idx])}</dd></div>
+          <div class="win"><dt>Zu gewinnen</dt><dd>${money(out)}</dd></div>`;
         if (state.me && amt > state.me.balance) why = `Du hast nur ${money(state.me.balance)}. Zahl ingame mehr ein.`;
-        else if (amt > 0 && amt < 1) why = 'Der Mindesteinsatz ist 1 $.';
+        else if (amt > 0 && amt < 1) why = 'Der Mindesteinsatz ist 1 $.';
       } else {
         const sh = Math.min(amt, pos?.shares || 0);
-        if (sh > 0) out = lmsr.sellValue(qs, m.b, idx, sh) * (1 - fee);
+        const out = sh > 0 ? lmsr.sellValue(qs, m.b, idx, sh) * (1 - fee) : 0;
+        rows = `<div class="win"><dt>Du bekommst</dt><dd>${money(out)}</dd></div>`;
         if (amt > (pos?.shares || 0) + 1e-6) why = pos ? `Du hast nur ${fmt(pos.shares)} Anteile.` : `Du hast keine Anteile von ${o.label}.`;
       }
-      el.querySelector('#out').textContent = buying ? fmt(out) : money(out);
       el.querySelector('#receipt').innerHTML = rows;
       el.querySelector('#why').textContent = why;
-      el.querySelector('#arrow').innerHTML = why ? icon('cross', 'arrow blocked', 44, 31) : icon('arrow', 'arrow', 44, 31);
       const go = el.querySelector('#go');
       if (go) go.disabled = !(amt > 0) || !!why;
       return amt;
@@ -364,11 +368,11 @@ async function viewMarket(id, query) {
     input.addEventListener('input', update);
     update();
 
-    el.querySelectorAll('[data-side]').forEach((b) => b.onclick = () => { trade.side = b.dataset.side; renderTrade(); });
-    el.querySelectorAll('[data-o]').forEach((b) => b.onclick = () => { trade.outcomeId = Number(b.dataset.o); renderTrade(); });
+    el.querySelectorAll('[data-side]').forEach((b) => b.onclick = () => { trade.side = b.dataset.side; trade.amount = ''; renderTrade(); });
+    el.querySelectorAll('[data-pick]').forEach((b) => b.onclick = () => { trade.outcomeId = Number(b.dataset.pick); renderTrade(); });
     el.querySelectorAll('[data-q]').forEach((b) => b.onclick = () => {
       const q = b.dataset.q, cur = Number(input.value.replace(',', '.')) || 0;
-      if (buying) input.value = q === 'Alles' ? Math.floor((state.me?.balance || 0) * 100) / 100 : cur + Number(q.slice(1));
+      if (buying) input.value = q === 'Max' ? Math.floor((state.me?.balance || 0) * 100) / 100 : cur + Number(q.slice(1));
       else input.value = Math.floor((pos?.shares || 0) * (q === 'Alle' ? 1 : parseInt(q, 10) / 100) * 100) / 100;
       update();
     });
@@ -384,9 +388,8 @@ async function viewMarket(id, query) {
           const r = await api(`/markets/${m.id}/sell`, { outcomeId: o.id, shares: Math.min(amt, pos.shares) });
           toast(`${o.label} verkauft für ${money(r.payout)}`);
         }
-        document.getElementById('exchange').classList.add('traded');
         await refreshMe();
-        setTimeout(() => viewMarket(id, new URLSearchParams(`o=${o.id}`)), 650);
+        viewMarket(id, new URLSearchParams(`o=${o.id}`));
       } catch (err) {
         toast(err.message, true);
         renderTrade();
@@ -431,7 +434,7 @@ async function viewPortfolio() {
 // ---------- Wallet ----------
 
 async function viewWallet() {
-  if (needLogin('In der Wallet verknüpfst du Minecraft und zahlst ein oder aus.')) return;
+  if (needLogin('In der Wallet zahlst du Ingame-Geld ein und wieder aus.')) return;
   await refreshMe();
   const me = state.me, s = state.status;
   const { withdrawals } = me.mcName ? await api('/withdrawals') : { withdrawals: [] };
@@ -574,7 +577,7 @@ async function viewAdmin() {
     <div class="split-2" style="margin-top:20px">
       <section class="panel"><h2>Auszahlungen</h2><div class="table-wrap"><table class="table"><tbody>
         ${ov.withdrawals.map((w) => `<tr><td>${esc(w.username)} an ${esc(w.mc_name)}</td><td>${money(w.amount)}</td>
-          <td><span class="tag ${w.status === 'done' ? 'live' : w.status === 'failed' ? 'bad' : 'warn'}">${w.status}</span></td><td class="muted">${ago(w.created_at)}</td>
+          <td><span class="tag ${w.status === 'done' ? 'live' : w.status === 'failed' ? 'bad' : 'warn'}">${WITHDRAW_STATUS[w.status] || esc(w.status)}</span></td><td class="muted">${ago(w.created_at)}</td>
           <td class="r">${w.status === 'pending' && state.status?.payoutsNeedApproval ? `<button class="btn btn-sm btn-ja" type="button" data-approve="${w.id}">Freigeben</button>` : ''}</td></tr>`).join('') || '<tr><td class="muted">Noch keine Auszahlungen</td></tr>'}
       </tbody></table></div></section>
       <section class="panel"><h2>Einzahlungen</h2><div class="table-wrap"><table class="table"><tbody>
@@ -615,7 +618,8 @@ function viewLogin() {
   const s = state.status;
   const loginCmd = `/msg ${s?.botName || 'HugoPredict'} login`;
   app.innerHTML = `<section class="auth panel">
-    <p class="brand">${icon('emerald', '', 30, 30)}HugoPredict</p>
+    <img class="auth-logo" src="/logo.jpg" width="148" height="148" alt="HugoPredict Logo">
+    <h1>Mit Minecraft anmelden</h1>
     <ol class="steps"><li>Geh auf <b>Hugo SMP</b> online und schreib dem Bot:</li></ol>
     <div class="cmd"><code translate="no">${esc(loginCmd)}</code><button class="btn btn-sm" type="button" data-copy="${esc(loginCmd)}">Kopieren</button></div>
     <ol class="steps" start="2"><li>Der Bot flüstert dir deinen persönlichen Code zu. Gib ihn hier ein:</li></ol>
@@ -646,6 +650,13 @@ function viewLogin() {
 
 // ---------- Boot ----------
 
+const searchEl = document.getElementById('search');
+searchEl.addEventListener('input', () => {
+  state.search = searchEl.value;
+  if ((location.hash.slice(1) || '/').split('?')[0] === '/') renderGrid();
+  else location.hash = '#/';
+});
+document.getElementById('search-form').addEventListener('submit', (e) => e.preventDefault());
 window.addEventListener('hashchange', router);
 refreshMe().catch(() => {}).finally(router);
 setInterval(() => refreshMe().catch(() => {}), 30000);
