@@ -4,8 +4,8 @@ Ein Prediction Market im Stil von Polymarket – nur für **Hugo SMP**. Spieler 
 
 ## Wie es funktioniert
 
-1. **Code holen:** Ingame `/msg <Bot> login` schreiben. Der Bot flüstert einen persönlichen Code zurück, der 5 Minuten gilt.
-2. **Anmelden:** Code auf der Website eingeben. Beim ersten Mal entsteht das Konto automatisch, ein Passwort gibt es nicht.
+1. **Befehl holen:** Die Website zeigt einen persönlichen Befehl wie `/msg <Bot> abcd2345efgh`, der 5 Minuten gilt.
+2. **Abschicken:** Den Befehl ingame eingeben. Die Website meldet dich danach von selbst an. Beim ersten Mal entsteht das Konto automatisch, ein Passwort gibt es nicht.
 3. **Einzahlen:** Ingame `/pay <Bot> <Betrag>`. Der Bot erkennt die Zahlung und schreibt sie gut.
 4. **Wetten:** Anteile eines Outcomes kaufen. Der Preis (z.B. 63¢) ist die Wahrscheinlichkeit, die die Community dem Outcome gibt. Gewinnt das Outcome, zahlt jeder Anteil 1 $.
 5. **Auszahlen:** In der Wallet anfordern – der Bot führt `/pay <Spieler> <Betrag>` aus.
@@ -23,7 +23,7 @@ npm run seed             # optional: Demo-Märkte
 npm start                # http://localhost:3000
 ```
 
-Wessen Minecraft-Name in `ADMIN_MC` steht, sieht nach dem Anmelden den **Admin**-Tab: Märkte erstellen, schließen, auflösen (zahlt Gewinner automatisch aus), stornieren (erstattet Einsätze) und Guthaben manuell anpassen.
+Nur der Minecraft-Account `Alpha_Noah` sieht nach dem Anmelden den **Admin**-Tab: Märkte erstellen, schließen, auflösen (zahlt Gewinner automatisch aus), stornieren (erstattet Einsätze) und Guthaben manuell anpassen.
 
 ## Externen Minecraft-Bot verbinden
 

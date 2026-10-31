@@ -84,10 +84,16 @@ app.get('/api/status', handle(() => ({
   payCommand: (process.env.PAY_COMMAND || '/pay {player} {amount}').replace('{player}', botState.username).replace('{amount}', '<Betrag>'),
 })));
 
-app.post('/api/login', handle((req, res) => {
+app.post('/api/login/start', handle((req) => {
   rateLimit(req);
-  const token = svc.loginWithCode(req.body.code);
+  return svc.startLogin();
+}));
+
+app.post('/api/login/poll', handle((req, res) => {
+  const token = svc.pollLogin(req.body.secret);
+  if (!token) return { loggedIn: false };
   res.setHeader('Set-Cookie', `${COOKIE}=${token}; ${cookieFlags}`);
+  return { loggedIn: true };
 }));
 
 app.post('/api/logout', handle((req, res) => {

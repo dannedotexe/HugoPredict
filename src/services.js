@@ -18,8 +18,7 @@ export class AppError extends Error {
 
 export const r2 = (x) => Math.round(x * 100) / 100;
 const now = () => Date.now();
-const adminNames = () =>
-  (process.env.ADMIN_MC || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+const ADMIN_MC = 'alpha_noah';
 
 // ---------- Balance ----------
 
@@ -70,8 +69,8 @@ export function userBySession(token) {
   if (!token) return null;
   const u = db.prepare('SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.created_at > ?')
     .get(token, now() - SESSION_TTL);
-  // Admin rights follow the verified Minecraft name, never the free-form username.
-  if (u) u.isAdmin = !!u.is_admin || adminNames().includes((u.mc_name || '').toLowerCase());
+  // Only this one Minecraft account is ever admin, never a matching username.
+  if (u) u.isAdmin = (u.mc_name || '').toLowerCase() === ADMIN_MC;
   return u || null;
 }
 
@@ -117,23 +116,26 @@ function claimDeposits(userId, mcName) {
 }
 
 // ---------- Login through the Minecraft bot ----------
-// The bot whispers the code to the player, so only the owner of the Minecraft account can read it.
+// The site shows a code, the player whispers it to the bot, and the browser that holds the secret is logged in.
 
-const LOGIN_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const LOGIN_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
 const LOGIN_TTL = 5 * 60e3;
-const LOGIN_RESEND = 30e3;
 const hashCode = (code) => crypto.createHash('sha256').update(code).digest('hex');
 
-export function createLoginCode(mcName) {
+export function startLogin() {
   return tx(() => {
-    const last = db.prepare('SELECT created_at FROM login_codes WHERE mc_name = ?').get(mcName);
-    if (last && now() - last.created_at < LOGIN_RESEND) throw new AppError('Warte kurz, bevor du einen neuen Code anforderst.', 409);
-    const code = Array.from(crypto.randomBytes(8), (b) => LOGIN_ALPHABET[b % LOGIN_ALPHABET.length]).join('');
-    db.prepare(`INSERT INTO login_codes (mc_name, code_hash, expires_at, created_at) VALUES (?, ?, ?, ?)
-      ON CONFLICT (mc_name) DO UPDATE SET code_hash = excluded.code_hash, expires_at = excluded.expires_at, created_at = excluded.created_at`)
-      .run(mcName, hashCode(code), now() + LOGIN_TTL, now());
-    return { code, expiresInSeconds: LOGIN_TTL / 1000 };
+    db.prepare('DELETE FROM login_requests WHERE expires_at <= ?').run(now());
+    const code = Array.from(crypto.randomBytes(12), (b) => LOGIN_ALPHABET[b % LOGIN_ALPHABET.length]).join('');
+    const secret = crypto.randomBytes(32).toString('hex');
+    db.prepare('INSERT INTO login_requests (code_hash, secret_hash, expires_at) VALUES (?, ?, ?)').run(hashCode(code), hashCode(secret), now() + LOGIN_TTL);
+    return { code, secret, expiresInSeconds: LOGIN_TTL / 1000 };
   });
+}
+
+export function confirmLogin(mcName, code) {
+  const res = db.prepare('UPDATE login_requests SET mc_name = ? WHERE code_hash = ? AND mc_name IS NULL AND expires_at > ?')
+    .run(mcName, hashCode(String(code || '').trim().toLowerCase()), now());
+  if (!res.changes) throw new AppError('Code ungültig oder abgelaufen', 404);
 }
 
 function freeUsername(mcName) {
@@ -145,12 +147,14 @@ function freeUsername(mcName) {
   }
 }
 
-export function loginWithCode(code) {
-  const hash = hashCode(String(code || '').trim().toUpperCase());
+// Returns a session token once the bot confirmed the code, null while still waiting.
+export function pollLogin(secret) {
+  const hash = hashCode(String(secret || ''));
   return tx(() => {
-    const row = db.prepare('SELECT * FROM login_codes WHERE code_hash = ? AND expires_at > ?').get(hash, now());
-    if (!row) throw new AppError('Code ungültig oder abgelaufen', 401);
-    db.prepare('DELETE FROM login_codes WHERE mc_name = ?').run(row.mc_name);
+    const row = db.prepare('SELECT * FROM login_requests WHERE secret_hash = ? AND expires_at > ?').get(hash, now());
+    if (!row) throw new AppError('Code ungültig oder abgelaufen', 410);
+    if (!row.mc_name) return null;
+    db.prepare('DELETE FROM login_requests WHERE secret_hash = ?').run(hash);
     let u = db.prepare('SELECT id FROM users WHERE mc_name = ?').get(row.mc_name);
     if (!u) {
       const salt = crypto.randomBytes(16).toString('hex');

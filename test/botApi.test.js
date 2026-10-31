@@ -10,6 +10,12 @@ const { db } = await import('../src/db.js');
 const { botApi } = await import('../src/botApi.js');
 const { botState } = await import('../src/bot.js');
 
+const loginAs = (name) => {
+  const { code, secret } = svc.startLogin();
+  svc.confirmLogin(name, code);
+  return svc.pollLogin(secret);
+};
+
 let server;
 let base;
 before(async () => {
@@ -102,41 +108,49 @@ test('markets use the shape the bot expects', async () => {
   assert.equal((await call('GET', '/markets?status=x')).status, 422);
 });
 
-test('login code is single use, creates the account and claims held deposits', async () => {
-  process.env.ADMIN_MC = 'Alpha_Noah';
+test('whispered code logs the waiting browser in, once, and claims held deposits', async () => {
   await deposit('held-1', 70, 'Alpha_Noah');
-  const { body } = await post('/minecraft/login-codes', { minecraftName: 'Alpha_Noah' });
-  assert.equal(body.code.length, 8);
-  assert.equal((await post('/minecraft/login-codes', { minecraftName: 'alpha_noah' })).status, 409);
+  const { code, secret } = svc.startLogin();
+  assert.equal(code.length, 12);
+  assert.equal(svc.pollLogin(secret), null);
+  assert.equal((await post('/minecraft/login-confirm', { minecraftName: 'x y', code })).status, 422);
+  assert.equal((await post('/minecraft/login-confirm', { minecraftName: 'Alpha_Noah', code: 'falsch' })).status, 404);
+  assert.equal((await post('/minecraft/login-confirm', { minecraftName: 'Alpha_Noah', code: code.toUpperCase() })).status, 200);
+  // A second player cannot take over a code that is already confirmed.
+  assert.equal((await post('/minecraft/login-confirm', { minecraftName: 'Dieb_MC', code })).status, 404);
 
-  const token = svc.loginWithCode(body.code.toLowerCase());
-  const user = svc.userBySession(token);
+  const user = svc.userBySession(svc.pollLogin(secret));
   assert.equal(user.mc_name, 'Alpha_Noah');
   assert.equal(user.isAdmin, true);
   assert.equal(user.balance, 70);
-  assert.throws(() => svc.loginWithCode(body.code), /ungültig/);
-  assert.throws(() => svc.loginWithCode(''), /ungültig/);
+  assert.throws(() => svc.pollLogin(secret), /ungültig/);
+  assert.throws(() => svc.pollLogin(''), /ungültig/);
 });
 
-test('admin follows the Minecraft name, not a matching username', async () => {
-  process.env.ADMIN_MC = 'Alpha_Noah';
-  svc.register('Alpha_Noah2', 'password1');
-  const squatter = svc.register('alpha_NOAH_x', 'password1');
+test('only Alpha_Noah is admin', () => {
+  const squatter = svc.register('Alpha_Noah2', 'password1');
   assert.equal(svc.userBySession(squatter).isAdmin, false);
 
-  // A username grabbed earlier must neither block nor inherit the real player's login.
-  db.prepare('UPDATE users SET username = ? WHERE username = ?').run('Dieb_Name', 'Alpha_Noah2');
+  // Neither the env variable nor the old database flag can make anyone else admin.
+  process.env.ADMIN_MC = 'Fremd_MC';
+  const other = loginAs('Fremd_MC');
+  db.prepare('UPDATE users SET is_admin = 1 WHERE mc_name = ?').run('Fremd_MC');
+  assert.equal(svc.userBySession(other).isAdmin, false);
+  delete process.env.ADMIN_MC;
+});
+
+test('a taken username neither blocks nor inherits the real player\'s login', () => {
   svc.register('Opfer_MC', 'password1');
-  const { code } = svc.createLoginCode('Opfer_MC');
-  const user = svc.userBySession(svc.loginWithCode(code));
+  const user = svc.userBySession(loginAs('Opfer_MC'));
   assert.equal(user.username, 'Opfer_MC_2');
   assert.equal(user.mc_name, 'Opfer_MC');
 });
 
-test('expired login code is refused', () => {
-  const { code } = svc.createLoginCode('Spaet_MC');
-  db.prepare('UPDATE login_codes SET expires_at = 1 WHERE mc_name = ?').run('Spaet_MC');
-  assert.throws(() => svc.loginWithCode(code), /abgelaufen/);
+test('expired login request is refused', () => {
+  const { code, secret } = svc.startLogin();
+  db.prepare('UPDATE login_requests SET expires_at = 1').run();
+  assert.throws(() => svc.confirmLogin('Spaet_MC', code), /abgelaufen/);
+  assert.throws(() => svc.pollLogin(secret), /abgelaufen/);
 });
 
 test('heartbeat drives the online status', async () => {
@@ -155,9 +169,8 @@ test('Discord-Befehle: Guthaben, Portfolio, Verlauf und Rangliste über die Verk
   assert.equal(missing.status, 404);
   assert.equal(missing.body.code, 'not_linked');
 
-  // Konto entsteht per Login-Code, Verknüpfung kommt vom Bot
-  const { code } = (await post('/minecraft/login-codes', { minecraftName: 'DiscoMC' })).body;
-  svc.loginWithCode(code);
+  // Konto entsteht beim Login, Verknüpfung kommt vom Bot
+  loginAs('DiscoMC');
   assert.equal((await post('/minecraft/links', { discordId, discordUsername: 'disco', minecraftName: 'DiscoMC', minecraftUuid: 'uuid-disco' })).status, 200);
   await deposit('disco-1', 300, 'DiscoMC');
 
@@ -181,8 +194,7 @@ test('Discord-Befehle: Guthaben, Portfolio, Verlauf und Rangliste über die Verk
 
 test('Admin-Panel: Kennzahlen, Nutzer, Märkte und Transaktionen nur mit Schlüssel', async () => {
   assert.equal((await call('GET', '/admin/summary', undefined, 'falsch')).status, 401);
-  const { code } = (await post('/minecraft/login-codes', { minecraftName: 'PanelMC' })).body;
-  svc.loginWithCode(code);
+  loginAs('PanelMC');
   await post('/minecraft/links', { discordId: '888888888888888888', discordUsername: 'panel', minecraftName: 'PanelMC', minecraftUuid: 'uuid-panel' });
   await deposit('panel-1', 120, 'PanelMC');
 

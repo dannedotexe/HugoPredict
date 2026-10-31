@@ -16,7 +16,7 @@ Ein Prognosemarkt für Hugo SMP. Spieler zahlen Ingame-Geld an einen Minecraft-B
 Der Kurs eines Markts ist die Einschätzung der eigenen Server-Community, und das Geld dahinter ist echtes Ingame-Geld, das durch einen Bot auf dem Server läuft. Anmeldung, Einzahlung und Auszahlung finden im Minecraft-Chat statt.
 
 ## Operating Context
-Anmeldung: `/msg <Bot> login`, der Bot flüstert einen Code zu, der auf der Website eingegeben wird. Einzahlung: `/pay <Bot> <Betrag>`. Auszahlung: Antrag auf der Website, Freigabe durch den Admin, der Bot zahlt per `/pay` aus.
+Anmeldung: Die Website zeigt `/msg <Bot> <Code>`, nach dem Abschicken im Spiel ist man automatisch angemeldet. Einzahlung: `/pay <Bot> <Betrag>`. Auszahlung: Antrag auf der Website, Freigabe durch den Admin, der Bot zahlt per `/pay` aus.
 
 ## Capabilities and Constraints
 - Preise per LMSR, jederzeit kaufen und verkaufen. Gewinnt ein Ausgang, zahlt jeder Anteil 1 $.

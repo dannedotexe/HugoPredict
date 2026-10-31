@@ -614,38 +614,58 @@ async function viewAdmin() {
 
 // ---------- Login ----------
 
-function viewLogin() {
+const LOGIN_POLL = 2000;
+let pendingLogin = null;
+
+async function viewLogin() {
+  if (!pendingLogin || pendingLogin.expires <= Date.now()) {
+    app.innerHTML = '';
+    try {
+      const r = await api('/login/start', {});
+      pendingLogin = { ...r, expires: Date.now() + r.expiresInSeconds * 1000 };
+    } catch (err) {
+      app.innerHTML = `<section class="auth panel"><h1>Anmelden nicht möglich</h1><p class="muted">${esc(err.message)}</p></section>`;
+      return;
+    }
+  }
   const s = state.status;
-  const loginCmd = `/msg ${s?.botName || 'HugoPredict'} login`;
-  app.innerHTML = `<section class="auth panel">
-    <img class="auth-logo" src="/logo.jpg" width="148" height="148" alt="HugoPredict Logo">
+  const login = pendingLogin;
+  const cmd = `/msg ${s?.botName || 'HugoPredict'} ${login.code}`;
+  app.innerHTML = `<section class="auth panel" id="login-wait">
+    <img class="auth-logo" src="/logo.png" width="148" height="148" alt="HugoPredict Logo">
     <h1>Mit Minecraft anmelden</h1>
-    <ol class="steps"><li>Geh auf <b>Hugo SMP</b> online und schreib dem Bot:</li></ol>
-    <div class="cmd"><code translate="no">${esc(loginCmd)}</code><button class="btn btn-sm" type="button" data-copy="${esc(loginCmd)}">Kopieren</button></div>
-    <ol class="steps" start="2"><li>Der Bot flüstert dir deinen persönlichen Code zu. Gib ihn hier ein:</li></ol>
-    ${s?.botOnline ? '' : '<p class="muted" style="font-size:14px">Der Bot ist gerade offline. Ohne ihn bekommst du keinen Code.</p>'}
-    <form id="auth">
-      <div class="field"><label for="c">Code</label><input class="input" id="c" name="code" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" required maxlength="8"></div>
-      <button class="btn btn-ja btn-block">Anmelden</button>
-    </form></section>`;
+    <ol class="steps"><li>Geh auf <b>Hugo SMP</b> online und schick diesen Befehl im Chat ab:</li></ol>
+    <div class="cmd"><code translate="no">${esc(cmd)}</code><button class="btn btn-sm" type="button" data-copy="${esc(cmd)}">Kopieren</button></div>
+    <ol class="steps" start="2"><li>Danach bist du hier automatisch angemeldet.</li></ol>
+    ${s?.botOnline ? '<p class="muted" style="font-size:14px" aria-live="polite">Warte auf deine Nachricht…</p>' : '<p class="muted" style="font-size:14px">Der Bot ist gerade offline. Ohne ihn klappt die Anmeldung nicht.</p>'}
+    <p class="muted" style="font-size:14px"><b style="color:var(--text)">Schick nur Befehle ab, die du hier selbst siehst.</b> Wer dir einen fertigen Befehl gibt, bekommt damit Zugriff auf dein Konto.</p>
+    </section>`;
   app.querySelector('[data-copy]').onclick = async (e) => {
     await navigator.clipboard.writeText(e.target.dataset.copy);
     toast('Kopiert. Füg es im Minecraft-Chat ein.');
   };
-  document.getElementById('auth').onsubmit = async (e) => {
-    e.preventDefault();
-    const btn = e.target.querySelector('button');
-    btn.disabled = true;
+  const wait = app.querySelector('#login-wait');
+  const poll = async () => {
+    if (!wait.isConnected || login !== pendingLogin) return;
     try {
-      await api('/login', Object.fromEntries(new FormData(e.target)));
-      await refreshMe();
-      toast(`Angemeldet als ${state.me.mcName}`);
-      location.hash = '#/';
-    } catch (err) {
-      toast(err.message, true);
-      btn.disabled = false;
+      const r = await api('/login/poll', { secret: login.secret });
+      if (r.loggedIn) {
+        pendingLogin = null;
+        await refreshMe();
+        toast(`Angemeldet als ${state.me.mcName}`);
+        location.hash = '#/';
+        return;
+      }
+    } catch {
+      if (Date.now() >= login.expires) {
+        pendingLogin = null;
+        if (wait.isConnected) viewLogin();
+        return;
+      }
     }
+    setTimeout(poll, LOGIN_POLL);
   };
+  setTimeout(poll, LOGIN_POLL);
 }
 
 // ---------- Boot ----------
