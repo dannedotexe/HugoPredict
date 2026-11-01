@@ -67,12 +67,15 @@ async function api(path, body) {
   return data;
 }
 
+// Immer nur eine Meldung: eine neue ersetzt die alte (kein Stapeln beim schnellen Tippen)
 function toast(msg, err = false) {
+  const box = document.getElementById('toasts');
+  box.replaceChildren();
   const el = document.createElement('div');
   el.className = `toast${err ? ' err' : ''}`;
   el.textContent = msg;
-  document.getElementById('toasts').append(el);
-  setTimeout(() => el.remove(), 4500);
+  box.append(el);
+  setTimeout(() => el.remove(), err ? 4500 : 2500);
 }
 
 // Restzeit statt Datum: „Endet in 2 Tagen“, „Endet heute 20:00“ – knapp (unter 24 h) wird orange
@@ -570,8 +573,8 @@ async function viewWallet() {
       await navigator.clipboard.writeText(cmd);
       copyBtn.classList.add('copied');
       copyBtn.querySelector('span').textContent = 'Kopiert';
-      setTimeout(() => { copyBtn.classList.remove('copied'); copyBtn.querySelector('span').textContent = 'Kopieren'; }, 1800);
-      toast(`Kopiert: ${cmd} – im Minecraft-Chat einfügen.`);
+      clearTimeout(copyBtn._t);
+      copyBtn._t = setTimeout(() => { copyBtn.classList.remove('copied'); copyBtn.querySelector('span').textContent = 'Kopieren'; }, 1800);
     } catch { /* Kopieren nicht erlaubt */ }
   };
   app.querySelectorAll('[data-pay]').forEach((b) => b.onclick = () => {
