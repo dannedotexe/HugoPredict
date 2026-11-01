@@ -362,7 +362,7 @@ class HugoApi {
   async setWebsiteBan(discordId, { banned, rule = null }) {
     try {
       const body = await this.request('POST', `/users/discord/${encodeURIComponent(discordId)}/ban`, { body: { banned, rule } });
-      return { linked: true, banned: !!body?.banned, banRule: body?.banRule ?? null, mcName: body?.mcName ?? null };
+      return { linked: true, banned: !!body?.banned, banRule: body?.banRule ?? null, mcName: body?.mcName ?? null, ipsBanned: Number(body?.ipsBanned) || 0 };
     } catch (err) {
       if (err.code === 'not_linked') return { linked: false };
       throw err;
