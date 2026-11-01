@@ -141,6 +141,7 @@ app.post('/api/markets/:id/buy', handle((req) =>
 app.post('/api/markets/:id/sell', handle((req) =>
   svc.sell(auth(req).id, Number(req.params.id), Number(req.body.outcomeId), req.body.shares)));
 
+app.get('/api/me/profile', handle((req) => ({ profile: svc.myProfile(auth(req).id) })));
 app.get('/api/portfolio', handle((req) => svc.portfolio(auth(req).id)));
 app.get('/api/withdrawals', handle((req) => ({ withdrawals: svc.userWithdrawals(auth(req).id) })));
 app.post('/api/withdrawals', handle((req) => svc.requestWithdrawal(auth(req).id, req.body.amount)));

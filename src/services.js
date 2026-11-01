@@ -827,3 +827,21 @@ export function knownOutcomes(category, limit = 30) {
       AND o.label NOT LIKE 'Clan _' AND o.label NOT LIKE 'Option _' AND o.label NOT LIKE '%…%'
     GROUP BY lower(o.label) ORDER BY n DESC, last DESC LIMIT ?`).all(String(category), limit).map((r) => r.label);
 }
+
+/** „Mein Profil“: eigenes Konto, Discord-Verknüpfung und Statistik. */
+export function myProfile(userId) {
+  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  if (!u) throw new AppError('Nicht angemeldet', 401);
+  const link = u.mc_name ? db.prepare('SELECT discord_id, discord_username, mc_uuid, created_at FROM discord_links WHERE mc_name = ?').get(u.mc_name) : null;
+  let stats = null, rank = null, profit = 0;
+  try {
+    const p = playerProfile(u.mc_name || u.username);
+    ({ stats, rank, profit } = p);
+  } catch { /* noch keine Daten */ }
+  return {
+    username: u.username, mcName: u.mc_name, since: u.created_at, balance: r2(u.balance), banned: !!u.banned,
+    uuid: link?.mc_uuid ?? null,
+    discord: link ? { id: link.discord_id, name: link.discord_username, since: link.created_at } : null,
+    rank, profit, stats,
+  };
+}

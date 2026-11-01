@@ -317,6 +317,21 @@ input.input::-webkit-date-and-time-value { text-align: left; }
 .onb-steps p { color: var(--muted); font-size: 14px; }
 .onb-steps code { font-size: 13px; background: var(--input); padding: 1px 5px; border-radius: 5px; }
 
+/* ---------- Mein Profil ---------- */
+.eyebrow { display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.eyebrow.gold { color: var(--gold); }
+.eyebrow.blue { color: var(--blue); }
+.me-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 16px; }
+.skin-stage { display: grid; place-items: center; height: 260px; margin: -4px -4px 14px; border-radius: 10px; background: radial-gradient(circle at 50% 40%, #2a3b4c, #0d141b 70%); }
+.skin-stage img { height: 230px; width: auto; image-rendering: pixelated; filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.5)); }
+.me-name { font-size: 24px; margin-bottom: 12px; }
+.kv { padding: 10px 12px; border-radius: 10px; background: var(--input); margin-top: 8px; }
+.kv code { font-size: 12px; overflow-wrap: anywhere; }
+.discord-card { background: linear-gradient(160deg, #262c48, var(--panel) 60%); }
+.discord-row { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 10px; background: var(--input); }
+.discord-avatar { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: #5865f2; color: #fff; font-weight: 800; font-size: 18px; flex-shrink: 0; }
+@media (max-width: 720px) { .me-grid { grid-template-columns: minmax(0, 1fr); } }
+
 /* ---------- Admin ---------- */
 .admin-tabs { margin-bottom: 16px; flex-wrap: wrap; }
 .badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; margin-left: 4px; border-radius: 10px; background: var(--no); color: #fff; font-size: 12px; font-weight: 700; }

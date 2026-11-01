@@ -110,7 +110,7 @@ function renderHeader() {
   const me = state.me;
   document.getElementById('account').innerHTML = me
     ? `<a href="#/wallet" class="purse" aria-label="Guthaben ${money(me.balance)}"><small>Guthaben</small><b>${money(me.balance)}</b></a>
-       <a href="#/wallet" aria-label="Wallet von ${esc(me.mcName || me.username)}">${head(me.mcName || me.username)}</a>
+       <a href="#/me" aria-label="Mein Profil">${head(me.mcName || me.username)}</a>
        <button class="btn btn-quiet btn-sm" id="logout">Abmelden</button>`
     : '<a class="btn btn-ja btn-sm" href="#/login">Anmelden</a>';
   document.getElementById('logout')?.addEventListener('click', async () => {
@@ -138,6 +138,7 @@ const routes = [
   [/^\/player\/([^/]+)$/, viewPlayer, 'leaderboard'],
   [/^\/admin$/, viewAdmin, 'admin'],
   [/^\/login$/, viewLogin, ''],
+  [/^\/me$/, viewMe, ''],
 ];
 
 const SKELETON = `<div class="skel-page" aria-busy="true" aria-label="Lädt…">
@@ -609,6 +610,56 @@ async function viewLeaderboard(query) {
         <td class="r hide-sm">${period === 'all' ? money(l.netWorth) : fmt(l.markets)}</td></tr>`).join('')}
       </tbody></table></div>` : `<div class="empty"><p>${period === 'all' ? 'Noch niemand auf der Rangliste. Der erste Gewinn bringt dich auf Platz 1.' : 'In diesem Zeitraum wurde noch keine Prognose entschieden.'}</p><a class="btn btn-ja" href="#/">Markt aussuchen</a></div>`}</section>`;
   app.querySelectorAll('[data-p]').forEach((b) => b.onclick = () => { location.hash = `#/leaderboard?p=${b.dataset.p}`; });
+}
+
+// ---------- Mein Profil ----------
+
+async function viewMe() {
+  if (needLogin('Hier siehst du dein Konto, deine Discord-Verknüpfung und deine Statistik.')) return;
+  const { profile: p } = await api('/me/profile');
+  const name = p.mcName || p.username;
+  const st = p.stats;
+  const signed = (v) => `${v >= 0 ? '+' : ''}${money(v)}`;
+  app.innerHTML = `
+    <div class="page-title"><div><h1>Mein Profil</h1><p>Dein Konto, deine Verknüpfungen und deine Statistik auf einen Blick</p></div></div>
+    <div class="me-grid">
+      <section class="panel me-skin">
+        <div class="skin-stage"><img src="https://mc-heads.net/body/${encodeURIComponent(name)}/right" alt="Skin von ${esc(name)}" loading="lazy"></div>
+        <h2 class="me-name">${esc(name)}</h2>
+        ${p.uuid ? `<div class="kv"><small class="eyebrow">UUID</small><code>${esc(p.uuid)}</code></div>` : ''}
+        <div class="kv"><small class="eyebrow">Dabei seit</small><span>${date(p.since)}</span></div>
+        ${p.banned ? '<p class="tag bad" style="margin-top:10px">Konto gesperrt – melde dich beim Support</p>' : ''}
+        <button class="btn btn-block" type="button" id="me-logout" style="margin-top:14px">Abmelden</button>
+      </section>
+      <div class="stack">
+        <section class="panel">
+          <small class="eyebrow gold">Guthaben</small>
+          <p class="balance">${money(p.balance)}</p>
+          <a class="btn btn-sm" href="#/wallet">Ein- und auszahlen</a>
+        </section>
+        <section class="panel discord-card">
+          <small class="eyebrow" style="color:#8ea1ff">Discord</small>
+          <h2 style="margin-bottom:12px">Discord-Verknüpfung</h2>
+          ${p.discord
+            ? `<div class="discord-row"><span class="discord-avatar" aria-hidden="true">${esc((p.discord.name || '?').slice(0, 1).toUpperCase())}</span>
+                <div><b>${esc(p.discord.name || 'Discord-Konto')}</b><br><small class="muted">verknüpft seit ${date(p.discord.since)}</small></div></div>
+               <p class="muted" style="font-size:13px;margin-top:10px">Trennen geht über den Support im Discord.</p>`
+            : '<p class="muted">Noch nicht verknüpft. Im Discord in <b>#verifizieren</b> den Befehl holen und im Spiel abschicken.</p>'}
+        </section>
+      </div>
+    </div>
+    <section class="panel" style="margin-top:16px">
+      <small class="eyebrow blue">Statistik</small>
+      <h2 style="margin-bottom:12px">Deine Gebote</h2>
+      <div class="stat-grid">
+        <div class="stat"><small>Platz</small><b>${p.rank ? `#${p.rank}` : '—'}</b></div>
+        <div class="stat"><small>Gewinn</small><b class="${p.profit >= 0 ? 'ja' : 'nein'}">${signed(p.profit || 0)}</b></div>
+        <div class="stat"><small>Trefferquote</small><b>${st?.hitRate == null ? '—' : `${Math.round(st.hitRate * 100)} %`}</b>${st ? `<span class="muted">${st.wins} von ${st.resolved}</span>` : ''}</div>
+        <div class="stat"><small>Laufende Gebote</small><b>${st?.openBets ?? 0}</b></div>
+      </div>
+      <a class="btn btn-sm" href="${playerLink(name)}" style="margin-top:14px">Öffentliches Profil ansehen</a>
+    </section>`;
+  document.getElementById('me-logout').onclick = () => document.getElementById('logout')?.click();
 }
 
 // ---------- Player profile ----------
