@@ -128,6 +128,14 @@ const withSite = (marketId) => {
   return site ? `${site}/#/market/${marketId}` : null;
 };
 
+// /blacklist im Discord: Website-Konto der verknüpften Person sperren bzw. entsperren
+botApi.post('/users/discord/:discordId/ban', handle((req, res) => {
+  const user = discordUser(req, res);
+  if (!user) return null;
+  const r = svc.setBanned(user.id, req.body?.banned === true, req.body?.rule ?? null);
+  return { ...r, mcName: user.mc_name ?? user.username };
+}));
+
 botApi.get('/users/discord/:discordId/balance', handle((req, res) => {
   const user = discordUser(req, res);
   return user && svc.discordAccount(user.id).balance;

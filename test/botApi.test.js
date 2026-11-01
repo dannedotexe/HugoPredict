@@ -197,6 +197,14 @@ test('Discord-Befehle: Guthaben, Portfolio, Verlauf und Rangliste über die Verk
   const pf = await call('GET', `/users/discord/${discordId}/portfolio`);
   assert.deepEqual(pf.body.positions, []);
 
+  // /blacklist: Website-Konto über die Discord-ID sperren (nur mit Paragraf) und entsperren
+  assert.equal((await post(`/users/discord/${discordId}/ban`, { banned: true })).status, 400);
+  const ban = await post(`/users/discord/${discordId}/ban`, { banned: true, rule: '3.5' });
+  assert.equal(ban.status, 200);
+  assert.deepEqual(ban.body, { banned: true, banRule: '§3.5 Insider-Handel', mcName: 'DiscoMC' });
+  assert.equal((await post(`/users/discord/${discordId}/ban`, { banned: false })).body.banned, false);
+  assert.equal((await post('/users/discord/888888888888888888/ban', { banned: true, rule: '3.4' })).body.code, 'not_linked');
+
   const lb = await call('GET', '/leaderboards/all-time?limit=5');
   assert.equal(lb.status, 200);
   assert.ok(Array.isArray(lb.body.entries));
