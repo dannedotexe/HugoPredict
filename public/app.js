@@ -720,10 +720,11 @@ async function viewPlayer(rawName) {
   const signed = (v) => `${v >= 0 ? '+' : ''}${money(v)}`;
   app.innerHTML = `
     <a href="#/leaderboard" class="back">Rangliste</a>
-    <div class="profile-head panel">
-      <img class="profile-avatar" src="https://mc-heads.net/avatar/${encodeURIComponent(name)}/96" width="72" height="72" alt="">
+    <section class="panel profile-top">
+      <div class="skin-stage" id="skin-stage"><img src="https://mc-heads.net/body/${encodeURIComponent(name)}/right" alt="Skin von ${esc(name)}" loading="lazy">
+        <span class="skin-hint hidden" id="skin-hint">Zum Drehen wischen</span></div>
       <div><h1>${esc(name)}</h1><p class="muted">${p.rank ? `Platz <b style="color:var(--text)">${p.rank}</b> · ` : ''}dabei seit ${date(p.since)}</p></div>
-    </div>
+    </section>
     <div class="stat-grid">
       <div class="panel stat"><small>Gewinn</small><b class="${p.profit >= 0 ? 'ja' : 'nein'}">${signed(p.profit)}</b></div>
       <div class="panel stat"><small>Trefferquote</small><b>${st.hitRate === null ? '—' : `${Math.round(st.hitRate * 100)} %`}</b><span class="muted">${st.wins} von ${st.resolved}</span></div>
@@ -742,6 +743,7 @@ async function viewPlayer(rawName) {
           <span class="when ${h.pnl >= 0 ? 'ja' : 'nein'}" style="font-weight:700">${signed(h.pnl)}</span></a>`).join('')}</div>` : '<p class="muted">Noch keine entschiedene Prognose.</p>'}
       </section>
     </div>`;
+  mountSkinViewer(document.getElementById('skin-stage'), name);
 }
 
 // ---------- Admin ----------
