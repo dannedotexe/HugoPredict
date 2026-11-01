@@ -93,3 +93,38 @@ test('Regeln mit Paragrafen; gebannte Person sieht den Paragrafen', () => {
   assert.match(notice, /Verstoß gegen §3\.4 Manipulation & Zweitaccounts/);
   assert.match(JSON.stringify(mod.caseEmbed({ action: 'ban', number: 1, targetId: '1', moderatorId: '2', reason: 'x', paragraph: '3.5' }).toJSON()), /§3\.5 Insider-Handel/);
 });
+
+test('/blacklist sperrt Discord und Website-Konto mit Paragraf', async () => {
+  const cmd = require('../src/commands/blacklist');
+  const calls = [];
+  const highest = { position: 1 };
+  const me = { id: 'BOT', permissions: { has: () => true }, roles: { highest: { position: 10 } } };
+  const user = { id: '111111111111111111', username: 'alt', send: async (m) => calls.push(['dm', JSON.stringify(m)]) };
+  const guild = {
+    id: 'G', name: 'HugoPredict', ownerId: 'OWNER',
+    members: { me, fetch: async () => ({ id: user.id, roles: { highest } }), ban: async (id, o) => calls.push(['ban', id, o.reason]) },
+  };
+  let reply;
+  const interaction = {
+    guild, user: { id: 'OWNER' }, member: { id: 'OWNER', user: { username: 'chef' }, roles: { highest: { position: 99 } } },
+    options: {
+      getSubcommand: () => 'hinzufügen', getUser: () => user,
+      getString: (n) => ({ grund: 'Zweitaccount von xy', paragraf: '3.4' })[n], getInteger: () => null,
+    },
+    deferReply: async () => { interaction.deferred = true; }, editReply: async (p) => { reply = p; }, followUp: async (p) => { reply = p; }, reply: async (p) => { reply = p; },
+  };
+  const store = { guild: () => ({ moderation: { counter: 0, cases: [] } }), save() {} };
+  const g = store.guild();
+  store.guild = () => g;
+  const deps = {
+    store, logger: console,
+    api: { configured: true, setWebsiteBan: async (id, b) => { calls.push(['web', id, b]); return { linked: true, banned: true, mcName: 'AltMC' }; } },
+    ctx: { audit: async () => {} },
+  };
+  await cmd.execute(interaction, deps);
+  assert.deepEqual(calls.find((c) => c[0] === 'web'), ['web', user.id, { banned: true, rule: '3.4' }]);
+  assert.match(calls.find((c) => c[0] === 'ban')[2], /Blacklist · §3\.4/);
+  assert.match(calls.find((c) => c[0] === 'dm')[1], /Verstoß gegen §3\.4.*Konto auf der Website ist ebenfalls gesperrt/);
+  assert.equal(g.moderation.cases[0].paragraph, '3.4');
+  assert.match(JSON.stringify(reply), /Gebannt.*Gesperrt: \*\*AltMC\*\*/);
+});

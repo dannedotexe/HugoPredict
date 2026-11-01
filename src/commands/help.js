@@ -14,7 +14,7 @@ module.exports = {
       { heading: 'Hilfe', icon: 'support', body: 'Anfragen an den Support stellst du in #support.\n`/ping` Systemstatus' },
     ];
     if (can('moderate')) {
-      blocks.push({ heading: 'Moderation', icon: 'moderator', body: '`/mod verwarnen` · `/mod timeout` · `/mod timeout-aufheben`\n`/mod kicken` · `/mod verlauf`\n`/mod bannen` · `/mod entbannen` (Inhaber/Administrator)' });
+      blocks.push({ heading: 'Moderation', icon: 'moderator', body: '`/mod verwarnen` · `/mod timeout` · `/mod timeout-aufheben`\n`/mod kicken` · `/mod verlauf`\n`/mod bannen` · `/mod entbannen` · `/blacklist` (Discord + Website, Inhaber/Administrator)' });
     }
     if (can('setup')) {
       blocks.push({ heading: 'Verwaltung', icon: 'admin', body: '`/aktualisieren` Panels veröffentlichen\n`/ankündigung` Ankündigung veröffentlichen\n`/aufräumen` Archiv und alte Kategorien löschen' });
