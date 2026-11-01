@@ -125,7 +125,7 @@ function claimDeposits(userId, mcName) {
 // Raten bringt nichts: Wer einen fremden Code errät, meldet den fremden Browser in SEIN Konto an.
 const LOGIN_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const LOGIN_LENGTH = 5;
-const LOGIN_TTL = 5 * 60e3;
+const LOGIN_TTL = 15 * 60e3; // 15 Minuten, um ins Spiel zu wechseln
 const hashCode = (code) => crypto.createHash('sha256').update(code).digest('hex');
 
 export function startLogin() {
