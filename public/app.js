@@ -522,18 +522,15 @@ async function viewWallet() {
           <p class="muted">${me.mcName ? `Verknüpft mit <b style="color:var(--text)">${esc(me.mcName)}</b>` : 'Noch kein Minecraft-Account verknüpft'}</p>
           <button class="btn btn-quiet btn-sm show-sm" type="button" id="logout-wallet" style="margin-top:8px;padding-left:0">Abmelden</button></section>
         ${me.mcName ? `
-        <section class="panel deposit"><small class="eyebrow ja">Einzahlen</small>
-          <h2>Geld aufs Konto</h2>
-          <p class="muted" style="margin-top:4px">Betrag antippen – der Befehl wird kopiert, du fügst ihn im Spiel ein.</p>
-          <div class="pay-grid" role="group" aria-label="Betrag wählen">${[10e3, 50e3, 100e3, 250e3, 500e3, 1e6].map((v) =>
-            `<button class="pay-tile" type="button" data-pay="${v}"><b>${v >= 1e6 ? `${v / 1e6}m` : `${v / 1e3}k`}</b><small>${money(v)}</small></button>`).join('')}</div>
-          <input class="input pay-custom" id="pay-custom" placeholder="Eigener Betrag, z. B. 250k oder 75.000" autocomplete="off" autocapitalize="off" aria-label="Eigener Betrag">
-          <div class="cmd-big"><small class="eyebrow">Dein Befehl</small>
-            <code translate="no" id="pay-cmd">${esc(s.payCommand)}</code>
-            <button class="btn btn-ja btn-block" type="button" id="pay-copy" data-cmd="${esc(s.payCommand.replace(' <Betrag>', ' '))}">
-              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 9h10v12H9zM5 15V3h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Befehl kopieren</button></div>
-          <ol class="pay-steps"><li><span>1</span>Betrag wählen</li><li><span>2</span>Kopieren</li><li><span>3</span>Im Minecraft-Chat einfügen</li></ol>
-          <p class="muted" style="font-size:13px;margin-top:10px">Nach ein paar Sekunden ist das Geld auf deinem Konto, der Bot flüstert dir eine Bestätigung.</p>
+        <section class="panel deposit"><h2>Einzahlen</h2>
+          <p class="muted" style="margin-top:4px;font-size:14px">Betrag wählen, Befehl kopieren und im Spiel einfügen.</p>
+          <div class="pay-row" role="group" aria-label="Betrag wählen">${[10e3, 50e3, 100e3, 500e3, 1e6].map((v) =>
+            `<button class="pay-pill" type="button" data-pay="${v}">${v >= 1e6 ? `${v / 1e6}m` : `${v / 1e3}k`}</button>`).join('')}
+            <input class="pay-custom" id="pay-custom" placeholder="Anderer Betrag, z. B. 75k" autocomplete="off" autocapitalize="off" aria-label="Eigener Betrag, z. B. 75k"></div>
+          <div class="cmd"><code translate="no" id="pay-cmd">${esc(s.payCommand)}</code>
+            <button class="btn btn-sm" type="button" id="pay-copy" data-cmd="${esc(s.payCommand.replace(' <Betrag>', ' '))}" aria-label="Befehl kopieren">
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M9 9h10v12H9zM5 15V3h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Kopieren</span></button></div>
+          <p class="muted" style="font-size:12px">Gutschrift nach ein paar Sekunden, der Bot flüstert dir eine Bestätigung.</p>
         </section>` : ''}
       </div>
       <div class="stack">
@@ -572,8 +569,8 @@ async function viewWallet() {
     try {
       await navigator.clipboard.writeText(cmd);
       copyBtn.classList.add('copied');
-      copyBtn.lastChild.textContent = 'Kopiert ✓';
-      setTimeout(() => { copyBtn.classList.remove('copied'); copyBtn.lastChild.textContent = 'Befehl kopieren'; }, 1800);
+      copyBtn.querySelector('span').textContent = 'Kopiert';
+      setTimeout(() => { copyBtn.classList.remove('copied'); copyBtn.querySelector('span').textContent = 'Kopieren'; }, 1800);
       toast(`Kopiert: ${cmd} – im Minecraft-Chat einfügen.`);
     } catch { /* Kopieren nicht erlaubt */ }
   };
