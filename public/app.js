@@ -522,12 +522,18 @@ async function viewWallet() {
           <p class="muted">${me.mcName ? `Verknüpft mit <b style="color:var(--text)">${esc(me.mcName)}</b>` : 'Noch kein Minecraft-Account verknüpft'}</p>
           <button class="btn btn-quiet btn-sm show-sm" type="button" id="logout-wallet" style="margin-top:8px;padding-left:0">Abmelden</button></section>
         ${me.mcName ? `
-        <section class="panel"><h2>Einzahlen</h2>
-          <p class="muted">Schick dem Bot auf HugoSMP Geld. Er schreibt es dir gut, sobald er die Zahlung sieht.</p>
-          <div class="cmd"><code translate="no" id="pay-cmd">${esc(s.payCommand)}</code>
-            <button class="btn btn-sm" type="button" id="pay-copy" data-copy="${esc(s.payCommand.replace(' <Betrag>', ' '))}">Kopieren</button></div>
-          <div class="chips" id="pay-presets" aria-label="Betrag wählen">${[10e3, 50e3, 100e3, 500e3, 1e6].map((v) =>
-            `<button class="chip" type="button" data-pay="${v}">${v >= 1e6 ? `${v / 1e6}m` : `${v / 1e3}k`}</button>`).join('')}</div>
+        <section class="panel deposit"><small class="eyebrow ja">Einzahlen</small>
+          <h2>Geld aufs Konto</h2>
+          <p class="muted" style="margin-top:4px">Betrag antippen – der Befehl wird kopiert, du fügst ihn im Spiel ein.</p>
+          <div class="pay-grid" role="group" aria-label="Betrag wählen">${[10e3, 50e3, 100e3, 250e3, 500e3, 1e6].map((v) =>
+            `<button class="pay-tile" type="button" data-pay="${v}"><b>${v >= 1e6 ? `${v / 1e6}m` : `${v / 1e3}k`}</b><small>${money(v)}</small></button>`).join('')}</div>
+          <input class="input pay-custom" id="pay-custom" placeholder="Eigener Betrag, z. B. 250k oder 75.000" autocomplete="off" autocapitalize="off" aria-label="Eigener Betrag">
+          <div class="cmd-big"><small class="eyebrow">Dein Befehl</small>
+            <code translate="no" id="pay-cmd">${esc(s.payCommand)}</code>
+            <button class="btn btn-ja btn-block" type="button" id="pay-copy" data-cmd="${esc(s.payCommand.replace(' <Betrag>', ' '))}">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 9h10v12H9zM5 15V3h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Befehl kopieren</button></div>
+          <ol class="pay-steps"><li><span>1</span>Betrag wählen</li><li><span>2</span>Kopieren</li><li><span>3</span>Im Minecraft-Chat einfügen</li></ol>
+          <p class="muted" style="font-size:13px;margin-top:10px">Nach ein paar Sekunden ist das Geld auf deinem Konto, der Bot flüstert dir eine Bestätigung.</p>
         </section>` : ''}
       </div>
       <div class="stack">
@@ -555,13 +561,33 @@ async function viewWallet() {
     toast('Kopiert. Füg es im Minecraft-Chat ein.');
   });
   // Betrag antippen → fertiger Befehl, direkt kopiert
-  app.querySelectorAll('[data-pay]').forEach((b) => b.onclick = async () => {
-    const cmd = s.payCommand.replace('<Betrag>', b.dataset.pay);
+  const copyBtn = document.getElementById('pay-copy');
+  const setPay = (value) => {
+    const cmd = s.payCommand.replace('<Betrag>', String(Math.round(value)));
     document.getElementById('pay-cmd').textContent = cmd;
-    document.getElementById('pay-copy').dataset.copy = cmd;
+    copyBtn.dataset.cmd = cmd;
+    return cmd;
+  };
+  const copyCmd = async (cmd) => {
+    try {
+      await navigator.clipboard.writeText(cmd);
+      copyBtn.classList.add('copied');
+      copyBtn.lastChild.textContent = 'Kopiert ✓';
+      setTimeout(() => { copyBtn.classList.remove('copied'); copyBtn.lastChild.textContent = 'Befehl kopieren'; }, 1800);
+      toast(`Kopiert: ${cmd} – im Minecraft-Chat einfügen.`);
+    } catch { /* Kopieren nicht erlaubt */ }
+  };
+  app.querySelectorAll('[data-pay]').forEach((b) => b.onclick = () => {
     app.querySelectorAll('[data-pay]').forEach((x) => x.classList.toggle('on', x === b));
-    try { await navigator.clipboard.writeText(cmd); toast(`Kopiert: ${cmd} – im Minecraft-Chat einfügen.`); } catch { /* Kopieren nicht erlaubt */ }
+    document.getElementById('pay-custom').value = '';
+    copyCmd(setPay(Number(b.dataset.pay)));
   });
+  document.getElementById('pay-custom')?.addEventListener('input', (e) => {
+    const v = parseAmount(e.target.value);
+    app.querySelectorAll('[data-pay]').forEach((x) => x.classList.remove('on'));
+    if (Number.isFinite(v) && v > 0) setPay(v);
+  });
+  copyBtn?.addEventListener('click', () => copyCmd(copyBtn.dataset.cmd));
   document.getElementById('logout-wallet')?.addEventListener('click', () => document.getElementById('logout')?.click());
   document.getElementById('wd-all')?.addEventListener('click', () => { document.getElementById('wd').value = Math.floor(me.balance); });
   document.getElementById('wd-form')?.addEventListener('submit', async (e) => {

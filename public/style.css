@@ -339,6 +339,24 @@ input.input::-webkit-date-and-time-value { text-align: left; }
 .discord-avatar { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: #5865f2; color: #fff; font-weight: 800; font-size: 18px; flex-shrink: 0; }
 @media (max-width: 720px) { .me-grid { grid-template-columns: minmax(0, 1fr); } }
 
+/* ---------- Wallet: Einzahlen ---------- */
+.deposit { background: linear-gradient(165deg, rgba(51, 194, 109, 0.12), var(--panel) 45%); }
+.eyebrow.ja { color: var(--yes-ink); }
+.pay-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 16px 0 10px; }
+.pay-tile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--input); color: var(--text); cursor: pointer; transition: transform 140ms var(--ease), border-color 140ms ease, background-color 140ms ease; }
+.pay-tile b { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+.pay-tile small { font-size: 11px; color: var(--muted); }
+.pay-tile:active { transform: scale(0.96); }
+.pay-tile.on { border-color: var(--yes); background: var(--yes-wash); }
+.pay-tile.on b { color: var(--yes-ink); }
+.pay-custom { margin-bottom: 12px; }
+.cmd-big { padding: 14px; border-radius: 12px; background: #0d141b; border: 1px dashed var(--line); }
+.cmd-big code { display: block; margin: 4px 0 12px; font-family: ui-monospace, Consolas, monospace; font-size: 17px; color: var(--text); overflow-wrap: anywhere; }
+.cmd-big .btn.copied { background: var(--yes); color: #04170c; }
+.pay-steps { list-style: none; display: flex; justify-content: space-between; gap: 6px; margin: 14px 0 0; padding: 0; font-size: 12px; color: var(--muted); }
+.pay-steps li { display: flex; align-items: center; gap: 6px; }
+.pay-steps span { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--panel-hi); color: var(--text); font-weight: 700; font-size: 11px; flex-shrink: 0; }
+
 /* ---------- Admin ---------- */
 .admin-tabs { margin-bottom: 16px; flex-wrap: wrap; }
 .badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; margin-left: 4px; border-radius: 10px; background: var(--no); color: #fff; font-size: 12px; font-weight: 700; }
