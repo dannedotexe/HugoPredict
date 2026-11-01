@@ -545,7 +545,7 @@ async function viewWallet() {
                 `<button class="pay-pill" type="button" data-wd="${v}"${v > me.balance ? ' disabled' : ''}>${v / 1e3}k</button>`).join('')}
                 <button class="pay-pill" type="button" id="wd-all"${me.balance < s.minWithdraw ? ' disabled' : ''}>Alles</button>
                 <input class="pay-custom" id="wd" name="amount" autocomplete="off" autocapitalize="off" placeholder="Anderer Betrag, mind. ${s.minWithdraw}" aria-label="Betrag"></div>
-              <button class="btn btn-gold btn-block" style="margin-top:10px">Auszahlung anfordern</button>
+              <button class="btn btn-gold btn-block" style="margin-top:10px">Auszahlen</button>
             </form>
             <p class="muted" style="font-size:12px;margin-top:10px">Der Bot zahlt an <b style="color:var(--text)">${esc(me.mcName)}</b> aus${s.payoutsNeedApproval ? ', sobald das Team die Auszahlung freigegeben hat' : s.botOnline ? ', meist innerhalb weniger Sekunden' : ', sobald er wieder online ist'}.</p>`
           : '<p class="muted">Verknüpfe zuerst deinen Minecraft-Account.</p>'}
@@ -601,17 +601,17 @@ async function viewWallet() {
     e.preventDefault();
     const btn = e.target.querySelector('.btn-gold');
     btn.disabled = true;
-    btn.textContent = 'Wird angefordert…';
+    btn.textContent = 'Wird ausgezahlt…';
     try {
       const amount = parseAmount(document.getElementById('wd').value);
       if (!Number.isFinite(amount)) throw new Error('Ungültiger Betrag. Beispiele: 250, 15k, 1,5m');
       await api('/withdrawals', { amount });
-      toast('Auszahlung angefordert');
+      toast('Auszahlung läuft – der Bot zahlt dir gleich aus');
       viewWallet();
     } catch (err) {
       toast(err.message, true);
       btn.disabled = false;
-      btn.textContent = 'Auszahlung anfordern';
+      btn.textContent = 'Auszahlen';
       document.getElementById('wd').focus();
     }
   });
