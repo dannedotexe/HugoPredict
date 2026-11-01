@@ -175,11 +175,11 @@ async function announceVerification(guild, member, minecraftName, deps) {
   await channel.send({ ...payload, allowedMentions: { parse: [] } }).catch((err) => deps.logger.warn('Verifizierungs-Karte:', err.message));
 }
 
-/** Vergibt Mitglied + Verifiziert und setzt den Minecraft-Namen. Ergebnis: { ok, nickNote }. */
+/** Vergibt Verifiziert (und ggf. Mitglied) und setzt den Minecraft-Namen. Ergebnis: { ok, nickNote }. */
 async function applyVerified(guild, member, minecraftName, deps) {
   const userId = member.id ?? member.user?.id;
-  // Mitglied, Verifiziert und standardmäßig alle Pings (abwählbar in #pings).
-  const roleIds = ['member', 'verified', ...DEFAULT_PINGS].map((k) => deps.ctx.roleId(guild.id, k)).filter(Boolean);
+  // Verifiziert (+ Mitglied, falls es beim Beitritt nicht geklappt hat). Pings gibt es schon beim Beitritt.
+  const roleIds = ['member', 'verified'].map((k) => deps.ctx.roleId(guild.id, k)).filter(Boolean);
   const toAdd = roleIds.filter((id) => !member.roles.cache.has(id));
   try {
     if (toAdd.length) await member.roles.add(toAdd, 'Konto verknüpft');

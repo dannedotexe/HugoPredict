@@ -75,7 +75,7 @@ test('Benachrichtigungs-Karte zieht nach #pings um; alte Nachricht wird entfernt
   assert.ok(channels.get('pings').msgs.has(g.panels.notify.messageId));
 });
 
-test('Kontoverknüpfung vergibt Mitglied, Verifiziert und alle Pings und setzt den Minecraft-Namen', async () => {
+test('Kontoverknüpfung vergibt Mitglied und Verifiziert (Pings gibt es beim Beitritt) und setzt den Minecraft-Namen', async () => {
   const { checkVerification } = require('../src/interactions/verification');
   const added = [];
   const interaction = {
@@ -90,7 +90,7 @@ test('Kontoverknüpfung vergibt Mitglied, Verifiziert und alle Pings und setzt d
     ctx: { roleId: (g, k) => ids[k], audit: async () => {}, hasRoleKey: () => false }, logger: console,
   };
   await checkVerification(interaction, deps);
-  assert.deepEqual(added.sort(), ['M', 'N1', 'N2', 'V']);
+  assert.deepEqual(added.sort(), ['M', 'V']);
   assert.equal(interaction.member.nickname, 'Steve', 'Server-Name = Minecraft-Name');
 });
 
@@ -380,7 +380,7 @@ test('Bewerbungen: nur nach Regeln, eine offene pro Person, Annahme vergibt die 
   const pos = APPLICATION_POSITIONS.find((p) => p.key === 'support');
   const roles = new Set();
   const member = { id: '5', joinedAt: new Date('2026-10-01'), roles: { add: async (id) => roles.add(id) } };
-  const has = { member: false };
+  const has = { verified: false };
   const sent = [];
   const review = { id: 'APPS', isTextBased: () => true, send: async (p) => { sent.push(p); return { id: 'm1', edit: async (e) => { sent.push(e); return { id: 'm1' }; } }; }, messages: { fetch: async () => ({ id: 'm1', edit: async (e) => { sent.push(e); return { id: 'm1' }; } }) } };
   const audits = [];
@@ -393,7 +393,7 @@ test('Bewerbungen: nur nach Regeln, eine offene pro Person, Annahme vergibt die 
     },
   };
   assert.match(apps.blockReason(member, pos, g, deps)[0], /verifizieren/);
-  has.member = true;
+  has.verified = true;
   assert.equal(apps.blockReason(member, pos, g, deps), null);
 
   const replies = [];
@@ -607,4 +607,23 @@ test('Mitgliederliste: einmal holen für alle Dienste, bei Drosselung warten und
   await allMembers(guild);
   assert.equal(calls, 2, 'innerhalb einer Minute aus dem Zwischenspeicher');
   _reset();
+});
+
+test('Beitritt: „| Mitglied“ und Pings sofort, Verifiziert nicht; keine Bots', async () => {
+  const { createMemberRoleService } = require('../src/services/memberRole');
+  const ids = { member: 'M', verified: 'V', notifyMarkets: 'N1', notifyNews: 'N2' };
+  const svc = createMemberRoleService({ ctx: { roleId: (g, k) => ids[k] ?? null }, logger: console });
+  const member = (bot, has = []) => {
+    const roles = new Set(has);
+    return { user: { bot, username: 'x' }, guild: { id: 'G' }, roles: { cache: { has: (r) => roles.has(r) }, add: async (r) => [].concat(r).forEach((x) => roles.add(x)) }, _roles: roles };
+  };
+  const steve = member(false);
+  assert.equal(await svc.onMemberAdd(steve), true);
+  assert.deepEqual([...steve._roles].sort(), ['M', 'N1', 'N2']);
+  assert.equal(await svc.onMemberAdd(steve), false, 'nicht doppelt');
+  assert.equal(await svc.onMemberAdd(member(true)), false, 'keine Bots');
+  // Wer Mitglied schon hat (und Pings abgewählt), bekommt keine Pings zurück
+  const old = member(false, ['M']);
+  assert.equal(await svc.onMemberAdd(old), false);
+  assert.deepEqual([...old._roles], ['M']);
 });

@@ -43,7 +43,7 @@ function panelDefinitions() {
               heading: 'Los geht’s',
               icon: 'check',
               body: [
-                `1. Konto in ${ref('verify', '#verifizieren')} verknüpfen – damit bist du dabei`,
+                `1. Konto in ${ref('verify', '#verifizieren')} verknüpfen – damit bist du verifiziert`,
                 `2. In ${ref('pings', '#pings')} auswählen, worüber du informiert wirst`,
                 `3. Prognosen in ${ref('marketOverview', '#prognosen')} ansehen oder selbst eine vorschlagen`,
                 `Fragen? Wir helfen dir in ${ref('support', '#support')}.`,
@@ -76,7 +76,7 @@ function panelDefinitions() {
           {
             heading: 'Was du davon hast',
             icon: 'check',
-            body: `Die Rolle Verifiziert, dein Minecraft-Name als Server-Name und Kontoabfragen wie \`/balance\` – und Zugang zur ganzen Community.${channelIds.docs ? ` Es gelten die Regeln in <#${channelIds.docs}>.` : ''}`,
+            body: `Die Rolle Verifiziert, dein Minecraft-Name als Server-Name und Kontoabfragen wie \`/balance\`.${channelIds.docs ? ` Es gelten die Regeln in <#${channelIds.docs}>.` : ''}`,
           },
           { heading: 'Sicherheit', icon: 'lock', body: 'Schick nur einen Befehl ab, den du selbst hier bekommen hast – niemals einen, den dir jemand anderes gibt.' },
         ],
@@ -103,7 +103,7 @@ function panelDefinitions() {
           title: 'Regeln & Infos',
           intro: `Alles Wichtige zu **${theme.brand}** auf einen Blick.\nMit dem Beitritt zum Server stimmst du diesen Regeln zu.`,
           blocks,
-          footer: `Zugang zur Community: Konto in ${channelIds.verify ? `<#${channelIds.verify}>` : '#verifizieren'} verknüpfen`,
+          footer: `Rolle Verifiziert: Konto in ${channelIds.verify ? `<#${channelIds.verify}>` : '#verifizieren'} verknüpfen`,
         });
       },
     },

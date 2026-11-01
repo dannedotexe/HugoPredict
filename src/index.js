@@ -30,6 +30,7 @@ const { createIdeasForumService } = require('./services/ideasForum');
 const { createStaffNamesService } = require('./services/staffNames');
 const { createBotRoleService } = require('./services/botRole');
 const { createOgRoleService } = require('./services/ogRole');
+const { createMemberRoleService } = require('./services/memberRole');
 const { resolveIntents, membersIntentAllowed } = require('./lib/intents');
 const { createMinecraftService } = require('./minecraft/service');
 const { createActivityLog, instrument } = require('./services/activityLog');
@@ -200,6 +201,11 @@ function wire({ stats, welcome, membersIntent }) {
   const botRole = createBotRoleService({ ctx, logger });
   deps.services.botRole = botRole;
   if (membersIntent) client.on(Events.GuildMemberAdd, (member) => { if (member.user.bot) botRole.assign(member).catch(() => {}); });
+
+  // Mitglied (+ Pings) direkt beim Beitritt; Verifiziert gibt es über die Verknüpfung
+  const memberRole = createMemberRoleService({ ctx, logger });
+  deps.services.memberRole = memberRole;
+  if (membersIntent) client.on(Events.GuildMemberAdd, (member) => memberRole.onMemberAdd(member).catch(() => {}));
 
   // OG-Rolle für alle, die bis Ende 2026 beitreten
   const ogRole = createOgRoleService({ ctx, logger });
