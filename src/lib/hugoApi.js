@@ -304,10 +304,10 @@ class HugoApi {
   // --- Minecraft-Bot ------------------------------------------------------
 
   /** Verknüpfung, die der Minecraft-Bot per Code im Spiel bestätigt hat. */
-  async linkMinecraftAccount({ discordId, discordUsername, minecraftName, minecraftUuid }) {
+  async linkMinecraftAccount({ discordId, discordUsername, minecraftName, minecraftUuid, discordAvatar = null }) {
     if (!SNOWFLAKE.test(String(discordId))) throw new TypeError('Ungültige Discord-ID.');
     const body = await this.request('POST', '/minecraft/links', {
-      body: { discordId, discordUsername, minecraftName, minecraftUuid },
+      body: { discordId, discordUsername, minecraftName, minecraftUuid, ...(discordAvatar ? { discordAvatar } : {}) },
       idempotencyKey: `mc-link:${discordId}:${minecraftUuid}`,
     });
     if (!isObj(body) || body.linked !== true) throw new ApiError('invalid_response', 'Verknüpfung ohne linked === true.', { body });

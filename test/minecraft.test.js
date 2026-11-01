@@ -449,3 +449,21 @@ test('Kontostand: geht die erste Antwort unter, zweiter Versuch ohne Fehlalarm',
   assert.equal(world.sent.filter((m) => m === '/balance').length, 2);
   assert.ok(!reports.some((r) => /Kontostand nicht erkannt/.test(r.title)));
 });
+
+test('Profilbilder: bei der Verknüpfung mitgeschickt und für alte Verknüpfungen nachgetragen', async (t) => {
+  const { world, api, mc } = setup();
+  t.after(() => mc.stop());
+  mc.setDiscordLinkHandler(async () => {});
+  api.confirmLogin = async () => false;
+  mc.start();
+  await until(() => mc.state.online);
+  const avatar = 'https://cdn.discordapp.com/avatars/111111111111111111/a.png?size=128';
+  const { code } = mc.startDiscordLink('111111111111111111', 'steve_dc', avatar);
+  world.bots[0].emit('messagestr', `[Nachricht] Steve -> Du: ${code}`, 'system');
+  await until(() => api.calls.links.length === 1);
+  assert.equal(api.calls.links[0].discordAvatar, avatar);
+  const changed = await mc.refreshAvatars(async () => 'https://cdn.discordapp.com/avatars/111111111111111111/b.png?size=128');
+  assert.equal(changed, 1);
+  assert.equal(api.calls.links.at(-1).discordAvatar, 'https://cdn.discordapp.com/avatars/111111111111111111/b.png?size=128');
+  assert.equal(await mc.refreshAvatars(async () => 'https://cdn.discordapp.com/avatars/111111111111111111/b.png?size=128'), 0, 'unverändert → nichts senden');
+});

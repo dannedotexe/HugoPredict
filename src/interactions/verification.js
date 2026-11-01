@@ -35,7 +35,8 @@ async function startCodeLink(interaction, deps) {
     return replyPrivate(interaction, { embeds: [embeds.info('Bereits verknüpft', 'Dein Konto ist bereits verknüpft.')] });
   }
   if (!interaction.deferred && !interaction.replied) await interaction.deferReply({ flags: EPHEMERAL });
-  const { code, expiresAt } = deps.minecraft.startDiscordLink(interaction.user.id, interaction.user.username);
+  const avatar = interaction.user.displayAvatarURL?.({ extension: 'png', size: 128 }) ?? null;
+  const { code, expiresAt } = deps.minecraft.startDiscordLink(interaction.user.id, interaction.user.username, avatar);
   const bot = deps.minecraft.info?.().username ?? 'HugoPredict';
   pendingReplies.set(interaction.user.id, { interaction, at: Date.now() });
   const online = deps.minecraft.state?.online !== false;
@@ -262,7 +263,7 @@ async function confirmMinecraftCode(interaction, code, deps) {
   if (res.error) return replyPrivate(interaction, linkError(res.error));
   let synced;
   try {
-    ({ synced } = await deps.minecraft.saveLink({ discordId: interaction.user.id, discordUsername: interaction.user.username, player: res.player }));
+    ({ synced } = await deps.minecraft.saveLink({ discordId: interaction.user.id, discordUsername: interaction.user.username, discordAvatar: interaction.user.displayAvatarURL?.({ extension: 'png', size: 128 }) ?? null, player: res.player }));
   } catch (err) {
     deps.minecraft.forgetLink(interaction.user.id);
     return replyApiError(interaction, err, { ...deps, action: 'Konto verknüpfen' });

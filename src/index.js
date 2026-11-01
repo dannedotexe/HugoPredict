@@ -212,6 +212,9 @@ function wire({ stats, welcome, membersIntent }) {
     // Custom-Emojis zuerst bereitstellen, damit Panels und Embeds sie nutzen können.
     await emojis.sync(c, logger);
     minecraft?.start();
+    // Discord-Profilbilder der Verknüpften an die Website (für „Mein Profil“)
+    minecraft?.refreshAvatars?.(async (id) => (await c.users.fetch(id)).displayAvatarURL({ extension: 'png', size: 128 }))
+      .catch((err) => logger.warn('Profilbilder:', err.message));
     deps.services.supportVoice?.init(c);
 
     const every = (ms, fn, name) => {

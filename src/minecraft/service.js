@@ -595,13 +595,13 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
   let onDiscordLinked = null;
 
   /** Neuer Code für eine Discord-ID (ersetzt einen älteren). Ergebnis: { code, expiresAt }. */
-  function startDiscordLink(discordId, discordUsername) {
+  function startDiscordLink(discordId, discordUsername, discordAvatar = null) {
     for (const [c, e] of discordCodes) if (e.discordId === discordId || Date.now() - e.createdAt > DISCORD_CODE_TTL) discordCodes.delete(c);
     let code;
     do {
       code = Array.from(crypto.randomBytes(5), (b) => DISCORD_ALPHABET[b % DISCORD_ALPHABET.length]).join('');
     } while (discordCodes.has(code));
-    discordCodes.set(code, { discordId, discordUsername, createdAt: Date.now() });
+    discordCodes.set(code, { discordId, discordUsername, discordAvatar, createdAt: Date.now() });
     return { code, expiresAt: new Date(Date.now() + DISCORD_CODE_TTL) };
   }
 
@@ -627,7 +627,7 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
     }
     let synced = false;
     try {
-      ({ synced } = await saveLink({ discordId: entry.discordId, discordUsername: entry.discordUsername, player }));
+      ({ synced } = await saveLink({ discordId: entry.discordId, discordUsername: entry.discordUsername, discordAvatar: entry.discordAvatar, player }));
     } catch (err) {
       logger.warn('Verknüpfung an die Website:', err.message);
     }
@@ -644,14 +644,32 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
   const hasPendingCode = (discordId) => codes.pending(discordId);
 
   /** Speichert die Verknüpfung lokal; die Website erhält sie sofort oder später. */
-  async function saveLink({ discordId, discordUsername, player }) {
-    db.links[discordId] = { name: player.username, uuid: player.uuid, discordUsername, linkedAt: new Date().toISOString(), synced: false };
+  async function saveLink({ discordId, discordUsername, discordAvatar = null, player }) {
+    db.links[discordId] = { name: player.username, uuid: player.uuid, discordUsername, avatar: discordAvatar, linkedAt: new Date().toISOString(), synced: false };
     persisted.flush();
     if (!api.configured) return { synced: false };
-    await api.linkMinecraftAccount({ discordId, discordUsername, minecraftName: player.username, minecraftUuid: player.uuid });
+    await api.linkMinecraftAccount({ discordId, discordUsername, discordAvatar, minecraftName: player.username, minecraftUuid: player.uuid });
     db.links[discordId].synced = true;
     persisted.save();
     return { synced: true };
+  }
+
+  /** Profilbilder bestehender Verknüpfungen nachtragen bzw. aktualisieren (z. B. nach dem Start). */
+  async function refreshAvatars(fetchAvatar) {
+    let changed = 0;
+    for (const [discordId, l] of Object.entries(db.links)) {
+      const url = await Promise.resolve(fetchAvatar(discordId)).catch(() => null);
+      if (url && url !== l.avatar) {
+        l.avatar = url;
+        l.synced = false;
+        changed += 1;
+      }
+    }
+    if (changed) {
+      persisted.save();
+      await syncLinks();
+    }
+    return changed;
   }
 
   const forgetLink = (discordId) => {
@@ -664,7 +682,7 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
     for (const [discordId, l] of Object.entries(db.links)) {
       if (l.synced) continue;
       try {
-        await api.linkMinecraftAccount({ discordId, discordUsername: l.discordUsername, minecraftName: l.name, minecraftUuid: l.uuid });
+        await api.linkMinecraftAccount({ discordId, discordUsername: l.discordUsername, discordAvatar: l.avatar ?? null, minecraftName: l.name, minecraftUuid: l.uuid });
         l.synced = true;
         persisted.save();
       } catch (err) {
@@ -820,6 +838,7 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
     stop,
     sendLinkCode,
     startDiscordLink,
+    refreshAvatars,
     setDiscordLinkHandler: (fn) => { onDiscordLinked = fn; },
     confirmLinkCode,
     hasPendingCode,
