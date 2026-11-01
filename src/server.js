@@ -144,7 +144,12 @@ app.post('/api/markets/:id/sell', handle((req) =>
 app.get('/api/me/profile', handle((req) => ({ profile: svc.myProfile(auth(req).id) })));
 app.get('/api/portfolio', handle((req) => svc.portfolio(auth(req).id)));
 app.get('/api/withdrawals', handle((req) => ({ withdrawals: svc.userWithdrawals(auth(req).id) })));
-app.post('/api/withdrawals', handle((req) => svc.requestWithdrawal(auth(req).id, req.body.amount)));
+app.post('/api/withdrawals', handle((req) => {
+  const user = auth(req);
+  // Das Bot-Konto (Testzugang über /panel) kann sich nicht selbst auszahlen
+  if ((user.mc_name || '').toLowerCase() === String(botState.username || '').toLowerCase()) throw new svc.AppError('Das Bot-Konto kann nicht auszahlen – es ist nur zum Testen.', 403);
+  return svc.requestWithdrawal(user.id, req.body.amount);
+}));
 app.post('/api/withdrawals/:id/cancel', handle((req) => svc.cancelWithdrawal(auth(req).id, Number(req.params.id))));
 
 // ---------- Admin ----------

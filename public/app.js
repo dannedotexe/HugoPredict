@@ -512,6 +512,7 @@ async function viewWallet() {
   if (needLogin('In der Wallet zahlst du Ingame-Geld ein und wieder aus.')) return;
   await refreshMe();
   const me = state.me, s = state.status;
+  const isBot = (me.mcName || '').toLowerCase() === String(s.botName || '').toLowerCase();
   const { withdrawals } = me.mcName ? await api('/withdrawals') : { withdrawals: [] };
   const wStatus = { pending: [s.payoutsNeedApproval ? 'Wartet auf Freigabe' : 'Wartet', 'warn'], approved: [s.payoutsNeedApproval ? 'Freigegeben' : 'Wird gleich ausgezahlt', 'warn'], processing: ['Wird ausgezahlt', 'warn'], uncertain: ['Wird vom Team geprüft', 'warn'], done: ['Ausgezahlt', 'live'], failed: ['Fehlgeschlagen, zurückgebucht', 'bad'], cancelled: ['Storniert', ''] };
 
@@ -524,7 +525,8 @@ async function viewWallet() {
           <p class="balance">${money(me.balance)}</p>
           <p class="muted">${me.mcName ? `Verknüpft mit <b style="color:var(--text)">${esc(me.mcName)}</b>` : 'Noch kein Minecraft-Account verknüpft'}</p>
           <button class="btn btn-quiet btn-sm show-sm" type="button" id="logout-wallet" style="margin-top:8px;padding-left:0">Abmelden</button></section>
-        ${me.mcName ? `
+        ${isBot ? `<section class="panel"><h2>Bot-Konto</h2><p class="muted" style="margin-top:4px">Du bist mit dem Konto des Bots angemeldet (Testzugang). Ein- und Auszahlen geht damit nicht – der Bot kann sich nicht selbst bezahlen. Testgeld bucht ein Admin unter <b>Admin → Spieler</b>.</p></section>` : ''}
+        ${me.mcName && !isBot ? `
         <section class="panel deposit"><h2>Einzahlen</h2>
           <p class="muted" style="margin-top:4px;font-size:14px">Betrag wählen, Befehl kopieren und im Spiel einfügen.</p>
           <div class="pay-row" role="group" aria-label="Betrag wählen">${[10e3, 50e3, 100e3, 500e3, 1e6].map((v) =>
@@ -537,7 +539,7 @@ async function viewWallet() {
         </section>` : ''}
       </div>
       <div class="stack">
-        <section class="panel"><h2>Auszahlen</h2>
+        ${isBot ? '' : `<section class="panel"><h2>Auszahlen</h2>
           ${me.mcName ? `
             <p class="muted" style="margin-top:4px;font-size:14px">Betrag wählen, der Bot zahlt ihn dir im Spiel aus.</p>
             <form id="wd-form">
@@ -549,7 +551,7 @@ async function viewWallet() {
             </form>
             <p class="muted" style="font-size:12px;margin-top:10px">Der Bot zahlt an <b style="color:var(--text)">${esc(me.mcName)}</b> aus${s.payoutsNeedApproval ? ', sobald das Team die Auszahlung freigegeben hat' : s.botOnline ? ', meist innerhalb weniger Sekunden' : ', sobald er wieder online ist'}.</p>`
           : '<p class="muted">Verknüpfe zuerst deinen Minecraft-Account.</p>'}
-        </section>
+        </section>`}
         ${withdrawals.length ? `<section class="panel"><h2>Deine Auszahlungen</h2><div class="table-wrap"><table class="table"><tbody>
           ${withdrawals.map((w) => `<tr><td>${money(w.amount)}</td><td><span class="tag ${wStatus[w.status][1]}">${wStatus[w.status][0]}</span></td>
             <td class="muted">${ago(w.created_at)}</td>
