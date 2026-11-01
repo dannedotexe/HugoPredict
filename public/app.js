@@ -726,28 +726,42 @@ async function mountSkinViewer(stage, name) {
   const canvas = document.createElement('canvas');
   canvas.className = 'skin-canvas';
   canvas.setAttribute('aria-label', `3D-Skin von ${name}, zum Drehen wischen`);
+  // Unsichtbar über das Bild legen; erst einblenden, wenn Skin und Kamera fertig sind
+  stage.append(canvas);
+  let viewer;
   try {
     skinViewer?.dispose();
-    skinViewer = new lib.SkinViewer({ canvas, width: stage.clientWidth, height: stage.clientHeight, skin: `https://mc-heads.net/skin/${encodeURIComponent(name)}` });
+    viewer = skinViewer = new lib.SkinViewer({ canvas, width: stage.clientWidth, height: stage.clientHeight });
   } catch {
+    canvas.remove();
     return; // kein WebGL
   }
-  skinViewer.background = null;
-  skinViewer.zoom = 0.85;
-  skinViewer.fov = 40;
-  skinViewer.autoRotate = true;
-  skinViewer.autoRotateSpeed = 0.7;
-  skinViewer.animation = new lib.IdleAnimation();
-  skinViewer.controls.enableZoom = false;
-  skinViewer.controls.enablePan = false;
+  viewer.background = null;
+  viewer.fov = 40;
+  viewer.zoom = 0.85;
+  viewer.autoRotate = true;
+  viewer.autoRotateSpeed = 0.7;
+  viewer.animation = new lib.IdleAnimation();
+  viewer.controls.enableZoom = false;
+  viewer.controls.enablePan = false;
   // Nach dem Loslassen läuft die Drehung sanft aus statt abrupt zu stoppen
-  skinViewer.controls.enableDamping = true;
-  skinViewer.controls.dampingFactor = 0.06;
-  skinViewer.controls.rotateSpeed = 0.9;
+  viewer.controls.enableDamping = true;
+  viewer.controls.dampingFactor = 0.06;
+  viewer.controls.rotateSpeed = 1.15;
   // Beim Anfassen hört die automatische Drehung auf, man dreht selbst (360°)
-  canvas.addEventListener('pointerdown', () => { skinViewer.autoRotate = false; }, { once: true });
-  stage.querySelector('img')?.remove();
-  stage.prepend(canvas);
+  canvas.addEventListener('pointerdown', () => { viewer.autoRotate = false; }, { once: true });
+  try {
+    await viewer.loadSkin(`https://mc-heads.net/skin/${encodeURIComponent(name)}`);
+  } catch {
+    // Skin nicht ladbar: Standard-Figur bleibt, Bild bleibt sichtbar
+    canvas.remove();
+    return;
+  }
+  if (!canvas.isConnected || skinViewer !== viewer) return;
+  // Zwei Bilder abwarten, damit Kamera und Größe sicher stehen – dann sanft überblenden
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  canvas.classList.add('ready');
+  setTimeout(() => stage.querySelector('img')?.remove(), 300);
   document.getElementById('skin-hint')?.classList.remove('hidden');
 }
 
