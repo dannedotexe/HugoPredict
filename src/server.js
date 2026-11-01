@@ -5,6 +5,7 @@ import express from 'express';
 import { db } from './db.js';
 import * as svc from './services.js';
 import { RULES } from './rules.js';
+import { seen } from './ipBan.js';
 import { botState, startBot } from './bot.js';
 import { botApi } from './botApi.js';
 
@@ -42,6 +43,7 @@ function readToken(req) {
 
 app.use((req, res, next) => {
   req.user = svc.userBySession(readToken(req));
+  if (req.user) seen(req.user.id, req.ip);
   next();
 });
 
@@ -73,6 +75,11 @@ function rateLimit(req) {
   attempts.set(key, entry);
 }
 
+// Gesperrte IPs: kein Bieten, Verkaufen oder Auszahlen (auch nicht mit Zweitaccount)
+app.post(['/api/markets/:id/buy', '/api/markets/:id/sell', '/api/withdrawals'], (req, res, next) => {
+  try { svc.checkIpBan(req.ip, req.user); next(); } catch (err) { res.status(err.status || 500).json({ error: err.message }); }
+});
+
 // ---------- Public ----------
 
 app.get('/api/status', handle(() => ({
@@ -87,12 +94,15 @@ app.get('/api/status', handle(() => ({
 
 app.post('/api/login/start', handle((req) => {
   rateLimit(req);
+  svc.checkIpBan(req.ip);
   return svc.startLogin();
 }));
 
 app.post('/api/login/poll', handle((req, res) => {
+  svc.checkIpBan(req.ip);
   const token = svc.pollLogin(req.body.secret);
   if (!token) return { loggedIn: false };
+  seen(svc.userBySession(token)?.id, req.ip);
   res.setHeader('Set-Cookie', `${COOKIE}=${token}; ${cookieFlags}`);
   return { loggedIn: true };
 }));

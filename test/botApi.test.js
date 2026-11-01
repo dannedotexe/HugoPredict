@@ -201,7 +201,7 @@ test('Discord-Befehle: Guthaben, Portfolio, Verlauf und Rangliste über die Verk
   assert.equal((await post(`/users/discord/${discordId}/ban`, { banned: true })).status, 400);
   const ban = await post(`/users/discord/${discordId}/ban`, { banned: true, rule: '3.5' });
   assert.equal(ban.status, 200);
-  assert.deepEqual(ban.body, { banned: true, banRule: '§3.5 Insider-Handel', mcName: 'DiscoMC' });
+  assert.deepEqual(ban.body, { banned: true, banRule: '§3.5 Insider-Handel', ipsBanned: 0, mcName: 'DiscoMC' });
   assert.equal((await post(`/users/discord/${discordId}/ban`, { banned: false })).body.banned, false);
   assert.equal((await post('/users/discord/888888888888888888/ban', { banned: true, rule: '3.4' })).body.code, 'not_linked');
 
@@ -311,6 +311,19 @@ test('Admin: Deckung, Bearbeiten, Vorschau beim Entscheiden, Hervorheben, Sperre
   assert.equal(svc.adminUser(uid).banRule, '§3.4 Manipulation & Zweitaccounts');
   svc.setBanned(uid, false);
   assert.equal(svc.adminUser(uid).banRule, null);
+
+  // IP-Sperre: gesperrtes Konto sperrt seine IPs mit, Zweitaccount von dort kommt nicht rein
+  const ip = await import('../src/ipBan.js');
+  const alt = Number(db.prepare("INSERT INTO users (username, pass_hash, salt, mc_name, created_at) VALUES ('AltIp', 'x', 'x', 'AltIpMC', 0)").run().lastInsertRowid);
+  ip.seen(uid, '203.0.113.7');
+  ip.seen(alt, '::ffff:203.0.113.7');
+  assert.deepEqual(svc.adminUser(uid).sameIp.map((x) => x.name), ['AltIpMC']);
+  assert.equal(svc.setBanned(alt, true, '3.4').ipsBanned, 1);
+  assert.throws(() => svc.checkIpBan('203.0.113.7'), /Netzwerk ist HugoPredict gesperrt \(Verstoß gegen §3\.4/);
+  svc.checkIpBan('203.0.113.7', { isAdmin: true });
+  svc.checkIpBan('198.51.100.1');
+  svc.setBanned(alt, false);
+  svc.checkIpBan('203.0.113.7');
   svc.buy(uid, id, m.outcomes[1].id, 10);
   assert.ok(svc.adminUser(uid).ledger.length >= 2);
 });

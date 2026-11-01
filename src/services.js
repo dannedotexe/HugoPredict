@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { db, tx } from './db.js';
 import * as lmsr from './lmsr.js';
 import { rule } from './rules.js';
+import { banUserIps, unbanUserIps, sharedIpUsers, ipBanRule } from './ipBan.js';
 
 export const FEE = Number(process.env.FEE_PERCENT ?? 1) / 100;
 export const MIN_WITHDRAW = Number(process.env.MIN_WITHDRAW ?? 10);
@@ -399,6 +400,13 @@ export function createMarket({ title, description = '', category, emoji, closesA
 
 /** „Verstoß gegen §3.4 Manipulation & Zweitaccounts“ oder null */
 const banLabel = (u) => (u?.banned && u.ban_rule ? rule(u.ban_rule)?.label ?? `§${u.ban_rule}` : null);
+
+/** IP gesperrt → Meldung mit Paragraf (Admins sind ausgenommen). */
+export function checkIpBan(ip, user = null) {
+  if (user?.isAdmin) return;
+  const r = ipBanRule(ip);
+  if (r !== null) throw new AppError(`Von diesem Netzwerk ist HugoPredict gesperrt${r ? ` (Verstoß gegen ${rule(r)?.label ?? `§${r}`})` : ''}. Melde dich beim Support.`, 403);
+}
 
 function notBanned(userId) {
   const u = db.prepare('SELECT banned, ban_rule FROM users WHERE id = ?').get(userId);
@@ -822,7 +830,7 @@ export function adminUser(userId) {
   const u = db.prepare('SELECT id, username, mc_name, balance, banned, ban_rule, created_at FROM users WHERE id = ?').get(userId);
   if (!u) throw new AppError('Spieler nicht gefunden', 404);
   const ledger = db.prepare('SELECT type, amount, ref, created_at FROM ledger WHERE user_id = ? ORDER BY id DESC LIMIT 30').all(userId);
-  return { id: u.id, username: u.username, mcName: u.mc_name, balance: r2(u.balance), banned: !!u.banned, banRule: banLabel(u), createdAt: u.created_at, ledger };
+  return { id: u.id, username: u.username, mcName: u.mc_name, balance: r2(u.balance), banned: !!u.banned, banRule: banLabel(u), createdAt: u.created_at, sameIp: sharedIpUsers(u.id), ledger };
 }
 
 /** Sperren nur mit Paragraf (die Person sieht, gegen welche Regel sie verstoßen hat). */
@@ -830,7 +838,10 @@ export function setBanned(userId, banned, ruleId = null) {
   if (banned && !rule(ruleId)) throw new AppError('Bitte wähle den Paragrafen, gegen den verstoßen wurde.');
   const r = db.prepare('UPDATE users SET banned = ?, ban_rule = ? WHERE id = ?').run(banned ? 1 : 0, banned ? String(ruleId) : null, userId);
   if (!r.changes) throw new AppError('Spieler nicht gefunden', 404);
-  return { banned: !!banned, banRule: banned ? rule(ruleId).label : null };
+  // IPs des Kontos mitsperren (nie IPs, die ein Admin nutzt)
+  const adminIds = db.prepare(`SELECT id FROM users WHERE lower(mc_name) IN (${ADMIN_MC.map(() => '?').join(',')})`).all(...ADMIN_MC).map((x) => x.id);
+  const ips = banned ? banUserIps(userId, String(ruleId), adminIds) : (unbanUserIps(userId), 0);
+  return { banned: !!banned, banRule: banned ? rule(ruleId).label : null, ipsBanned: ips };
 }
 
 /** Bekannte Ausgänge einer Kategorie (z. B. Clan-Namen) für Vorschläge beim Anlegen. */

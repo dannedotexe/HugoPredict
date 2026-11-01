@@ -1121,6 +1121,8 @@ async function adminPlayersTab(body, { run }) {
       <div class="admin-actions" style="margin:10px 0">
         <a class="btn btn-sm" href="${playerLink(u.mcName || u.username)}">Profil</a>
         <button class="btn btn-sm ${u.banned ? 'btn-ja' : 'btn-nein'}" type="button" data-ban="${u.id}" data-to="${u.banned ? 0 : 1}">${u.banned ? 'Entsperren' : 'Sperren'}</button></div>
+      ${u.banned && u.banRule ? `<p class="muted" style="margin:0 0 8px">Gesperrt wegen ${esc(u.banRule)}</p>` : ''}
+      ${u.sameIp?.length ? `<p class="muted" style="margin:0 0 10px">Gleiche IP wie: ${u.sameIp.map((x) => `<b>${esc(x.name)}</b>${x.banned ? ' (gesperrt)' : ''}`).join(', ')}</p>` : ''}
       <div class="feed">${u.ledger.length ? u.ledger.map((l) => `<div class="feed-row"><span><b>${LEDGER[l.type] || esc(l.type)}</b>${l.type === 'admin' && l.ref ? ` <span class="muted">· ${esc(l.ref)}</span>` : ''}</span>
         <span class="when ${l.amount >= 0 ? 'ja' : 'nein'}">${l.amount >= 0 ? '+' : ''}${money(l.amount)} · ${ago(l.created_at)}</span></div>`).join('') : '<p class="muted">Noch keine Buchungen.</p>'}</div>`;
     box.classList.remove('hidden');
@@ -1138,7 +1140,7 @@ async function adminPlayersTab(body, { run }) {
       const { rules } = await api('/rules');
       const pick = await confirmDialog({
         title: `${esc(u.mcName || u.username)} sperren?`,
-        body: `<p>Die Person kann dann nicht mehr bieten, verkaufen oder auszahlen und sieht, gegen welchen Paragrafen sie verstoßen hat.</p>
+        body: `<p>Die Person kann dann nicht mehr bieten, verkaufen oder auszahlen und sieht, gegen welchen Paragrafen sie verstoßen hat. Ihre IP-Adressen werden mitgesperrt – auch Zweitaccounts kommen von dort nicht mehr rein.</p>
           <label class="field"><small class="eyebrow">Verstoß gegen</small><select class="input" name="rule">${rules.map((r) => `<option value="${esc(r.id)}"${r.id === '3.4' ? ' selected' : ''}>${esc(r.label)}</option>`).join('')}</select></label>`,
         ok: 'Sperren', danger: true,
       });
