@@ -213,12 +213,18 @@ function wire({ stats, welcome, membersIntent }) {
   // Mitglied (+ Pings) direkt beim Beitritt; Verifiziert gibt es über die Verknüpfung
   const memberRole = createMemberRoleService({ ctx, logger });
   deps.services.memberRole = memberRole;
-  if (membersIntent) client.on(Events.GuildMemberAdd, (member) => memberRole.onMemberAdd(member).catch(() => {}));
 
   // OG-Rolle für alle, die bis Ende 2026 beitreten
   const ogRole = createOgRoleService({ ctx, logger });
   deps.services.ogRole = ogRole;
-  if (membersIntent) client.on(Events.GuildMemberAdd, (member) => ogRole.onMemberAdd(member).catch(() => {}));
+  // Nacheinander, nicht gleichzeitig: Discord würde sonst die Rollenliste der einen
+  // Vergabe mit der anderen überschreiben (die OG-Rolle ging so verloren).
+  if (membersIntent) {
+    client.on(Events.GuildMemberAdd, async (member) => {
+      await memberRole.onMemberAdd(member).catch((err) => logger.warn('Mitglied-Rolle:', err.message));
+      await ogRole.onMemberAdd(member).catch((err) => logger.warn('OG-Rolle:', err.message));
+    });
+  }
 
   // Begrüßung neuer Mitglieder per Direktnachricht (nur mit „Server Members Intent“)
   if (membersIntent) client.on(Events.GuildMemberAdd, (member) => welcome.onMemberAdd(member).catch((err) => logger.warn('Begrüßung:', err.message)));
