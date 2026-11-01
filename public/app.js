@@ -772,9 +772,9 @@ async function mountSkinViewer(stage, name) {
   viewer.controls.enableDamping = true;
   viewer.controls.dampingFactor = 0.045; // kleiner = weicher, längeres Ausgleiten
   viewer.controls.rotateSpeed = 1.25;
-  // Nur leicht nach oben/unten kippen, rundherum frei (360°) – wirkt ruhiger
-  viewer.controls.minPolarAngle = Math.PI * 0.3;
-  viewer.controls.maxPolarAngle = Math.PI * 0.65;
+  // In alle Richtungen frei drehbar: rundherum (360°) und ganz nach oben/unten
+  viewer.controls.minPolarAngle = 0.001;
+  viewer.controls.maxPolarAngle = Math.PI - 0.001;
   // Anfassen stoppt die automatische Drehung; ein paar Sekunden nach dem Loslassen dreht er sanft weiter
   let resume;
   canvas.addEventListener('pointerdown', () => { viewer.autoRotate = false; clearTimeout(resume); });
