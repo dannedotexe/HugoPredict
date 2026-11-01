@@ -517,3 +517,9 @@ html { overscroll-behavior-y: none; }
   .gauge-fill { transition: none; }
   .btn:active, .pick button:active, .quick button:active, .filters button:active { transform: none; }
 }
+
+/* 3D-Skin: erst Ladeschimmer, dann die Figur; das flache Bild nur, wenn 3D nicht geht */
+.skin-stage .skin-fallback { display: none; }
+.skin-stage.static .skin-fallback { display: block; }
+.skin-stage.static .skin-loading { display: none; }
+.skin-loading { width: 70px; height: 170px; border-radius: 12px; background: rgba(255, 255, 255, 0.06); animation: pulse 1.4s ease-in-out infinite; }

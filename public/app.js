@@ -660,7 +660,7 @@ async function viewMe() {
     <div class="page-title"><div><h1>Mein Profil</h1><p>Dein Konto, deine Verknüpfungen und deine Statistik auf einen Blick</p></div></div>
     <div class="me-grid">
       <section class="panel me-skin">
-        <div class="skin-stage" id="skin-stage"><img src="https://mc-heads.net/body/${encodeURIComponent(name)}/right" alt="Skin von ${esc(name)}" loading="lazy">
+        <div class="skin-stage" id="skin-stage"><img class="skin-fallback" src="https://mc-heads.net/body/${encodeURIComponent(name)}/right" alt="Skin von ${esc(name)}" loading="lazy"><span class="skin-loading" aria-hidden="true"></span>
           <span class="skin-hint hidden" id="skin-hint">Zum Drehen wischen</span></div>
         <h2 class="me-name">${esc(name)}</h2>
         ${p.uuid ? `<div class="kv"><small class="eyebrow">UUID</small><code>${esc(p.uuid)}</code></div>` : ''}
@@ -720,8 +720,10 @@ window.addEventListener('hashchange', () => { skinViewer?.dispose(); skinViewer 
 
 async function mountSkinViewer(stage, name) {
   if (!stage) return;
+  // Bild nur zeigen, wenn 3D nicht geht – sonst sähe man kurz zwei verschiedene Ansichten
+  const fallback = () => stage.classList.add('static');
   let lib;
-  try { lib = await loadSkinLib(); } catch { return; } // ohne 3D bleibt das Bild
+  try { lib = await loadSkinLib(); } catch { fallback(); return; }
   if (!stage.isConnected) return;
   const canvas = document.createElement('canvas');
   canvas.className = 'skin-canvas';
@@ -734,7 +736,8 @@ async function mountSkinViewer(stage, name) {
     viewer = skinViewer = new lib.SkinViewer({ canvas, width: stage.clientWidth, height: stage.clientHeight });
   } catch {
     canvas.remove();
-    return; // kein WebGL
+    fallback(); // kein WebGL
+    return;
   }
   viewer.background = null;
   viewer.fov = 40;
@@ -758,15 +761,15 @@ async function mountSkinViewer(stage, name) {
   try {
     await viewer.loadSkin(`https://mc-heads.net/skin/${encodeURIComponent(name)}`);
   } catch {
-    // Skin nicht ladbar: Standard-Figur bleibt, Bild bleibt sichtbar
     canvas.remove();
+    fallback(); // Skin nicht ladbar
     return;
   }
   if (!canvas.isConnected || skinViewer !== viewer) return;
   // Zwei Bilder abwarten, damit Kamera und Größe sicher stehen – dann sanft überblenden
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   canvas.classList.add('ready');
-  setTimeout(() => stage.querySelector('img')?.remove(), 300);
+  stage.querySelector('.skin-loading')?.remove();
   document.getElementById('skin-hint')?.classList.remove('hidden');
 }
 
@@ -780,7 +783,7 @@ async function viewPlayer(rawName) {
   app.innerHTML = `
     <a href="#/leaderboard" class="back">Rangliste</a>
     <section class="panel profile-top">
-      <div class="skin-stage" id="skin-stage"><img src="https://mc-heads.net/body/${encodeURIComponent(name)}/right" alt="Skin von ${esc(name)}" loading="lazy">
+      <div class="skin-stage" id="skin-stage"><img class="skin-fallback" src="https://mc-heads.net/body/${encodeURIComponent(name)}/right" alt="Skin von ${esc(name)}" loading="lazy"><span class="skin-loading" aria-hidden="true"></span>
         <span class="skin-hint hidden" id="skin-hint">Zum Drehen wischen</span></div>
       <div><h1>${esc(name)}</h1><p class="muted">${p.rank ? `Platz <b style="color:var(--text)">${p.rank}</b> · ` : ''}dabei seit ${date(p.since)}</p></div>
     </section>
