@@ -746,10 +746,15 @@ async function mountSkinViewer(stage, name) {
   viewer.controls.enablePan = false;
   // Nach dem Loslassen läuft die Drehung sanft aus statt abrupt zu stoppen
   viewer.controls.enableDamping = true;
-  viewer.controls.dampingFactor = 0.06;
-  viewer.controls.rotateSpeed = 1.15;
-  // Beim Anfassen hört die automatische Drehung auf, man dreht selbst (360°)
-  canvas.addEventListener('pointerdown', () => { viewer.autoRotate = false; }, { once: true });
+  viewer.controls.dampingFactor = 0.045; // kleiner = weicher, längeres Ausgleiten
+  viewer.controls.rotateSpeed = 1.25;
+  // Nur leicht nach oben/unten kippen, rundherum frei (360°) – wirkt ruhiger
+  viewer.controls.minPolarAngle = Math.PI * 0.3;
+  viewer.controls.maxPolarAngle = Math.PI * 0.65;
+  // Anfassen stoppt die automatische Drehung; ein paar Sekunden nach dem Loslassen dreht er sanft weiter
+  let resume;
+  canvas.addEventListener('pointerdown', () => { viewer.autoRotate = false; clearTimeout(resume); });
+  canvas.addEventListener('pointerup', () => { clearTimeout(resume); resume = setTimeout(() => { viewer.autoRotateSpeed = 0.5; viewer.autoRotate = true; }, 5000); });
   try {
     await viewer.loadSkin(`https://mc-heads.net/skin/${encodeURIComponent(name)}`);
   } catch {
