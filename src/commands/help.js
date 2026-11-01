@@ -9,7 +9,7 @@ module.exports = {
   async execute(interaction, { ctx }) {
     const can = (p) => interaction.member && ctx.can(interaction.member, p);
     const blocks = [
-      { heading: 'Konto', icon: 'balance', body: '`/verify` Konto verknüpfen\n`/balance` Guthaben\n`/portfolio` Offene Positionen\n`/history` Transaktionen\n`/daily` Täglicher Bonus' },
+      { heading: 'Konto', icon: 'balance', body: 'Konto verknüpfen: in #verifizieren\n`/balance` Guthaben\n`/portfolio` Offene Positionen\n`/history` Transaktionen\n`/daily` Täglicher Bonus' },
       { heading: 'Prognosen', icon: 'open', body: '`/prognosen` Prognosen anzeigen\n`/leaderboard` Ranglisten\n`/vorschlag` Prognose vorschlagen' },
       { heading: 'Hilfe', icon: 'support', body: 'Anfragen an den Support stellst du in #support.\n`/ping` Systemstatus' },
     ];

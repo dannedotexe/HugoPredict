@@ -7,7 +7,6 @@ const { ApiError, userMessage } = require('../lib/hugoApi');
 const { parseAmount, commandAmount, formatAmount } = require('./amount');
 const { buildPatterns, matchFirst, LOOKS_LIKE_PAYMENT } = require('./patterns');
 const { reconcile, payoutMatches } = require('./ledger');
-const { LinkCodes } = require('./linkCodes');
 
 /*
  * Minecraft-Bot auf HugoSMP (Mineflayer).
@@ -60,7 +59,6 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
   db.settings ??= {};
   const config = { ...baseConfig, ...pickSettings(db.settings) };
   const patterns = buildPatterns(config);
-  const codes = new LinkCodes();
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   const state = { online: false, since: null, lastError: null, connecting: false };
@@ -656,23 +654,6 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
 
   // --- Kontoverknüpfung ---------------------------------------------------
 
-  /** Schickt den Code im Spiel. Ergebnis: { player } oder { error, retryAfterMs }. */
-  async function sendLinkCode(discordId, name) {
-    if (!state.online) return { error: 'offline_bot' };
-    const player = findPlayer(name);
-    if (!player) return { error: 'not_online' };
-    const taken = Object.entries(db.links).find(([id, l]) => id !== discordId && l.uuid === player.uuid);
-    if (taken) return { error: 'taken' };
-    const res = codes.create(discordId, player);
-    if (res.retryAfterMs) return { error: 'cooldown', retryAfterMs: res.retryAfterMs };
-    try {
-      await command(fill(config.whisperCommand, { name: player.username, text: `Dein HugoPredict-Code: ${res.code} - gib ihn in Discord ein. Niemals weitergeben!` }));
-    } catch {
-      return { error: 'offline_bot' };
-    }
-    return { player };
-  }
-
   // --- Verknüpfung per /msg: Discord zeigt einen Code, der Spieler flüstert ihn dem Bot ---
   const DISCORD_CODE_TTL = 30 * 60_000; // 30 Minuten: Zeit genug, um ins Spiel zu wechseln
   const DISCORD_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -729,8 +710,6 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
     return true;
   }
 
-  const confirmLinkCode = (discordId, code) => codes.verify(discordId, code);
-  const hasPendingCode = (discordId) => codes.pending(discordId);
 
   /** Speichert die Verknüpfung lokal; die Website erhält sie sofort oder später. */
   async function saveLink({ discordId, discordUsername, discordAvatar = null, player }) {
@@ -919,12 +898,9 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
     reconnect,
     start,
     stop,
-    sendLinkCode,
     startDiscordLink,
     refreshAvatars,
     setDiscordLinkHandler: (fn) => { onDiscordLinked = fn; },
-    confirmLinkCode,
-    hasPendingCode,
     saveLink,
     forgetLink,
     links: () => db.links,

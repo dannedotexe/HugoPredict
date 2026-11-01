@@ -4,7 +4,7 @@ const { allMembers } = require('../lib/members');
 
 /*
  * Rolle „| Mitglied“ (+ standardmäßig alle Pings) direkt beim Beitritt.
- * „| Verifiziert“ gibt es weiterhin nur über die Kontoverknüpfung.
+ * „| DC-Verifiziert“ gibt es weiterhin nur über die Kontoverknüpfung.
  * Bestehende Mitglieder ohne die Rolle bekommen sie bei /aktualisieren.
  */
 

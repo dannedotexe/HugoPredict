@@ -76,7 +76,7 @@ test('Benachrichtigungs-Karte zieht nach #pings um; alte Nachricht wird entfernt
 });
 
 test('Kontoverknüpfung vergibt Mitglied und Verifiziert (Pings gibt es beim Beitritt) und setzt den Minecraft-Namen', async () => {
-  const { checkVerification } = require('../src/interactions/verification');
+  const { applyVerified } = require('../src/interactions/verification');
   const added = [];
   const interaction = {
     guild: { id: 'G' }, user: { id: '1' },
@@ -86,39 +86,11 @@ test('Kontoverknüpfung vergibt Mitglied und Verifiziert (Pings gibt es beim Bei
   };
   const ids = { member: 'M', verified: 'V', notifyMarkets: 'N1', notifyNews: 'N2' };
   const deps = {
-    api: { getVerificationStatus: async () => ({ verified: true, minecraftName: 'Steve' }) },
     ctx: { roleId: (g, k) => ids[k], audit: async () => {}, hasRoleKey: () => false }, logger: console,
   };
-  await checkVerification(interaction, deps);
+  await applyVerified(interaction.guild, interaction.member, 'Steve', deps);
   assert.deepEqual(added.sort(), ['M', 'V']);
   assert.equal(interaction.member.nickname, 'Steve', 'Server-Name = Minecraft-Name');
-});
-
-test('Minecraft-Code in Discord: falscher Code meldet Versuche, richtiger vergibt Rollen und Namen', async () => {
-  const { confirmMinecraftCode } = require('../src/interactions/verification');
-  const replies = [];
-  const added = [];
-  const makeInteraction = () => {
-    const i = {
-      guild: { id: 'G' }, user: { id: '1', username: 'steve' },
-      member: { nickname: null, roles: { cache: new Collection(), add: async (ids) => added.push(...ids) }, setNickname: async (n) => { i.member.nickname = n; } },
-      replied: false, deferred: false,
-      deferReply: async () => { i.deferred = true; }, editReply: async (p) => replies.push(p), followUp: async (p) => replies.push(p), reply: async (p) => replies.push(p),
-    };
-    return i;
-  };
-  const results = [{ error: 'wrong', attemptsLeft: 4 }, { player: { username: 'Steve', uuid: 'u' } }];
-  const deps = {
-    minecraft: { confirmLinkCode: () => results.shift(), saveLink: async () => ({ synced: false }), forgetLink: () => {} },
-    ctx: { roleId: (g, k) => ({ member: 'M', verified: 'V' })[k], audit: async () => {}, hasRoleKey: () => false }, logger: console,
-  };
-  await confirmMinecraftCode(makeInteraction(), 'XXXXXX', deps);
-  assert.match(JSON.stringify(replies.at(-1)), /Noch 4 Versuch/);
-  const ok = makeInteraction();
-  await confirmMinecraftCode(ok, 'ABCDEF', deps);
-  assert.deepEqual(added.sort(), ['M', 'V']);
-  assert.equal(ok.member.nickname, 'Steve');
-  assert.match(JSON.stringify(replies.at(-1)), /sobald sie verbunden ist/);
 });
 
 test('Warteraum meldet wartende Person einmal mit Supporter-Ping', async () => {
@@ -522,7 +494,7 @@ test('So-gehts-Karte: erklärt Prognosen und verlinkt die Channels', () => {
 });
 
 test('Konto verknüpfen zeigt /msg-Befehl, nach dem Flüstern Rollen und Name automatisch', async () => {
-  const { startVerification, completeFromGame } = require('../src/interactions/verification');
+  const { startCodeLink, completeFromGame } = require('../src/interactions/verification');
   const replies = [];
   const added = [];
   const member = { id: '1', nickname: null, roles: { cache: new Collection(), add: async (ids) => added.push(...ids) }, setNickname: async (n) => { member.nickname = n; } };
@@ -534,7 +506,7 @@ test('Konto verknüpfen zeigt /msg-Befehl, nach dem Flüstern Rollen und Name au
     minecraft: { startDiscordLink: () => ({ code: 'KE2KM', expiresAt: new Date(Date.now() + 600000) }), info: () => ({ username: 'HugoPredict' }), state: { online: true } },
     ctx: { roleId: (g, k) => ({ member: 'M', verified: 'V' })[k], audit: async () => {}, hasRoleKey: () => false }, logger: console,
   };
-  await startVerification(interaction, '', deps);
+  await startCodeLink(interaction, deps);
   assert.match(JSON.stringify(replies.at(-1).components.map((c) => c.toJSON())), /\/msg HugoPredict KE2KM/);
   const guild = { id: 'G', members: { fetch: async () => member } };
   await completeFromGame({ discordId: '1', player: { username: 'Steve', uuid: 'u' }, synced: true }, deps, { guilds: { cache: new Collection([['G', guild]]) } });

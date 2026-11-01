@@ -26,7 +26,7 @@ class ApiError extends Error {
 
 const USER_MESSAGES = {
   not_configured: 'Die Verbindung zur Website ist noch nicht eingerichtet. Bitte wende dich an das Team.',
-  not_linked: 'Dein Discord-Konto ist noch nicht mit HugoPredict verknüpft. Nutze /verify.',
+  not_linked: 'Dein Discord-Konto ist noch nicht mit HugoPredict verknüpft. Verknüpfe es in #verifizieren.',
   not_found: 'Der angefragte Datensatz wurde auf der Website nicht gefunden.',
   unauthorized: 'Der Bot ist bei der Website nicht autorisiert. Das Team wurde informiert.',
   rate_limited: 'Die Website ist gerade ausgelastet. Bitte versuche es gleich erneut.',

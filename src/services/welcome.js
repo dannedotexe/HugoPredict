@@ -26,7 +26,7 @@ function welcomePayload({ guildId, guildName, ids = {}, websiteUrl, userId, avat
     blocks: [
       { heading: 'Neu hier?', icon: 'info', body: `In ${ref('howto', '#so-gehts')} erklären wir dir in einer Minute, was HugoPredict ist.` },
       { heading: '1. Regeln lesen', icon: 'rules', body: `In ${ref('docs', '#regeln')} findest du Plattform, Prognoseregeln und Verhaltensregeln. Mit dem Beitritt stimmst du ihnen zu.` },
-      { heading: '2. Verifizieren', icon: 'link', body: `In ${ref('verify', '#verifizieren')} verknüpfst du dein Minecraft-Konto – damit bekommst du die Rolle Verifiziert und kannst Kontoabfragen nutzen.` },
+      { heading: '2. Verifizieren', icon: 'link', body: `In ${ref('verify', '#verifizieren')} verknüpfst du dein Minecraft-Konto – damit bekommst du die Rolle DC-Verifiziert und kannst Kontoabfragen nutzen.` },
       { heading: '3. Bei Fragen', icon: 'support', body: `Der Support hilft dir in ${ref('support', '#support')}.` },
     ],
     actions: buttons.length ? [new ActionRowBuilder().addComponents(buttons)] : [],

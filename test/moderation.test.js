@@ -57,7 +57,7 @@ test('Statistik: Embed mit und ohne Members-Intent', async () => {
   assert.deepEqual([s.members, s.online, s.openTickets, s.openSuggestions, s.cases7d], [43, 7, 1, 1, 1]);
   const json = JSON.stringify(statsCard(s).components[0].toJSON());
   assert.match(json, /Hinweis/);
-  assert.match(json, /\*\*—\*\* Verifiziert/);
+  assert.match(json, /\*\*—\*\* DC-Verifiziert/);
 });
 
 test('Begrüßung: gültige Direktnachricht mit Verweisen', () => {

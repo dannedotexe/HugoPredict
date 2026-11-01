@@ -76,7 +76,7 @@ function panelDefinitions() {
           {
             heading: 'Was du davon hast',
             icon: 'check',
-            body: `Die Rolle Verifiziert, dein Minecraft-Name als Server-Name und Kontoabfragen wie \`/balance\`.${channelIds.docs ? ` Es gelten die Regeln in <#${channelIds.docs}>.` : ''}`,
+            body: `Die Rolle DC-Verifiziert, dein Minecraft-Name als Server-Name und Kontoabfragen wie \`/balance\`.${channelIds.docs ? ` Es gelten die Regeln in <#${channelIds.docs}>.` : ''}`,
           },
           { heading: 'Sicherheit', icon: 'lock', body: 'Schick nur einen Befehl ab, den du selbst hier bekommen hast – niemals einen, den dir jemand anderes gibt.' },
         ],
@@ -103,7 +103,7 @@ function panelDefinitions() {
           title: 'Regeln & Infos',
           intro: `Alles Wichtige zu **${theme.brand}** auf einen Blick.\nMit dem Beitritt zum Server stimmst du diesen Regeln zu.`,
           blocks,
-          footer: `Rolle Verifiziert: Konto in ${channelIds.verify ? `<#${channelIds.verify}>` : '#verifizieren'} verknüpfen`,
+          footer: `Rolle DC-Verifiziert: Konto in ${channelIds.verify ? `<#${channelIds.verify}>` : '#verifizieren'} verknüpfen`,
         });
       },
     },

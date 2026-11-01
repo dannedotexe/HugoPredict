@@ -18,7 +18,7 @@ function statsCard(s) {
     intro: 'Aktuelle Kennzahlen der Community.',
     blocks: [
       { heading: 'Community', body: `${row([['Mitglieder', s.members], ['online', s.online]])}\n${row([['neu in 7 Tagen', s.joined7d]])}` },
-      { heading: 'Rollen', body: row([['Mitglied', s.memberRole], ['Verifiziert', s.verified]]) },
+      { heading: 'Rollen', body: row([['Mitglied', s.memberRole], ['DC-Verifiziert', s.verified]]) },
       { heading: 'Betrieb', body: `${row([['offene Anfragen', s.openTickets], ['Vorschläge in Prüfung', s.openSuggestions]])}\n${row([['Moderationsfälle (7 Tage)', s.cases7d]])}` },
       s.membersIntent ? null : { heading: 'Hinweis', icon: 'info', body: 'Für Rollen- und Beitrittszahlen im Developer Portal unter Bot den „Server Members Intent“ aktivieren.' },
     ],

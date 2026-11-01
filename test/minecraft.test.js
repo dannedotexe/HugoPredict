@@ -9,7 +9,6 @@ const { EventEmitter } = require('node:events');
 const { parseAmount } = require('../src/minecraft/amount');
 const { buildPatterns, matchFirst } = require('../src/minecraft/patterns');
 const { reconcile } = require('../src/minecraft/ledger');
-const { LinkCodes } = require('../src/minecraft/linkCodes');
 const { createMinecraftService } = require('../src/minecraft/service');
 
 test('Beträge: 15k, Tausenderpunkte, Kommas, Währungszeichen', () => {
@@ -51,24 +50,6 @@ test('reconcile: nur gedeckte Zahlungen zählen', () => {
   assert.equal(reconcile([a, b], 200).surplus, 50);
   assert.equal(reconcile([], 30).surplus, 30);
   assert.equal(reconcile([a], -10).decreased, true);
-});
-
-test('LinkCodes: Ablauf, Fehlversuche, Wartezeit', () => {
-  let t = 0;
-  const codes = new LinkCodes({ now: () => t, ttlMs: 1000, resendMs: 100, maxAttempts: 2 });
-  const { code } = codes.create('1', { username: 'Steve' });
-  assert.match(code, /^[A-Z2-9]{6}$/);
-  assert.ok(codes.create('1', {}).retryAfterMs > 0);
-  assert.deepEqual(codes.verify('1', code.toLowerCase()), { player: { username: 'Steve' } });
-  assert.deepEqual(codes.verify('1', code), { error: 'missing' }, 'nur einmal gültig');
-  t = 200;
-  codes.create('1', { username: 'Steve' });
-  assert.equal(codes.verify('1', 'XXXXXX').error, 'wrong');
-  assert.equal(codes.verify('1', 'XXXXXX').error, 'locked');
-  t = 400;
-  codes.create('2', {});
-  t = 2000;
-  assert.equal(codes.verify('2', 'AAAAAA').error, 'expired');
 });
 
 // --- Dienst mit nachgebautem Minecraft-Server ------------------------------
@@ -208,25 +189,6 @@ test('Auszahlung ohne sichtbare Wirkung wird als unklar gemeldet und nicht wiede
   assert.deepEqual(api.calls.failed.map((f) => [f.id, f.uncertain]), [['p3', true]]);
   assert.equal(world.sent.filter((m) => m.startsWith('/pay')).length, 1);
   assert.ok(reports.some((r) => r.title === 'Minecraft: Auszahlung unklar'));
-});
-
-test('Kontoverknüpfung: Code nur an Spieler, die online sind', async (t) => {
-  const { world, api, mc } = setup();
-  t.after(() => mc.stop());
-  mc.start();
-  await until(() => mc.state.online);
-  assert.deepEqual(await mc.sendLinkCode('111111111111111111', 'Notch'), { error: 'not_online' });
-  const res = await mc.sendLinkCode('111111111111111111', 'steve');
-  assert.equal(res.player.username, 'Steve');
-  const msg = world.sent.find((m) => m.startsWith('/msg Steve Dein HugoPredict-Code:'));
-  const code = msg.match(/Code: ([A-Z2-9]{6})/)[1];
-  assert.equal(mc.confirmLinkCode('111111111111111111', 'FALSCH').error, 'wrong');
-  const ok = mc.confirmLinkCode('111111111111111111', code);
-  assert.equal(ok.player.uuid, 'uuid-steve');
-  assert.deepEqual(await mc.saveLink({ discordId: '111111111111111111', discordUsername: 'steve', player: ok.player }), { synced: true });
-  assert.equal(api.calls.links[0].minecraftUuid, 'uuid-steve');
-  // Dasselbe Minecraft-Konto kann kein zweites Discord-Konto verknüpfen
-  assert.deepEqual(await mc.sendLinkCode('222222222222222222', 'Steve'), { error: 'taken' });
 });
 
 test('MC_BALANCE_CHECK=false: Zahlungsnachricht zählt sofort, ohne /balance', async (t) => {
