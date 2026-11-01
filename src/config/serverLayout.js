@@ -72,6 +72,7 @@ const ROLES = [
   },
   { key: 'support', name: '| Supporter', description: 'Tickets bearbeiten und Nutzern helfen', icon: 'support', legacyNames: ['🎫 Support', 'Kundenservice', 'Support'], color: 0x6ee7b7, hoist: true, mentionable: true, permissions: [] },
   { key: 'verified', name: '| DC-Verifiziert', description: 'Discord mit dem Minecraft-Konto verknüpft', icon: 'verified', legacyNames: ['⛏️ Verified', 'Verifiziert', '| Verifiziert'], color: 0xa7b4c2, hoist: false, mentionable: false, permissions: [] },
+  { key: 'mcVerified', name: '| MC-Verifiziert', description: 'Auf der Website mit dem Minecraft-Konto angemeldet', icon: 'mc', color: 0x34d399, hoist: false, mentionable: false, permissions: [] },
   { key: 'member', name: '| Mitglied', description: 'Standardrolle für Community-Mitglieder', icon: 'member', legacyNames: ['👤 Member', 'Mitglied'], color: 0x6b7280, hoist: false, mentionable: false, permissions: [] },
   { key: 'og', name: '| OG', description: 'Dabei von Anfang an – beigetreten bis Ende 2026', icon: 'og', color: 0x965f7f, hoist: false, mentionable: false, permissions: [] },
   // Benachrichtigungs-Rollen: freiwillig per Button in #regeln, nur der Bot pingt sie.

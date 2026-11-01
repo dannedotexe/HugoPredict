@@ -76,7 +76,7 @@ function panelDefinitions() {
           {
             heading: 'Was du davon hast',
             icon: 'check',
-            body: `Die Rolle DC-Verifiziert, dein Minecraft-Name als Server-Name und Kontoabfragen wie \`/balance\`.${channelIds.docs ? ` Es gelten die Regeln in <#${channelIds.docs}>.` : ''}`,
+            body: `Die Rolle DC-Verifiziert, dein Minecraft-Name als Server-Name und Kontoabfragen wie \`/balance\`. Meldest du dich auch auf der Website an, gibt es zusätzlich MC-Verifiziert.${channelIds.docs ? ` Es gelten die Regeln in <#${channelIds.docs}>.` : ''}`,
           },
           { heading: 'Sicherheit', icon: 'lock', body: 'Schick nur einen Befehl ab, den du selbst hier bekommen hast – niemals einen, den dir jemand anderes gibt.' },
         ],

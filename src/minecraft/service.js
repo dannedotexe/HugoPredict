@@ -474,9 +474,11 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
       return;
     }
     try {
-      whisper(name, await api.confirmLogin({ minecraftName: name, code: text })
+      const ok = await api.confirmLogin({ minecraftName: name, code: text });
+      whisper(name, ok
         ? 'Du bist auf der Website angemeldet. Warst du das nicht? Melde dich sofort beim Team.'
         : 'Code ungueltig oder abgelaufen. Hol dir auf der Website einen neuen.');
+      if (ok) Promise.resolve(onWebsiteLogin?.({ minecraftName: name })).catch((err) => logger.warn('Website-Anmeldung in Discord:', err.message));
     } catch (err) {
       whisper(name, userMessage(err));
     }
@@ -659,6 +661,7 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
   const DISCORD_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   const discordCodes = new Map(); // code → { discordId, discordUsername, createdAt }
   let onDiscordLinked = null;
+  let onWebsiteLogin = null;
 
   /** Neuer Code für eine Discord-ID (ersetzt einen älteren). Ergebnis: { code, expiresAt }. */
   function startDiscordLink(discordId, discordUsername, discordAvatar = null) {
@@ -901,6 +904,7 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
     startDiscordLink,
     refreshAvatars,
     setDiscordLinkHandler: (fn) => { onDiscordLinked = fn; },
+    setWebsiteLoginHandler: (fn) => { onWebsiteLogin = fn; },
     saveLink,
     forgetLink,
     links: () => db.links,

@@ -37,6 +37,10 @@ module.exports = {
     const membersTagged = deps.membersIntent && deps.services.memberRole
       ? await deps.services.memberRole.sweep(interaction.guild).catch((err) => { deps.logger.warn('Mitglied-Rolle:', err.message); return 0; })
       : 0;
+    // MC-Verifiziert: Verknüpfte mit Website-Konto nachtragen
+    const mcTagged = deps.membersIntent && deps.services.mcVerified
+      ? await deps.services.mcVerified.sweep(interaction.guild).catch((err) => { deps.logger.warn('MC-Verifiziert:', err.message); return 0; })
+      : 0;
     // OG-Rolle für alle, die bis Ende 2026 beigetreten sind
     const ogTagged = deps.membersIntent && deps.services.ogRole
       ? await deps.services.ogRole.sweep(interaction.guild).catch((err) => { deps.logger.warn('OG-Rolle:', err.message); return 0; })
@@ -81,6 +85,7 @@ module.exports = {
     if (pingsGiven) e.addFields({ name: 'Pings', value: `${pingsGiven} Mitglied(er) haben einmalig alle Ping-Rollen bekommen.`, inline: false });
     if (botsTagged) e.addFields({ name: 'Bots', value: `${botsTagged} Bot(s) haben die Rolle „| Bots“ bekommen.`, inline: false });
     if (membersTagged) e.addFields({ name: 'Mitglieder', value: `${membersTagged} Person(en) haben die Rolle „| Mitglied“ bekommen.`, inline: false });
+    if (mcTagged) e.addFields({ name: 'MC-Verifiziert', value: `${mcTagged} Person(en) haben „| MC-Verifiziert“ bekommen.`, inline: false });
     if (ogTagged) e.addFields({ name: 'OG', value: `${ogTagged} Mitglied(er) haben die Rolle „| OG“ bekommen.`, inline: false });
     if (staffRenamed) e.addFields({ name: 'Teamnamen', value: `${staffRenamed} Name(n) an die Teamrolle angepasst (z. B. „Supporter | Name“).`, inline: false });
     if (staffRenamed === null) e.addFields({ name: 'Teamnamen', value: 'Für „Supporter | Name“ braucht der Bot den „Server Members Intent“ im Developer Portal.', inline: false });

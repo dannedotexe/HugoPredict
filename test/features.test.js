@@ -599,3 +599,26 @@ test('Beitritt: „| Mitglied“ und Pings sofort, Verifiziert nicht; keine Bots
   assert.equal(await svc.onMemberAdd(old), false);
   assert.deepEqual([...old._roles], ['M']);
 });
+
+test('MC-Verifiziert: nach Website-Anmeldung oder bei Verknüpfung mit Website-Konto', async () => {
+  const { createMcVerifiedService } = require('../src/services/mcVerified');
+  const roles = new Map();
+  const member = (id) => {
+    if (!roles.has(id)) roles.set(id, new Set());
+    const r = roles.get(id);
+    return { id, user: { bot: false }, roles: { cache: { has: (x) => r.has(x) }, add: async (x) => r.add(x) } };
+  };
+  const guild = { id: 'G', members: { fetch: async (id) => member(id), cache: new Map([['1', member('1')], ['2', member('2')]]) } };
+  const client = { guilds: { cache: new Map([['G', guild]]) } };
+  const links = { 1: { name: 'Steve' }, 2: { name: 'Alex' } };
+  const svc = createMcVerifiedService({
+    ctx: { roleId: (g, k) => (k === 'mcVerified' ? 'MC' : null) }, logger: console, minecraft: { links: () => links },
+    api: { configured: true, getBalance: async (id) => { if (id !== '2') throw new Error('not_linked'); return { balance: 0 }; } },
+  });
+  assert.equal(await svc.onWebsiteLogin(client, 'steve'), 1);
+  assert.ok(roles.get('1').has('MC'));
+  assert.equal(await svc.onWebsiteLogin(client, 'Unbekannt'), 0);
+  assert.equal(await svc.onDiscordLinked(client, '3'), 0, 'ohne Website-Konto keine Rolle');
+  assert.equal(await svc.sweep(guild), 1, 'Alex hat ein Website-Konto');
+  assert.ok(roles.get('2').has('MC'));
+});

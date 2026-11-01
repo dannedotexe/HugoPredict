@@ -31,6 +31,7 @@ const { createStaffNamesService } = require('./services/staffNames');
 const { createBotRoleService } = require('./services/botRole');
 const { createOgRoleService } = require('./services/ogRole');
 const { createMemberRoleService } = require('./services/memberRole');
+const { createMcVerifiedService } = require('./services/mcVerified');
 const { resolveIntents, membersIntentAllowed } = require('./lib/intents');
 const { createMinecraftService } = require('./minecraft/service');
 const { createActivityLog, instrument } = require('./services/activityLog');
@@ -119,7 +120,14 @@ const deps = {
 };
 
 // Kontoverknüpfung per /msg: Der Minecraft-Bot meldet, wer welchen Discord-Code geflüstert hat.
-minecraft?.setDiscordLinkHandler?.((event) => require('./interactions/verification').completeFromGame(event, deps, client));
+// MC-Verifiziert: Anmeldung auf der Website per /msg (und Discord verknüpft)
+const mcVerified = createMcVerifiedService({ ctx, api, minecraft, logger });
+deps.services.mcVerified = mcVerified;
+minecraft?.setDiscordLinkHandler?.(async (event) => {
+  await require('./interactions/verification').completeFromGame(event, deps, client);
+  await mcVerified.onDiscordLinked(client, event.discordId).catch((err) => logger.warn('MC-Verifiziert:', err.message));
+});
+minecraft?.setWebsiteLoginHandler?.(({ minecraftName }) => mcVerified.onWebsiteLogin(client, minecraftName));
 
 async function handleCommand(interaction) {
   const cmd = commands.get(interaction.commandName);
