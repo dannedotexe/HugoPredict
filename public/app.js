@@ -539,13 +539,15 @@ async function viewWallet() {
       <div class="stack">
         <section class="panel"><h2>Auszahlen</h2>
           ${me.mcName ? `
+            <p class="muted" style="margin-top:4px;font-size:14px">Betrag wählen, der Bot zahlt ihn dir im Spiel aus.</p>
             <form id="wd-form">
-              <div class="field"><label for="wd">Betrag (auch 15k, 1m …), mindestens ${s.minWithdraw}</label>
-                <input class="input" id="wd" name="amount" inputmode="text" autocomplete="off" autocapitalize="off" placeholder="z.B. 250, 15k oder 1m…"></div>
-              <div style="display:flex;gap:8px"><button class="btn btn-gold" style="flex:1">Auszahlung anfordern</button>
-                <button class="btn" type="button" id="wd-all">Alles</button></div>
+              <div class="pay-row" role="group" aria-label="Betrag wählen">${[10e3, 50e3, 100e3, 500e3].map((v) =>
+                `<button class="pay-pill" type="button" data-wd="${v}"${v > me.balance ? ' disabled' : ''}>${v / 1e3}k</button>`).join('')}
+                <button class="pay-pill" type="button" id="wd-all"${me.balance < s.minWithdraw ? ' disabled' : ''}>Alles</button>
+                <input class="pay-custom" id="wd" name="amount" autocomplete="off" autocapitalize="off" placeholder="Anderer Betrag, mind. ${s.minWithdraw}" aria-label="Betrag"></div>
+              <button class="btn btn-gold btn-block" style="margin-top:10px">Auszahlung anfordern</button>
             </form>
-            <p class="muted" style="font-size:14px;margin-top:12px">Der Bot zahlt an <b style="color:var(--text)">${esc(me.mcName)}</b> aus${s.payoutsNeedApproval ? ', sobald das Team die Auszahlung freigegeben hat' : s.botOnline ? ', meist innerhalb weniger Sekunden' : ', sobald er wieder online ist'}.</p>`
+            <p class="muted" style="font-size:12px;margin-top:10px">Der Bot zahlt an <b style="color:var(--text)">${esc(me.mcName)}</b> aus${s.payoutsNeedApproval ? ', sobald das Team die Auszahlung freigegeben hat' : s.botOnline ? ', meist innerhalb weniger Sekunden' : ', sobald er wieder online ist'}.</p>`
           : '<p class="muted">Verknüpfe zuerst deinen Minecraft-Account.</p>'}
         </section>
         ${withdrawals.length ? `<section class="panel"><h2>Deine Auszahlungen</h2><div class="table-wrap"><table class="table"><tbody>
@@ -589,10 +591,15 @@ async function viewWallet() {
   });
   copyBtn?.addEventListener('click', () => copyCmd(copyBtn.dataset.cmd));
   document.getElementById('logout-wallet')?.addEventListener('click', () => document.getElementById('logout')?.click());
-  document.getElementById('wd-all')?.addEventListener('click', () => { document.getElementById('wd').value = Math.floor(me.balance); });
+  // Betrag antippen → ins Feld übernehmen (ausgezahlt wird erst mit dem Knopf)
+  const wdPills = app.querySelectorAll('[data-wd], #wd-all');
+  const markWd = (b) => wdPills.forEach((x) => x.classList.toggle('on', x === b));
+  app.querySelectorAll('[data-wd]').forEach((b) => b.onclick = () => { document.getElementById('wd').value = b.dataset.wd; markWd(b); });
+  document.getElementById('wd-all')?.addEventListener('click', (e) => { document.getElementById('wd').value = Math.floor(me.balance); markWd(e.currentTarget); });
+  document.getElementById('wd')?.addEventListener('input', () => markWd(null));
   document.getElementById('wd-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const btn = e.target.querySelector('button');
+    const btn = e.target.querySelector('.btn-gold');
     btn.disabled = true;
     btn.textContent = 'Wird angefordert…';
     try {
