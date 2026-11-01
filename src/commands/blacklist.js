@@ -31,7 +31,7 @@ const data = new SlashCommandBuilder()
 function websiteLine(res, adding) {
   if (res.error) return `⚠️ Fehlgeschlagen: ${res.error}`;
   if (!res.linked) return 'Kein Website-Konto verknüpft';
-  return `${adding ? 'Gesperrt' : 'Entsperrt'}: **${res.mcName}**${adding && res.ipsBanned ? ` · ${res.ipsBanned} IP(s) gesperrt` : ''}${!adding ? ' · IP-Sperre aufgehoben' : ''}`;
+  return `${adding ? 'Gesperrt' : 'Entsperrt'}: **${res.mcName}**${adding && res.ipsBanned ? ` · ${res.ipsBanned} IPs/Geräte gesperrt` : ''}${!adding ? ' · IP- und Geräte-Sperre aufgehoben' : ''}`;
 }
 
 module.exports = {
