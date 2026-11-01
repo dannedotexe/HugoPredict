@@ -589,7 +589,7 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
   }
 
   // --- Verknüpfung per /msg: Discord zeigt einen Code, der Spieler flüstert ihn dem Bot ---
-  const DISCORD_CODE_TTL = 10 * 60_000;
+  const DISCORD_CODE_TTL = 30 * 60_000; // 30 Minuten: Zeit genug, um ins Spiel zu wechseln
   const DISCORD_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   const discordCodes = new Map(); // code → { discordId, discordUsername, createdAt }
   let onDiscordLinked = null;

@@ -71,7 +71,8 @@ async function createTicket(interaction, deps, type) {
     const subject = interaction.fields.getTextInputValue('subject').trim();
     const details = interaction.fields.getTextInputValue('details').trim();
     const me = guild.members.me;
-    const roleIds = type.roles.map((k) => deps.ctx.roleId(guild.id, k)).filter(Boolean);
+    // Nur Rollen, die es noch gibt (gelöschte Rollen erscheinen sonst als „@unknown-role“)
+    const roleIds = type.roles.map((k) => deps.ctx.roleId(guild.id, k)).filter((id) => id && (!guild.roles?.cache || guild.roles.cache.has(id)));
     const number = ++g.ticketCounter;
     deps.store.save();
 

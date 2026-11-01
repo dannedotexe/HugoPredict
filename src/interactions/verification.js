@@ -245,7 +245,7 @@ async function startMinecraftLink(interaction, name, deps) {
     logo: false,
     blocks: [
       { heading: 'So geht es', body: 'Schau in deinen Minecraft-Chat,\nwähle „Code eingeben“,\ngib den 6-stelligen Code ein.' },
-      { heading: 'Sicherheit', icon: 'lock', body: 'Der Code ist 10 Minuten gültig. Gib ihn niemals an andere weiter.' },
+      { heading: 'Sicherheit', icon: 'lock', body: 'Der Code ist 30 Minuten gültig. Gib ihn niemals an andere weiter.' },
     ],
     actions: [codeButtonRow()],
     ephemeral: true,

@@ -12,7 +12,7 @@ const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // ohne 0/O und 1/I
 const CODE_LENGTH = 6;
 
 class LinkCodes {
-  constructor({ ttlMs = 10 * 60_000, maxAttempts = 5, resendMs = 60_000, now = Date.now } = {}) {
+  constructor({ ttlMs = 30 * 60_000, maxAttempts = 5, resendMs = 60_000, now = Date.now } = {}) {
     Object.assign(this, { ttlMs, maxAttempts, resendMs, now });
     this.byDiscord = new Map();
   }
