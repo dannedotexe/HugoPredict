@@ -49,7 +49,8 @@ function sections({ currency, websiteUrl }) {
         '2. Entschieden wird ausschließlich anhand dieser Quelle durch die Prognoseverwaltung.',
         '3. Ist ein Ergebnis nicht eindeutig feststellbar, kann eine Prognose pausiert oder annulliert werden.',
         '4. Manipulation, Absprachen, Mehrfachkonten und das Ausnutzen von Fehlern sind untersagt.',
-        '5. Wer an einem Ereignis selbst beteiligt ist oder über nicht öffentliche Informationen verfügt, handelt in dieser Prognose nicht.',
+        '5. Wer an einem Ereignis selbst beteiligt ist oder über nicht öffentliche Informationen verfügt (Insider), bietet in dieser Prognose nicht mit.',
+        '6. **Verstöße gegen 4. und 5. werden hart bestraft:** Das Konto wird gesperrt, Gewinne und Guthaben können eingezogen werden. Bei Zweitaccounts betrifft das alle Konten. Verdachtsfälle bitte über #support melden.',
       ].join('\n'),
     },
     {
