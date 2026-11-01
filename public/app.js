@@ -624,7 +624,8 @@ async function viewMe() {
     <div class="page-title"><div><h1>Mein Profil</h1><p>Dein Konto, deine Verknüpfungen und deine Statistik auf einen Blick</p></div></div>
     <div class="me-grid">
       <section class="panel me-skin">
-        <div class="skin-stage"><img src="https://mc-heads.net/body/${encodeURIComponent(name)}/right" alt="Skin von ${esc(name)}" loading="lazy"></div>
+        <div class="skin-stage" id="skin-stage"><img src="https://mc-heads.net/body/${encodeURIComponent(name)}/right" alt="Skin von ${esc(name)}" loading="lazy">
+          <span class="skin-hint hidden" id="skin-hint">Zum Drehen wischen</span></div>
         <h2 class="me-name">${esc(name)}</h2>
         ${p.uuid ? `<div class="kv"><small class="eyebrow">UUID</small><code>${esc(p.uuid)}</code></div>` : ''}
         <div class="kv"><small class="eyebrow">Dabei seit</small><span>${date(p.since)}</span></div>
@@ -662,6 +663,52 @@ async function viewMe() {
       <a class="btn btn-sm" href="${playerLink(name)}" style="margin-top:14px">Öffentliches Profil ansehen</a>
     </section>`;
   document.getElementById('me-logout').onclick = () => document.getElementById('logout')?.click();
+  mountSkinViewer(document.getElementById('skin-stage'), name);
+}
+
+// ---------- 3D-Skin zum Drehen (skinview3d, nur bei Bedarf geladen) ----------
+
+let skinViewer = null;
+let skinLib = null;
+function loadSkinLib() {
+  skinLib ??= new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = '/vendor/skinview3d.bundle.js';
+    s.onload = () => resolve(window.skinview3d);
+    s.onerror = reject;
+    document.head.append(s);
+  });
+  return skinLib;
+}
+window.addEventListener('hashchange', () => { skinViewer?.dispose(); skinViewer = null; });
+
+async function mountSkinViewer(stage, name) {
+  if (!stage) return;
+  let lib;
+  try { lib = await loadSkinLib(); } catch { return; } // ohne 3D bleibt das Bild
+  if (!stage.isConnected) return;
+  const canvas = document.createElement('canvas');
+  canvas.className = 'skin-canvas';
+  canvas.setAttribute('aria-label', `3D-Skin von ${name}, zum Drehen wischen`);
+  try {
+    skinViewer?.dispose();
+    skinViewer = new lib.SkinViewer({ canvas, width: stage.clientWidth, height: stage.clientHeight, skin: `https://mc-heads.net/skin/${encodeURIComponent(name)}` });
+  } catch {
+    return; // kein WebGL
+  }
+  skinViewer.background = null;
+  skinViewer.zoom = 0.85;
+  skinViewer.fov = 40;
+  skinViewer.autoRotate = true;
+  skinViewer.autoRotateSpeed = 0.7;
+  skinViewer.animation = new lib.IdleAnimation();
+  skinViewer.controls.enableZoom = false;
+  skinViewer.controls.enablePan = false;
+  // Beim Anfassen hört die automatische Drehung auf, man dreht selbst (360°)
+  canvas.addEventListener('pointerdown', () => { skinViewer.autoRotate = false; }, { once: true });
+  stage.querySelector('img')?.remove();
+  stage.prepend(canvas);
+  document.getElementById('skin-hint')?.classList.remove('hidden');
 }
 
 // ---------- Player profile ----------
