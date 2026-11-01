@@ -295,11 +295,14 @@ test('Admin: Deckung, Bearbeiten, Vorschau beim Entscheiden, Hervorheben, Sperre
   svc.featureMarket(id, false);
   assert.equal(svc.listMarkets().filter((x) => x.featured).length, 0);
 
-  svc.setBanned(uid, true);
-  assert.throws(() => svc.buy(uid, id, m.outcomes[1].id, 10), /gesperrt/);
+  assert.throws(() => svc.setBanned(uid, true), /Paragrafen/, 'Sperren nur mit Paragraf');
+  svc.setBanned(uid, true, '3.4');
+  assert.throws(() => svc.buy(uid, id, m.outcomes[1].id, 10), /gesperrt \(Verstoß gegen §3\.4 Manipulation & Zweitaccounts\)/);
   assert.throws(() => svc.requestWithdrawal(uid, 50), /gesperrt/);
   assert.ok(svc.adminUsers({ q: 'Admin_Test' })[0].banned);
+  assert.equal(svc.adminUser(uid).banRule, '§3.4 Manipulation & Zweitaccounts');
   svc.setBanned(uid, false);
+  assert.equal(svc.adminUser(uid).banRule, null);
   svc.buy(uid, id, m.outcomes[1].id, 10);
   assert.ok(svc.adminUser(uid).ledger.length >= 2);
 });

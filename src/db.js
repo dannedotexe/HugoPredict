@@ -137,6 +137,7 @@ const addColumn = (table, column, def) => {
 };
 addColumn('markets', 'featured', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'banned', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'ban_rule', 'TEXT');
 addColumn('discord_links', 'discord_avatar', 'TEXT');
 
 export function tx(fn) {

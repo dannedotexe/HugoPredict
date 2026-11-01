@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { db, tx } from './db.js';
 import * as lmsr from './lmsr.js';
+import { rule } from './rules.js';
 
 export const FEE = Number(process.env.FEE_PERCENT ?? 1) / 100;
 export const MIN_WITHDRAW = Number(process.env.MIN_WITHDRAW ?? 10);
@@ -84,6 +85,7 @@ export function publicUser(u) {
     mcName: u.mc_name,
     isAdmin: u.isAdmin,
     banned: !!u.banned,
+    banRule: banLabel(u),
     verifyCode: !u.mc_name && u.verify_expires > now() ? u.verify_code : null,
   };
 }
@@ -395,8 +397,12 @@ export function createMarket({ title, description = '', category, emoji, closesA
   });
 }
 
+/** „Verstoß gegen §3.4 Manipulation & Zweitaccounts“ oder null */
+const banLabel = (u) => (u?.banned && u.ban_rule ? rule(u.ban_rule)?.label ?? `§${u.ban_rule}` : null);
+
 function notBanned(userId) {
-  if (db.prepare('SELECT banned FROM users WHERE id = ?').get(userId)?.banned) throw new AppError('Dein Konto ist gesperrt. Melde dich beim Support.', 403);
+  const u = db.prepare('SELECT banned, ban_rule FROM users WHERE id = ?').get(userId);
+  if (u?.banned) throw new AppError(`Dein Konto ist gesperrt${banLabel(u) ? ` (Verstoß gegen ${banLabel(u)})` : ''}. Melde dich beim Support.`, 403);
 }
 
 function tradableMarket(marketId) {
@@ -803,26 +809,28 @@ export function adminUsers({ q = '', limit = 50 } = {}) {
   const prices = priceMap();
   const value = new Map();
   for (const p of db.prepare('SELECT user_id, outcome_id, shares FROM positions WHERE shares > 0').all()) value.set(p.user_id, (value.get(p.user_id) || 0) + p.shares * (prices.get(p.outcome_id) ?? 0));
-  return db.prepare(`SELECT u.id, u.username, u.mc_name, u.balance, u.banned, u.created_at, d.discord_username,
+  return db.prepare(`SELECT u.id, u.username, u.mc_name, u.balance, u.banned, u.ban_rule, u.created_at, d.discord_username,
       (SELECT COUNT(*) FROM trades t WHERE t.user_id = u.id) trades
     FROM users u LEFT JOIN discord_links d ON d.mc_name = u.mc_name
     WHERE u.username LIKE ? ESCAPE '\\' OR u.mc_name LIKE ? ESCAPE '\\' OR d.discord_username LIKE ? ESCAPE '\\'
     ORDER BY u.balance DESC LIMIT ?`).all(like, like, like, Math.min(Number(limit) || 50, 200))
-    .map((u) => ({ id: u.id, username: u.username, mcName: u.mc_name, balance: r2(u.balance), inPositions: r2(value.get(u.id) || 0), banned: !!u.banned, trades: u.trades, discordName: u.discord_username ?? null, createdAt: u.created_at }));
+    .map((u) => ({ id: u.id, username: u.username, mcName: u.mc_name, balance: r2(u.balance), inPositions: r2(value.get(u.id) || 0), banned: !!u.banned, banRule: banLabel(u), trades: u.trades, discordName: u.discord_username ?? null, createdAt: u.created_at }));
 }
 
 /** Einzelner Spieler mit letzten Buchungen. */
 export function adminUser(userId) {
-  const u = db.prepare('SELECT id, username, mc_name, balance, banned, created_at FROM users WHERE id = ?').get(userId);
+  const u = db.prepare('SELECT id, username, mc_name, balance, banned, ban_rule, created_at FROM users WHERE id = ?').get(userId);
   if (!u) throw new AppError('Spieler nicht gefunden', 404);
   const ledger = db.prepare('SELECT type, amount, ref, created_at FROM ledger WHERE user_id = ? ORDER BY id DESC LIMIT 30').all(userId);
-  return { id: u.id, username: u.username, mcName: u.mc_name, balance: r2(u.balance), banned: !!u.banned, createdAt: u.created_at, ledger };
+  return { id: u.id, username: u.username, mcName: u.mc_name, balance: r2(u.balance), banned: !!u.banned, banRule: banLabel(u), createdAt: u.created_at, ledger };
 }
 
-export function setBanned(userId, banned) {
-  const r = db.prepare('UPDATE users SET banned = ? WHERE id = ?').run(banned ? 1 : 0, userId);
+/** Sperren nur mit Paragraf (die Person sieht, gegen welche Regel sie verstoßen hat). */
+export function setBanned(userId, banned, ruleId = null) {
+  if (banned && !rule(ruleId)) throw new AppError('Bitte wähle den Paragrafen, gegen den verstoßen wurde.');
+  const r = db.prepare('UPDATE users SET banned = ?, ban_rule = ? WHERE id = ?').run(banned ? 1 : 0, banned ? String(ruleId) : null, userId);
   if (!r.changes) throw new AppError('Spieler nicht gefunden', 404);
-  return { banned: !!banned };
+  return { banned: !!banned, banRule: banned ? rule(ruleId).label : null };
 }
 
 /** Bekannte Ausgänge einer Kategorie (z. B. Clan-Namen) für Vorschläge beim Anlegen. */
@@ -844,7 +852,7 @@ export function myProfile(userId) {
     ({ stats, rank, profit } = p);
   } catch { /* noch keine Daten */ }
   return {
-    username: u.username, mcName: u.mc_name, since: u.created_at, balance: r2(u.balance), banned: !!u.banned,
+    username: u.username, mcName: u.mc_name, since: u.created_at, balance: r2(u.balance), banned: !!u.banned, banRule: banLabel(u),
     uuid: link?.mc_uuid ?? null,
     discord: link ? { id: link.discord_id, name: link.discord_username, avatar: link.discord_avatar ?? null, since: link.created_at } : null,
     rank, profit, stats,

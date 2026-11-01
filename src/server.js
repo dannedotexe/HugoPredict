@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { db } from './db.js';
 import * as svc from './services.js';
+import { RULES } from './rules.js';
 import { botState, startBot } from './bot.js';
 import { botApi } from './botApi.js';
 
@@ -166,7 +167,8 @@ app.get('/api/admin/markets/:id/resolve-preview', handle((req) => (admin(req), s
 app.post('/api/admin/markets/:id/feature', handle((req) => (admin(req), svc.featureMarket(Number(req.params.id), req.body.on !== false))));
 app.get('/api/admin/users', handle((req) => (admin(req), { users: svc.adminUsers({ q: req.query.q }) })));
 app.get('/api/admin/users/:id', handle((req) => (admin(req), { user: svc.adminUser(Number(req.params.id)) })));
-app.post('/api/admin/users/:id/ban', handle((req) => (admin(req), svc.setBanned(Number(req.params.id), req.body.banned === true))));
+app.post('/api/admin/users/:id/ban', handle((req) => (admin(req), svc.setBanned(Number(req.params.id), req.body.banned === true, req.body.rule))));
+app.get('/api/rules', handle(() => ({ rules: RULES })));
 app.post('/api/admin/markets/:id/close', handle((req) => (admin(req), svc.closeMarket(Number(req.params.id)))));
 app.post('/api/admin/markets/:id/resolve', handle((req) =>
   (admin(req), svc.resolveMarket(Number(req.params.id), Number(req.body.outcomeId)))));

@@ -674,7 +674,7 @@ async function viewMe() {
         <h2 class="me-name">${esc(name)}</h2>
         ${p.uuid ? `<div class="kv"><small class="eyebrow">UUID</small><code>${esc(p.uuid)}</code></div>` : ''}
         <div class="kv"><small class="eyebrow">Dabei seit</small><span>${date(p.since)}</span></div>
-        ${p.banned ? '<p class="tag bad" style="margin-top:10px">Konto gesperrt – melde dich beim Support</p>' : ''}
+        ${p.banned ? `<p class="tag bad" style="margin-top:10px">Konto gesperrt${p.banRule ? ` – Verstoß gegen ${esc(p.banRule)}` : ''}. Melde dich beim Support.</p>` : ''}
         <button class="btn btn-block" type="button" id="me-logout" style="margin-top:14px">Abmelden</button>
       </section>
       <div class="stack">
@@ -829,7 +829,9 @@ function confirmDialog({ title, body, ok = 'Bestätigen', danger = false }) {
       <button class="btn ${danger ? 'btn-nein' : 'btn-ja'}" type="button" data-x="1">${ok}</button></div>`;
     document.body.append(d);
     const done = (v) => { d.close(); d.remove(); resolve(v); };
-    d.addEventListener('click', (e) => { const b = e.target.closest('[data-x]'); if (b) done(b.dataset.x === '1'); else if (e.target === d) done(false); });
+    // Felder im Dialog (z. B. Auswahl) → Bestätigen liefert ihre Werte statt true
+    const values = () => { const f = [...d.querySelectorAll('[name]')]; return f.length ? Object.fromEntries(f.map((x) => [x.name, x.value])) : true; };
+    d.addEventListener('click', (e) => { const b = e.target.closest('[data-x]'); if (b) done(b.dataset.x === '1' ? values() : false); else if (e.target === d) done(false); });
     d.addEventListener('cancel', (e) => { e.preventDefault(); done(false); });
     d.showModal();
   });
@@ -1100,7 +1102,7 @@ async function adminPlayersTab(body, { run }) {
     const { users } = await api(`/admin/users?q=${encodeURIComponent(q)}`);
     list.innerHTML = users.length ? users.map((u) => `<div class="player-row" data-uid="${u.id}">
       <button class="player-head" type="button" data-open="${u.id}">${head(u.mcName || u.username)}
-        <span class="player-name"><b>${esc(u.mcName || u.username)}</b>${u.banned ? ' <span class="tag bad">gesperrt</span>' : ''}<br>
+        <span class="player-name"><b>${esc(u.mcName || u.username)}</b>${u.banned ? ` <span class="tag bad">gesperrt${u.banRule ? ` · ${esc(u.banRule.split(' ')[0])}` : ''}</span>` : ''}<br>
           <small class="muted">${u.discordName ? `Discord: ${esc(u.discordName)} · ` : ''}${fmt(u.trades)} Gebote</small></span>
         <span class="r"><b>${money(u.balance)}</b><br><small class="muted">+ ${money(u.inPositions)} in Anteilen</small></span></button>
       <div class="player-detail hidden" data-detail="${u.id}"></div></div>`).join('') : '<p class="muted">Keine Spieler gefunden.</p>';
@@ -1132,8 +1134,16 @@ async function adminPlayersTab(body, { run }) {
     };
     box.querySelector('[data-ban]').onclick = async (e) => {
       const to = e.target.dataset.to === '1';
-      if (to && !(await confirmDialog({ title: `${esc(u.mcName || u.username)} sperren?`, body: '<p>Die Person kann dann nicht mehr bieten, verkaufen oder auszahlen. Ihr Guthaben bleibt erhalten.</p>', ok: 'Sperren', danger: true }))) return;
-      run(() => api(`/admin/users/${u.id}/ban`, { banned: to }), to ? 'Gesperrt' : 'Entsperrt');
+      if (!to) { run(() => api(`/admin/users/${u.id}/ban`, { banned: false }), 'Entsperrt'); return; }
+      const { rules } = await api('/rules');
+      const pick = await confirmDialog({
+        title: `${esc(u.mcName || u.username)} sperren?`,
+        body: `<p>Die Person kann dann nicht mehr bieten, verkaufen oder auszahlen und sieht, gegen welchen Paragrafen sie verstoßen hat.</p>
+          <label class="field"><small class="eyebrow">Verstoß gegen</small><select class="input" name="rule">${rules.map((r) => `<option value="${esc(r.id)}"${r.id === '3.4' ? ' selected' : ''}>${esc(r.label)}</option>`).join('')}</select></label>`,
+        ok: 'Sperren', danger: true,
+      });
+      if (!pick) return;
+      run(() => api(`/admin/users/${u.id}/ban`, { banned: true, rule: pick.rule }), 'Gesperrt');
     };
   };
   let t;
