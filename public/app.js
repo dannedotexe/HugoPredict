@@ -704,6 +704,10 @@ async function mountSkinViewer(stage, name) {
   skinViewer.animation = new lib.IdleAnimation();
   skinViewer.controls.enableZoom = false;
   skinViewer.controls.enablePan = false;
+  // Nach dem Loslassen läuft die Drehung sanft aus statt abrupt zu stoppen
+  skinViewer.controls.enableDamping = true;
+  skinViewer.controls.dampingFactor = 0.06;
+  skinViewer.controls.rotateSpeed = 0.9;
   // Beim Anfassen hört die automatische Drehung auf, man dreht selbst (360°)
   canvas.addEventListener('pointerdown', () => { skinViewer.autoRotate = false; }, { once: true });
   stage.querySelector('img')?.remove();
