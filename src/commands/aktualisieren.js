@@ -33,6 +33,10 @@ module.exports = {
     const botsTagged = deps.membersIntent && deps.services.botRole
       ? await deps.services.botRole.sweep(interaction.guild).catch((err) => { deps.logger.warn('Bot-Rolle:', err.message); return 0; })
       : 0;
+    // OG-Rolle für alle, die bis Ende 2026 beigetreten sind
+    const ogTagged = deps.membersIntent && deps.services.ogRole
+      ? await deps.services.ogRole.sweep(interaction.guild).catch((err) => { deps.logger.warn('OG-Rolle:', err.message); return 0; })
+      : 0;
     // Teamrollen im Namen („Supporter | Steve“) für alle abgleichen
     const staffRenamed = deps.membersIntent && deps.services.staffNames
       ? await deps.services.staffNames.sweep(interaction.guild).catch((err) => { deps.logger.warn('Teamnamen:', err.message); return 0; })
@@ -72,6 +76,7 @@ module.exports = {
     if (icons.unavailable) e.addFields({ name: 'Rollen-Icons', value: 'Rollen-Icons gibt es erst ab Server-Boost Stufe 2.', inline: false });
     if (pingsGiven) e.addFields({ name: 'Pings', value: `${pingsGiven} Mitglied(er) haben einmalig alle Ping-Rollen bekommen.`, inline: false });
     if (botsTagged) e.addFields({ name: 'Bots', value: `${botsTagged} Bot(s) haben die Rolle „| Bots“ bekommen.`, inline: false });
+    if (ogTagged) e.addFields({ name: 'OG', value: `${ogTagged} Mitglied(er) haben die Rolle „| OG“ bekommen.`, inline: false });
     if (staffRenamed) e.addFields({ name: 'Teamnamen', value: `${staffRenamed} Name(n) an die Teamrolle angepasst (z. B. „Supporter | Name“).`, inline: false });
     if (staffRenamed === null) e.addFields({ name: 'Teamnamen', value: 'Für „Supporter | Name“ braucht der Bot den „Server Members Intent“ im Developer Portal.', inline: false });
     if (nicknames.changed.length) e.addFields({ name: 'Umbenennen gesperrt', value: `„Nickname ändern“ entfernt bei: ${nicknames.changed.join(', ')}`.slice(0, 1024), inline: false });

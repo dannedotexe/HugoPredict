@@ -570,3 +570,24 @@ test('Neue Verifizierung: Karte im Team-Channel #verifizierungen', async () => {
   assert.match(text, /sehr neu/, 'junges Discord-Konto wird markiert');
   assert.deepEqual(sent[0].allowedMentions, { parse: [] }, 'niemand wird gepingt');
 });
+
+test('OG-Rolle: Beitritt bis Ende 2026 bekommt „| OG“, danach und Bots nicht', async () => {
+  const { createOgRoleService, OG_CUTOFF } = require('../src/services/ogRole');
+  let clock = new Date('2026-11-01T12:00:00Z');
+  const svc = createOgRoleService({ ctx: { roleId: (g, k) => (k === 'og' ? 'OG' : null) }, logger: console, now: () => clock });
+  const member = (id, bot, joinedAt) => {
+    const roles = new Set();
+    return { id, joinedAt, user: { bot, username: id }, guild: { id: 'G' }, roles: { cache: { has: (r) => roles.has(r) }, add: async (r) => roles.add(r) }, _roles: roles };
+  };
+  const steve = member('steve', false, clock);
+  assert.equal(await svc.onMemberAdd(steve), true);
+  assert.ok(steve._roles.has('OG'));
+  assert.equal(await svc.onMemberAdd(steve), false, 'nicht doppelt');
+  assert.equal(await svc.onMemberAdd(member('bot', true, clock)), false, 'keine Bots');
+  clock = OG_CUTOFF;
+  assert.equal(await svc.onMemberAdd(member('alex', false, clock)), false, 'ab 2027 nicht mehr');
+  const old = member('old', false, new Date('2026-03-01')), late = member('late', false, new Date('2027-02-01'));
+  const guild = { members: { fetch: async () => new Map([['a', old], ['b', late], ['c', member('b2', true, new Date('2026-01-01'))]]) } };
+  assert.equal(await svc.sweep(guild), 1);
+  assert.ok(old._roles.has('OG') && !late._roles.has('OG'));
+});

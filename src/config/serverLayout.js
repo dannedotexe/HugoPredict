@@ -73,6 +73,7 @@ const ROLES = [
   { key: 'support', name: '| Supporter', description: 'Tickets bearbeiten und Nutzern helfen', icon: 'support', legacyNames: ['🎫 Support', 'Kundenservice', 'Support'], color: 0x6ee7b7, hoist: true, mentionable: true, permissions: [] },
   { key: 'verified', name: '| Verifiziert', description: 'Minecraft-Konto erfolgreich verknüpft', icon: 'verified', legacyNames: ['⛏️ Verified', 'Verifiziert'], color: 0xa7b4c2, hoist: false, mentionable: false, permissions: [] },
   { key: 'member', name: '| Mitglied', description: 'Standardrolle für Community-Mitglieder', icon: 'member', legacyNames: ['👤 Member', 'Mitglied'], color: 0x6b7280, hoist: false, mentionable: false, permissions: [] },
+  { key: 'og', name: '| OG', description: 'Dabei von Anfang an – beigetreten bis Ende 2026', icon: 'og', color: 0xfbbf24, hoist: false, mentionable: false, permissions: [] },
   // Benachrichtigungs-Rollen: freiwillig per Button in #regeln, nur der Bot pingt sie.
   { key: 'notifyMarkets', name: 'ping:Neue Prognosen', legacyNames: ['Neue Märkte', 'Neue Prognosen'], description: 'Benachrichtigung bei neuen Prognosen', icon: 'open', notify: true, color: 0x4b5563, hoist: false, mentionable: false, permissions: [] },
   { key: 'notifyNews', name: 'ping:Ankündigungen', legacyNames: ['Ankündigungen'], description: 'Benachrichtigung bei Ankündigungen', icon: 'announce', notify: true, color: 0x4b5563, hoist: false, mentionable: false, permissions: [] },
