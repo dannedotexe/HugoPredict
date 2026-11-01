@@ -1,5 +1,7 @@
 'use strict';
 
+const { allMembers } = require('../lib/members');
+
 /*
  * Teamrollen im Server-Namen: „Supporter | Steve“. Maßgeblich ist die höchste
  * Teamrolle; ohne Teamrolle entfernt der Bot den Zusatz wieder. Der Name
@@ -81,7 +83,7 @@ function createStaffNamesService({ ctx, logger }) {
 
   /** Alle Mitglieder abgleichen (z. B. bei /aktualisieren). Braucht den „Server Members Intent“. */
   async function sweep(guild) {
-    const members = await guild.members.fetch();
+    const members = await allMembers(guild);
     let changed = 0;
     for (const member of members.values()) if (await apply(member)) changed += 1;
     return changed;

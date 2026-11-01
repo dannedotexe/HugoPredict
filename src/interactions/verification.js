@@ -1,5 +1,7 @@
 'use strict';
 
+const { allMembers } = require('../lib/members');
+
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const theme = require('../config/theme');
 const { embeds, discordTime, formatRetry } = require('../lib/embeds');
@@ -307,7 +309,7 @@ async function backfillDefaultPings(guild, deps) {
   const memberRole = deps.ctx.roleId(guild.id, 'member');
   const pingIds = DEFAULT_PINGS.map((k) => deps.ctx.roleId(guild.id, k)).filter(Boolean);
   if (!memberRole || !pingIds.length) return null;
-  const members = await guild.members.fetch();
+  const members = await allMembers(guild);
   let changed = 0;
   for (const m of members.values()) {
     if (m.user.bot || !m.roles.cache.has(memberRole)) continue;

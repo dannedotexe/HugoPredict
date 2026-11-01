@@ -591,3 +591,20 @@ test('OG-Rolle: Beitritt bis Ende 2026 bekommt „| OG“, danach und Bots nicht
   assert.equal(await svc.sweep(guild), 1);
   assert.ok(old._roles.has('OG') && !late._roles.has('OG'));
 });
+
+test('Mitgliederliste: einmal holen für alle Dienste, bei Drosselung warten und neu versuchen', async () => {
+  const { allMembers, _reset } = require('../src/lib/members');
+  _reset();
+  let calls = 0;
+  const list = new Map([['1', {}]]);
+  const guild = { id: 'G1', members: { cache: new Map(), fetch: async () => { calls += 1; if (calls === 1) throw new Error('Request with opcode 8 was rate limited. Retry after 0.01 seconds.'); return list; } } };
+  const waits = [];
+  const [a, b] = await Promise.all([allMembers(guild, { waitFn: async (ms) => waits.push(ms) }), allMembers(guild)]);
+  assert.equal(a, list);
+  assert.equal(b, list);
+  assert.equal(calls, 2, 'ein Versuch + ein Neuversuch, nicht pro Dienst');
+  assert.equal(waits.length, 1);
+  await allMembers(guild);
+  assert.equal(calls, 2, 'innerhalb einer Minute aus dem Zwischenspeicher');
+  _reset();
+});

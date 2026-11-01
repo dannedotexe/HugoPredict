@@ -1,5 +1,7 @@
 'use strict';
 
+const { allMembers } = require('../lib/members');
+
 const { discordTime } = require('../lib/embeds');
 const { card, upsert } = require('../lib/ui');
 
@@ -41,7 +43,7 @@ async function collectStats(guild, { store, ctx, membersIntent, client, now = Da
     s.online = null;
   }
   if (membersIntent) {
-    const members = await guild.members.fetch();
+    const members = await allMembers(guild);
     const has = (key) => {
       const id = ctx.roleId(guild.id, key);
       return id ? members.filter((m) => m.roles.cache.has(id)).size : null;

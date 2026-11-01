@@ -1,5 +1,7 @@
 'use strict';
 
+const { allMembers } = require('../lib/members');
+
 /*
  * Rolle „| OG“: Wer bis Ende 2026 (deutsche Zeit) beitritt, bekommt sie –
  * neue Mitglieder beim Beitritt, bestehende bei /aktualisieren. Keine Bots.
@@ -30,7 +32,7 @@ function createOgRoleService({ ctx, logger, cutoff = OG_CUTOFF, now = () => new 
 
   /** Alle, die vor Fristende beigetreten sind und die Rolle noch nicht haben. */
   async function sweep(guild) {
-    const members = await guild.members.fetch();
+    const members = await allMembers(guild);
     let added = 0;
     for (const member of members.values()) if (eligible(member, member.joinedAt) && await give(member)) added += 1;
     return added;

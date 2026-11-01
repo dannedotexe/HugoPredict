@@ -1,5 +1,7 @@
 'use strict';
 
+const { allMembers } = require('../lib/members');
+
 /*
  * Rolle „| Bots“ für andere Bots: neue Bots bekommen sie beim Beitritt,
  * bestehende bei /aktualisieren. Der eigene Bot bekommt sie nicht.
@@ -21,7 +23,7 @@ function createBotRoleService({ ctx, logger }) {
 
   /** Allen Bots auf dem Server die Rolle geben. Braucht den „Server Members Intent“. */
   async function sweep(guild) {
-    const members = await guild.members.fetch();
+    const members = await allMembers(guild);
     let added = 0;
     for (const member of members.values()) if (await assign(member)) added += 1;
     return added;
