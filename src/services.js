@@ -402,15 +402,16 @@ export function createMarket({ title, description = '', category, emoji, closesA
 const banLabel = (u) => (u?.banned && u.ban_rule ? rule(u.ban_rule)?.label ?? `§${u.ban_rule}` : null);
 
 /** IP gesperrt → Meldung mit Paragraf (Admins sind ausgenommen). */
-export function checkIpBan(ip, user = null) {
+export function checkIpBan(ip, user = null, device = null) {
   if (user?.isAdmin) return;
-  const r = ipBanRule(ip);
-  if (r !== null) throw new AppError(`Von diesem Netzwerk ist HugoPredict gesperrt${r ? ` (Verstoß gegen ${rule(r)?.label ?? `§${r}`})` : ''}. Melde dich beim Support.`, 403);
+  const r = ipBanRule(ip, device);
+  // Bewusst neutral: verrät nicht, ob Konto, IP oder Gerät gesperrt ist
+  if (r !== null) throw new AppError(`Dein Zugang zu HugoPredict ist gesperrt${r ? ` (Verstoß gegen ${rule(r)?.label ?? `§${r}`})` : ''}. Melde dich beim Support.`, 403);
 }
 
 function notBanned(userId) {
   const u = db.prepare('SELECT banned, ban_rule FROM users WHERE id = ?').get(userId);
-  if (u?.banned) throw new AppError(`Dein Konto ist gesperrt${banLabel(u) ? ` (Verstoß gegen ${banLabel(u)})` : ''}. Melde dich beim Support.`, 403);
+  if (u?.banned) throw new AppError(`Dein Zugang zu HugoPredict ist gesperrt${banLabel(u) ? ` (Verstoß gegen ${banLabel(u)})` : ''}. Melde dich beim Support.`, 403);
 }
 
 function tradableMarket(marketId) {

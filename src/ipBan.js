@@ -1,7 +1,8 @@
-// IP-Sperren: Wird ein Konto gesperrt, werden auch seine IP-Adressen gesperrt.
-// Von dort ist dann kein Login und kein Bieten/Auszahlen mehr möglich – auch nicht
-// mit einem Zweitaccount. IPs werden nur als Hash (HMAC mit geheimem Schlüssel)
-// gespeichert und nach 90 Tagen ohne Nutzung gelöscht.
+// IP- und Geräte-Sperren: Wird ein Konto gesperrt, werden auch seine IP-Adressen
+// und Geräte (zufällige Kennung im Browser) gesperrt. Von dort ist dann kein Login
+// und kein Bieten/Auszahlen mehr möglich – auch nicht mit einem Zweitaccount.
+// Beides wird nur als Hash (HMAC mit geheimem Schlüssel) gespeichert und nach
+// 90 Tagen ohne Nutzung gelöscht. Tabellen heißen aus Kompatibilität *_ips.
 import crypto from 'node:crypto';
 import { db } from './db.js';
 
@@ -26,26 +27,33 @@ if (!key) {
   db.prepare("INSERT INTO meta (key, value) VALUES ('ip_key', ?)").run(key);
 }
 
-export const ipHash = (ip) => (ip ? crypto.createHmac('sha256', key).update(String(ip).replace(/^::ffff:/, '')).digest('hex') : null);
+const hmac = (v) => crypto.createHmac('sha256', key).update(v).digest('hex');
+export const ipHash = (ip) => (ip ? hmac(String(ip).replace(/^::ffff:/, '')) : null);
+export const DEVICE_ID = /^[a-f0-9]{32}$/;
+export const deviceHash = (id) => (DEVICE_ID.test(String(id ?? '')) ? hmac(`d:${id}`) : null);
+const hashes = (ip, device) => [ipHash(ip), deviceHash(device)].filter(Boolean);
 
 const touched = new Map();
-/** Merkt sich, von welcher IP ein Konto die Website nutzt. */
-export function seen(userId, ip) {
-  const h = ipHash(ip);
-  if (!userId || !h) return;
-  const k = `${userId}:${h}`;
-  if (Date.now() - (touched.get(k) || 0) < TOUCH_MS) return;
-  touched.set(k, Date.now());
-  db.prepare(`INSERT INTO user_ips (user_id, ip_hash, last_seen) VALUES (?, ?, ?)
-    ON CONFLICT(user_id, ip_hash) DO UPDATE SET last_seen = excluded.last_seen`).run(userId, h, Date.now());
+/** Merkt sich, von welcher IP und welchem Gerät ein Konto die Website nutzt. */
+export function seen(userId, ip, device = null) {
+  if (!userId) return;
+  for (const h of hashes(ip, device)) {
+    const k = `${userId}:${h}`;
+    if (Date.now() - (touched.get(k) || 0) < TOUCH_MS) continue;
+    touched.set(k, Date.now());
+    db.prepare(`INSERT INTO user_ips (user_id, ip_hash, last_seen) VALUES (?, ?, ?)
+      ON CONFLICT(user_id, ip_hash) DO UPDATE SET last_seen = excluded.last_seen`).run(userId, h, Date.now());
+  }
   if (Math.random() < 0.01) db.prepare('DELETE FROM user_ips WHERE last_seen < ?').run(Date.now() - KEEP_MS);
 }
 
-/** Paragraf der IP-Sperre oder null. */
-export function ipBanRule(ip) {
-  const h = ipHash(ip);
-  const row = h && db.prepare('SELECT rule FROM banned_ips WHERE ip_hash = ?').get(h);
-  return row ? row.rule ?? '' : null;
+/** Paragraf der Sperre (IP oder Gerät) oder null. */
+export function ipBanRule(ip, device = null) {
+  for (const h of hashes(ip, device)) {
+    const row = db.prepare('SELECT rule FROM banned_ips WHERE ip_hash = ?').get(h);
+    if (row) return row.rule ?? '';
+  }
+  return null;
 }
 
 /** Alle IPs des Kontos sperren – außer solche, die auch ein Admin nutzt. */

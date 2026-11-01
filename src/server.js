@@ -5,7 +5,7 @@ import express from 'express';
 import { db } from './db.js';
 import * as svc from './services.js';
 import { RULES } from './rules.js';
-import { seen } from './ipBan.js';
+import { seen, DEVICE_ID } from './ipBan.js';
 import { botState, startBot } from './bot.js';
 import { botApi } from './botApi.js';
 
@@ -41,9 +41,16 @@ function readToken(req) {
   return match?.[1];
 }
 
+// Geräte-Kennung (zufällig, vom Browser erzeugt) – nur für Missbrauchs-Sperren
+function readDevice(req) {
+  const v = req.headers['x-device'] || (req.headers.cookie || '').match(/(?:^|;\s*)hp_d=([a-f0-9]{32})/)?.[1];
+  return DEVICE_ID.test(String(v || '')) ? String(v) : null;
+}
+
 app.use((req, res, next) => {
   req.user = svc.userBySession(readToken(req));
-  if (req.user) seen(req.user.id, req.ip);
+  req.device = readDevice(req);
+  if (req.user) seen(req.user.id, req.ip, req.device);
   next();
 });
 
@@ -77,7 +84,7 @@ function rateLimit(req) {
 
 // Gesperrte IPs: kein Bieten, Verkaufen oder Auszahlen (auch nicht mit Zweitaccount)
 app.post(['/api/markets/:id/buy', '/api/markets/:id/sell', '/api/withdrawals'], (req, res, next) => {
-  try { svc.checkIpBan(req.ip, req.user); next(); } catch (err) { res.status(err.status || 500).json({ error: err.message }); }
+  try { svc.checkIpBan(req.ip, req.user, req.device); next(); } catch (err) { res.status(err.status || 500).json({ error: err.message }); }
 });
 
 // ---------- Public ----------
@@ -94,15 +101,15 @@ app.get('/api/status', handle(() => ({
 
 app.post('/api/login/start', handle((req) => {
   rateLimit(req);
-  svc.checkIpBan(req.ip);
+  svc.checkIpBan(req.ip, null, req.device);
   return svc.startLogin();
 }));
 
 app.post('/api/login/poll', handle((req, res) => {
-  svc.checkIpBan(req.ip);
+  svc.checkIpBan(req.ip, null, req.device);
   const token = svc.pollLogin(req.body.secret);
   if (!token) return { loggedIn: false };
-  seen(svc.userBySession(token)?.id, req.ip);
+  seen(svc.userBySession(token)?.id, req.ip, req.device);
   res.setHeader('Set-Cookie', `${COOKIE}=${token}; ${cookieFlags}`);
   return { loggedIn: true };
 }));

@@ -305,7 +305,7 @@ test('Admin: Deckung, Bearbeiten, Vorschau beim Entscheiden, Hervorheben, Sperre
 
   assert.throws(() => svc.setBanned(uid, true), /Paragrafen/, 'Sperren nur mit Paragraf');
   svc.setBanned(uid, true, '3.4');
-  assert.throws(() => svc.buy(uid, id, m.outcomes[1].id, 10), /gesperrt \(Verstoß gegen §3\.4 Manipulation & Zweitaccounts\)/);
+  assert.throws(() => svc.buy(uid, id, m.outcomes[1].id, 10), /Zugang zu HugoPredict ist gesperrt \(Verstoß gegen §3\.4 Manipulation & Zweitaccounts\)/);
   assert.throws(() => svc.requestWithdrawal(uid, 50), /gesperrt/);
   assert.ok(svc.adminUsers({ q: 'Admin_Test' })[0].banned);
   assert.equal(svc.adminUser(uid).banRule, '§3.4 Manipulation & Zweitaccounts');
@@ -319,11 +319,21 @@ test('Admin: Deckung, Bearbeiten, Vorschau beim Entscheiden, Hervorheben, Sperre
   ip.seen(alt, '::ffff:203.0.113.7');
   assert.deepEqual(svc.adminUser(uid).sameIp.map((x) => x.name), ['AltIpMC']);
   assert.equal(svc.setBanned(alt, true, '3.4').ipsBanned, 1);
-  assert.throws(() => svc.checkIpBan('203.0.113.7'), /Netzwerk ist HugoPredict gesperrt \(Verstoß gegen §3\.4/);
+  assert.throws(() => svc.checkIpBan('203.0.113.7'), /Zugang zu HugoPredict ist gesperrt \(Verstoß gegen §3\.4/);
   svc.checkIpBan('203.0.113.7', { isAdmin: true });
   svc.checkIpBan('198.51.100.1');
   svc.setBanned(alt, false);
   svc.checkIpBan('203.0.113.7');
+
+  // Geräte-Sperre: anderes Netz (VPN/Mobil), aber dasselbe Gerät → gesperrt
+  const dev = 'ab'.repeat(16);
+  ip.seen(alt, '198.51.100.9', dev);
+  svc.setBanned(alt, true, '3.5');
+  assert.throws(() => svc.checkIpBan('192.0.2.55', null, dev), /Zugang zu HugoPredict ist gesperrt \(Verstoß gegen §3\.5/);
+  svc.checkIpBan('192.0.2.55', null, 'cd'.repeat(16));
+  svc.checkIpBan('192.0.2.55', null, 'kein-gültiges-format');
+  svc.setBanned(alt, false);
+  svc.checkIpBan('192.0.2.55', null, dev);
   svc.buy(uid, id, m.outcomes[1].id, 10);
   assert.ok(svc.adminUser(uid).ledger.length >= 2);
 });
