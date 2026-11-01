@@ -179,13 +179,18 @@ export function pollLogin(secret) {
 
 // ---------- Deposits & withdrawals ----------
 
-export function saveDiscordLink(discordId, discordUsername, mcName, mcUuid) {
+// Nur Discords eigenes CDN als Profilbild (keine beliebigen Adressen auf der Website)
+const DISCORD_AVATAR = /^https:\/\/cdn\.discordapp\.com\/(?:avatars|embed\/avatars)\/[\w/.-]+\.(?:png|webp|gif)(?:\?size=\d+)?$/;
+
+export function saveDiscordLink(discordId, discordUsername, mcName, mcUuid, discordAvatar = null) {
+  const avatar = typeof discordAvatar === 'string' && DISCORD_AVATAR.test(discordAvatar) ? discordAvatar : null;
   tx(() => {
     const taken = db.prepare('SELECT discord_id FROM discord_links WHERE mc_uuid = ? AND discord_id <> ?').get(mcUuid, discordId);
     if (taken) throw new AppError('Dieses Minecraft-Konto ist schon mit einem anderen Discord-Konto verknüpft', 409);
-    db.prepare(`INSERT INTO discord_links (discord_id, discord_username, mc_name, mc_uuid, created_at) VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT (discord_id) DO UPDATE SET discord_username = excluded.discord_username, mc_name = excluded.mc_name, mc_uuid = excluded.mc_uuid`)
-      .run(discordId, String(discordUsername ?? '').slice(0, 64), mcName, mcUuid, now());
+    db.prepare(`INSERT INTO discord_links (discord_id, discord_username, mc_name, mc_uuid, discord_avatar, created_at) VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT (discord_id) DO UPDATE SET discord_username = excluded.discord_username, mc_name = excluded.mc_name, mc_uuid = excluded.mc_uuid,
+        discord_avatar = COALESCE(excluded.discord_avatar, discord_links.discord_avatar)`)
+      .run(discordId, String(discordUsername ?? '').slice(0, 64), mcName, mcUuid, avatar, now());
   });
 }
 
@@ -832,7 +837,7 @@ export function knownOutcomes(category, limit = 30) {
 export function myProfile(userId) {
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
   if (!u) throw new AppError('Nicht angemeldet', 401);
-  const link = u.mc_name ? db.prepare('SELECT discord_id, discord_username, mc_uuid, created_at FROM discord_links WHERE mc_name = ?').get(u.mc_name) : null;
+  const link = u.mc_name ? db.prepare('SELECT discord_id, discord_username, discord_avatar, mc_uuid, created_at FROM discord_links WHERE mc_name = ?').get(u.mc_name) : null;
   let stats = null, rank = null, profit = 0;
   try {
     const p = playerProfile(u.mc_name || u.username);
@@ -841,7 +846,7 @@ export function myProfile(userId) {
   return {
     username: u.username, mcName: u.mc_name, since: u.created_at, balance: r2(u.balance), banned: !!u.banned,
     uuid: link?.mc_uuid ?? null,
-    discord: link ? { id: link.discord_id, name: link.discord_username, since: link.created_at } : null,
+    discord: link ? { id: link.discord_id, name: link.discord_username, avatar: link.discord_avatar ?? null, since: link.created_at } : null,
     rank, profit, stats,
   };
 }

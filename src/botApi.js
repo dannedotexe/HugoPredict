@@ -91,10 +91,10 @@ botApi.get('/markets', handle((req) => {
 botApi.post('/minecraft/heartbeat', handle((req) => heartbeat(req.body)));
 
 botApi.post('/minecraft/links', handle((req) => {
-  const { discordId, discordUsername, minecraftName, minecraftUuid } = req.body;
+  const { discordId, discordUsername, minecraftName, minecraftUuid, discordAvatar } = req.body;
   if (!SNOWFLAKE.test(String(discordId))) throw new svc.AppError('Ungültige Discord-ID', 422);
   if (typeof minecraftUuid !== 'string' || !minecraftUuid) throw new svc.AppError('Minecraft-UUID fehlt', 422);
-  svc.saveDiscordLink(String(discordId), discordUsername, mcName(minecraftName), minecraftUuid);
+  svc.saveDiscordLink(String(discordId), discordUsername, mcName(minecraftName), minecraftUuid, discordAvatar);
   return { linked: true };
 }));
 

@@ -641,7 +641,9 @@ async function viewMe() {
           <small class="eyebrow" style="color:#8ea1ff">Discord</small>
           <h2 style="margin-bottom:12px">Discord-Verknüpfung</h2>
           ${p.discord
-            ? `<div class="discord-row"><span class="discord-avatar" aria-hidden="true">${esc((p.discord.name || '?').slice(0, 1).toUpperCase())}</span>
+            ? `<div class="discord-row">${p.discord.avatar
+                ? `<img class="discord-avatar" src="${esc(p.discord.avatar)}" width="44" height="44" alt="">`
+                : `<span class="discord-avatar" aria-hidden="true">${esc((p.discord.name || '?').slice(0, 1).toUpperCase())}</span>`}
                 <div><b>${esc(p.discord.name || 'Discord-Konto')}</b><br><small class="muted">verknüpft seit ${date(p.discord.since)}</small></div></div>
                <p class="muted" style="font-size:13px;margin-top:10px">Trennen geht über den Support im Discord.</p>`
             : '<p class="muted">Noch nicht verknüpft. Im Discord in <b>#verifizieren</b> den Befehl holen und im Spiel abschicken.</p>'}

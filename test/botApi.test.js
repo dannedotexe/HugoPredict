@@ -311,3 +311,13 @@ test('Bekannte Ausgänge einer Kategorie (z. B. Clans) ohne Platzhalter', () => 
   assert.ok(labels.includes('NDCW') && labels.includes('V0XY'));
   assert.ok(!labels.includes('Clan A') && !labels.includes('Unentschieden'));
 });
+
+test('Discord-Profilbild: nur von Discords CDN, wird gespeichert und angezeigt', async () => {
+  const uid = svc.userBySession(loginAs('Avatar_MC')).id;
+  const ok = 'https://cdn.discordapp.com/avatars/444444444444444444/abc123.png?size=128';
+  assert.equal((await post('/minecraft/links', { discordId: '444444444444444444', discordUsername: 'ava', minecraftName: 'Avatar_MC', minecraftUuid: 'uuid-ava', discordAvatar: ok })).status, 200);
+  assert.equal(svc.myProfile(uid).discord.avatar, ok);
+  // Fremde Adresse wird ignoriert, altes Bild bleibt
+  await post('/minecraft/links', { discordId: '444444444444444444', discordUsername: 'ava', minecraftName: 'Avatar_MC', minecraftUuid: 'uuid-ava', discordAvatar: 'https://evil.example/x.png' });
+  assert.equal(svc.myProfile(uid).discord.avatar, ok);
+});

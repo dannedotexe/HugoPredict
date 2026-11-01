@@ -17,7 +17,7 @@ app.use((req, res, next) => {
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
-    "img-src 'self' https://mc-heads.net data:",
+    "img-src 'self' https://mc-heads.net https://cdn.discordapp.com data:",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src https://fonts.gstatic.com",
     "connect-src 'self'",
