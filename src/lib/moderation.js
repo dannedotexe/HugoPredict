@@ -3,6 +3,7 @@
 const { PermissionFlagsBits: P, PermissionsBitField } = require('discord.js');
 const { embeds, truncate, discordTime } = require('./embeds');
 const theme = require('../config/theme');
+const { paragraph } = require('../config/docs');
 
 const ACTIONS = {
   warn: { label: 'Verwarnung', past: 'verwarnt', botPermission: null, color: theme.colors.warning },
@@ -67,6 +68,8 @@ function recordCase(store, guildId, data) {
 
 const casesFor = (store, guildId, userId) => store.guild(guildId).moderation.cases.filter((c) => c.targetId === userId);
 
+const ruleLabel = (id) => paragraph(id)?.label ?? `§${id}`;
+
 function caseEmbed(c) {
   const def = ACTIONS[c.action];
   const e = embeds.base(def.color).setTitle(`Fall #${c.number} · ${def.label}`).addFields(
@@ -74,6 +77,7 @@ function caseEmbed(c) {
     { name: 'Durch', value: `<@${c.moderatorId}>`, inline: true },
   );
   if (c.durationMs) e.addFields({ name: 'Dauer', value: humanDuration(c.durationMs), inline: true });
+  if (c.paragraph) e.addFields({ name: 'Regel', value: ruleLabel(c.paragraph), inline: false });
   e.addFields({ name: 'Grund', value: truncate(c.reason, 1024), inline: false });
   if (c.dm === false) e.addFields({ name: 'Benachrichtigung', value: 'Direktnachricht nicht zustellbar', inline: false });
   return e;
@@ -82,8 +86,10 @@ function caseEmbed(c) {
 function noticeEmbed(c, guildName) {
   const def = ACTIONS[c.action];
   const e = embeds.base(def.color).setTitle(`Hinweis vom Team von ${truncate(guildName, 100)}`)
-    .setDescription(`Du wurdest **${def.past}**.`)
-    .addFields({ name: 'Grund', value: truncate(c.reason, 1024), inline: false });
+    .setDescription(`Du wurdest **${def.past}**.`);
+  const rule = c.paragraph && paragraph(c.paragraph);
+  if (rule) e.addFields({ name: `Verstoß gegen ${rule.label}`, value: truncate(rule.text.replace(/\*\*/g, ''), 1024), inline: false });
+  e.addFields({ name: 'Grund', value: truncate(c.reason, 1024), inline: false });
   if (c.durationMs) e.addFields({ name: 'Dauer', value: humanDuration(c.durationMs), inline: true });
   return e.addFields({ name: 'Fragen?', value: 'Wende dich an den Support des Servers.', inline: false });
 }
@@ -92,7 +98,7 @@ function historyEmbed(user, cases) {
   const e = embeds.info(`Moderationsverlauf · ${truncate(user.username, 80)}`);
   if (!cases.length) return e.setDescription('Für diese Person liegen keine Einträge vor.');
   const lines = cases.slice(-15).reverse().map((c) =>
-    `**#${c.number} ${ACTIONS[c.action].label}** · ${discordTime(c.at, 'd')} · <@${c.moderatorId}>\n${truncate(c.reason, 150)}`);
+    `**#${c.number} ${ACTIONS[c.action].label}** · ${discordTime(c.at, 'd')} · <@${c.moderatorId}>${c.paragraph ? ` · §${c.paragraph}` : ''}\n${truncate(c.reason, 150)}`);
   return e.setDescription(truncate(lines.join('\n\n'), 4000))
     .addFields({ name: 'Gesamt', value: `${cases.length} Eintrag/Einträge, davon ${cases.filter((c) => c.action === 'warn').length} Verwarnung(en)`, inline: false });
 }

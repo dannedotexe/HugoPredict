@@ -4,22 +4,24 @@ const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { embeds } = require('../lib/embeds');
 const { replyPrivate, EPHEMERAL } = require('../lib/respond');
 const mod = require('../lib/moderation');
+const { paragraphChoices } = require('../config/docs');
 
 const SNOWFLAKE = /^\d{15,25}$/;
 const reasonOption = (o) => o.setName('grund').setDescription('Begründung (wird protokolliert und der Person mitgeteilt)').setRequired(true).setMinLength(3).setMaxLength(500);
+const paragraphOption = (required) => (o) => o.setName('paragraf').setDescription('Gegen welche Regel verstoßen wurde (sieht die Person)').setRequired(required).addChoices(...paragraphChoices());
 const userOption = (o) => o.setName('nutzer').setDescription('Betroffene Person').setRequired(true);
 
 const data = new SlashCommandBuilder()
   .setName('mod')
   .setDescription('Moderationswerkzeuge')
   .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
-  .addSubcommand((s) => s.setName('verwarnen').setDescription('Verwarnung aussprechen').addUserOption(userOption).addStringOption(reasonOption))
+  .addSubcommand((s) => s.setName('verwarnen').setDescription('Verwarnung aussprechen').addUserOption(userOption).addStringOption(reasonOption).addStringOption(paragraphOption(false)))
   .addSubcommand((s) => s.setName('timeout').setDescription('Person vorübergehend stummschalten').addUserOption(userOption)
     .addIntegerOption((o) => o.setName('dauer').setDescription('Dauer').setRequired(true).addChoices(...mod.TIMEOUTS))
-    .addStringOption(reasonOption))
+    .addStringOption(reasonOption).addStringOption(paragraphOption(false)))
   .addSubcommand((s) => s.setName('timeout-aufheben').setDescription('Timeout vorzeitig beenden').addUserOption(userOption).addStringOption(reasonOption))
-  .addSubcommand((s) => s.setName('kicken').setDescription('Person vom Server entfernen').addUserOption(userOption).addStringOption(reasonOption))
-  .addSubcommand((s) => s.setName('bannen').setDescription('Person dauerhaft ausschließen (nur Inhaber und Administrator)').addUserOption(userOption).addStringOption(reasonOption)
+  .addSubcommand((s) => s.setName('kicken').setDescription('Person vom Server entfernen').addUserOption(userOption).addStringOption(reasonOption).addStringOption(paragraphOption(false)))
+  .addSubcommand((s) => s.setName('bannen').setDescription('Person dauerhaft ausschließen (nur Inhaber und Administrator)').addUserOption(userOption).addStringOption(reasonOption).addStringOption(paragraphOption(true))
     .addIntegerOption((o) => o.setName('nachrichten_loeschen').setDescription('Nachrichten der Person löschen').addChoices(...mod.BAN_DELETE)))
   .addSubcommand((s) => s.setName('entbannen').setDescription('Bann aufheben (nur Inhaber und Administrator)')
     .addStringOption((o) => o.setName('nutzer_id').setDescription('Discord-ID der Person').setRequired(true).setMinLength(15).setMaxLength(25))
@@ -67,8 +69,9 @@ module.exports = {
 
     await interaction.deferReply({ flags: EPHEMERAL });
     const durationMs = action === 'timeout' ? interaction.options.getInteger('dauer', true) : null;
-    const draft = { action, targetId: user.id, moderatorId: actor.id, reason, durationMs, number: '…' };
-    const auditReason = `${reason} – durch ${actor.user.username}`.slice(0, 512);
+    const paragraph = interaction.options.getString('paragraf') ?? null;
+    const draft = { action, targetId: user.id, moderatorId: actor.id, reason, paragraph, durationMs, number: '…' };
+    const auditReason = `${paragraph ? `§${paragraph} · ` : ''}${reason} – durch ${actor.user.username}`.slice(0, 512);
 
     // Vor Kick/Bann benachrichtigen – danach ist keine Direktnachricht mehr möglich.
     let dm = null;

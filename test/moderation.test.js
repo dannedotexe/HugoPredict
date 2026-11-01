@@ -79,3 +79,17 @@ test('Intents: Members-Intent nur bei Freigabe, Fehler führen zum sicheren Verz
   const r = await resolveIntents('t', { get: async () => ({ flags: 0 }) });
   assert.deepEqual([r.intents.length, r.members], [2, false], 'Guilds + GuildVoiceStates');
 });
+
+test('Regeln mit Paragrafen; gebannte Person sieht den Paragrafen', () => {
+  const docs = require('../src/config/docs');
+  const mod = require('../src/lib/moderation');
+  const secs = docs.sections({ currency: '$', websiteUrl: '' });
+  assert.match(secs[2].title, /^§3 Prognoseregeln$/);
+  assert.match(secs[2].body, /\*\*§3\.4\*\* Manipulation/);
+  assert.match(secs[2].body, /\*\*§3\.5\*\* .*Insider/);
+  const choices = docs.paragraphChoices();
+  assert.ok(choices.length <= 25 && choices.every((c) => c.name.length <= 100 && /^\d+\.\d+$/.test(c.value)));
+  const notice = JSON.stringify(mod.noticeEmbed({ action: 'ban', reason: 'Zweitaccount', paragraph: '3.4' }, 'HugoPredict').toJSON());
+  assert.match(notice, /Verstoß gegen §3\.4 Manipulation & Zweitaccounts/);
+  assert.match(JSON.stringify(mod.caseEmbed({ action: 'ban', number: 1, targetId: '1', moderatorId: '2', reason: 'x', paragraph: '3.5' }).toJSON()), /§3\.5 Insider-Handel/);
+});
