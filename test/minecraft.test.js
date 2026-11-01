@@ -123,14 +123,14 @@ async function until(fn, ms = 2000) {
   }
 }
 
-function setup(overrides = {}) {
+function setup(overrides = {}, extra = {}) {
   const world = fakeWorld();
   const api = fakeApi();
   const reports = [];
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hm-mc-'));
   const mc = createMinecraftService({
     config: { ...config, ...overrides }, api, dataDir, createBot: world.createBot, report: (route, e) => reports.push({ route, ...e }),
-    logger: { info() {}, warn() {}, error() {} }, chatDelayMs: 0, settleMs: 5, payoutCheckMs: 5, commandWaitMs: 20, spawnDelayMs: 0, balanceTimeoutMs: 300,
+    logger: { info() {}, warn() {}, error() {} }, chatDelayMs: 0, settleMs: 5, payoutCheckMs: 5, commandWaitMs: 20, spawnDelayMs: 0, balanceTimeoutMs: 300, lookupUuid: async () => null, ...extra,
   });
   return { world, api, reports, mc, dataDir };
 }
@@ -492,4 +492,26 @@ test('Schnelle Auszahlung ohne Kontostand-Prüfung: Bestätigung über die Serve
   await mc._internal.payoutTick();
   assert.equal(world.sent.filter((m) => m.startsWith('/pay Steve')).length, 1);
   assert.ok(reports.some((r) => /unklar/.test(r.title)));
+});
+
+test('Discord-Verknüpfung: Spieler auf anderem Unterserver (nicht in der Spielerliste) → UUID von Mojang', async (t) => {
+  let lookups = 0;
+  let mojangUp = false;
+  const { world, api, mc } = setup({}, { lookupUuid: async (name) => { lookups += 1; return mojangUp ? { username: 'Sparko_Happy', uuid: 'uuid-sparko' } : null; } });
+  t.after(() => mc.stop());
+  const linked = [];
+  mc.setDiscordLinkHandler(async (e) => linked.push(e));
+  mc.start();
+  await until(() => mc.state.online);
+  const sys = (line) => world.bots[0].emit('messagestr', line, 'system');
+  const { code } = mc.startDiscordLink('333333333333333333', 'sparko');
+  // Mojang nicht erreichbar → Fehlermeldung, Code bleibt gültig
+  sys(`[Nachricht] Sparko_Happy -> Du: ${code}`);
+  await until(() => world.sent.some((m) => m.startsWith('/msg Sparko_Happy Das hat nicht geklappt')));
+  mojangUp = true;
+  sys(`[Nachricht] Sparko_Happy -> Du: ${code}`);
+  await until(() => linked.length === 1);
+  assert.equal(lookups, 2);
+  assert.deepEqual(linked[0].player, { username: 'Sparko_Happy', uuid: 'uuid-sparko' });
+  assert.equal(api.calls.links.at(-1).minecraftUuid, 'uuid-sparko');
 });

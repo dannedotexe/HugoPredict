@@ -27,7 +27,33 @@ const { LinkCodes } = require('./linkCodes');
 const fill = (template, vars) => template.replace(/\{(\w+)\}/g, (all, k) => (vars[k] === undefined ? all : String(vars[k])));
 const plain = (v) => (typeof v === 'string' ? v : JSON.stringify(v ?? '')).slice(0, 300);
 
-function createMinecraftService({ config: baseConfig, api, logger, report, dataDir, createBot, chatDelayMs = 1100, settleMs = 1500, payoutCheckMs = 2500, reconnectMs = 15_000, commandWaitMs = 2500, spawnDelayMs = 5000, balanceTimeoutMs = 6000 }) {
+/**
+ * UUID eines Minecraft-Namens bei Mojang nachschlagen. Nötig, weil HugoSMP mehrere
+ * Unterserver hat: /msg geht serverübergreifend, die Spielerliste des Bots zeigt
+ * aber nur Spieler auf seinem eigenen Unterserver.
+ */
+async function mojangUuid(name) {
+  const urls = [
+    `https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(name)}`,
+    `https://api.minecraftservices.com/minecraft/profile/lookup/name/${encodeURIComponent(name)}`,
+  ];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (!res.ok) continue;
+      const body = await res.json();
+      const id = String(body?.id ?? '').replace(/-/g, '');
+      if (/^[0-9a-f]{32}$/i.test(id)) {
+        return { username: body.name || name, uuid: id.replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5').toLowerCase() };
+      }
+    } catch {
+      // nächste Quelle
+    }
+  }
+  return null;
+}
+
+function createMinecraftService({ config: baseConfig, api, logger, report, dataDir, createBot, chatDelayMs = 1100, settleMs = 1500, payoutCheckMs = 2500, reconnectMs = 15_000, commandWaitMs = 2500, spawnDelayMs = 5000, balanceTimeoutMs = 6000, lookupUuid = mojangUuid }) {
   const persisted = new Store(dataDir, { fileName: 'minecraft.json' });
   const db = (persisted.data.minecraft ??= { outbox: {}, payouts: {}, links: {}, lastBalance: null });
   // Im /panel geänderte Einstellungen gelten vor der .env und bleiben nach Neustarts erhalten.
@@ -669,16 +695,20 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
     const code = text.toUpperCase();
     const entry = discordCodes.get(code);
     if (!entry) return false;
-    discordCodes.delete(code);
     if (Date.now() - entry.createdAt > DISCORD_CODE_TTL) {
+      discordCodes.delete(code);
       whisper(name, 'Der Code ist abgelaufen. Hol dir in Discord einen neuen.');
       return true;
     }
-    const player = findPlayer(name) ?? { username: name, uuid: null };
-    if (!player.uuid) {
+    // Spieler auf einem anderen Unterserver stehen nicht in der Spielerliste → UUID bei Mojang
+    const player = findPlayer(name) ?? await lookupUuid(name).catch(() => null);
+    if (!player?.uuid) {
+      // Code bleibt gültig, damit ein zweiter Versuch klappt
+      logger.warn(`Verknüpfung: UUID für ${name} nicht gefunden.`);
       whisper(name, 'Das hat nicht geklappt, bitte versuch es gleich nochmal.');
       return true;
     }
+    discordCodes.delete(code);
     const taken = Object.entries(db.links).find(([id, l]) => id !== entry.discordId && l.uuid === player.uuid);
     if (taken) {
       whisper(name, 'Dieses Minecraft-Konto ist schon mit einem anderen Discord-Konto verknuepft. Melde dich im Support.');
