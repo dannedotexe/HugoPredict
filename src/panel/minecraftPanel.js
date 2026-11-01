@@ -128,7 +128,7 @@ function settingsView(minecraft, notice = null, { owner = false } = {}) {
   if (notice) blocks.push({ heading: notice.ok ? 'Gespeichert' : 'Nicht gespeichert', icon: notice.ok ? 'check' : 'warning', body: notice.text });
   blocks.push(
     { heading: 'Einzahlungen', icon: 'coin', body: `Kontostand-Prüfung ${state(st.balanceCheck)}\n-# ${st.balanceCheck ? 'Eine Einzahlung zählt erst, wenn /balance den Anstieg zeigt.' : 'Die Nachricht „Du hast … erhalten“ zählt sofort.'}` },
-    { heading: 'Auszahlungen', icon: 'balance', body: `Automatisch ${state(st.payoutsEnabled)} · Limit **${st.payoutMax > 0 ? money(st.payoutMax) : 'keins'}**\n-# Führt freigegebene Auszahlungen der Website per /pay aus. Braucht die Kontostand-Prüfung.` },
+    { heading: 'Auszahlungen', icon: 'balance', body: `Automatisch ${state(st.payoutsEnabled)} · Limit **${st.payoutMax > 0 ? money(st.payoutMax) : 'keins'}**\n-# Zahlt Auszahlungen der Website sofort per /pay aus. Mit Prüfung zusätzlich am Kontostand kontrolliert (dauert ein paar Sekunden länger).` },
     { heading: 'Nach dem Verbinden', icon: 'platform', body: `${st.joinCommands.length ? st.joinCommands.map((c) => `\`${c.replace(/`/g, "'")}\``).join(' · ') : 'Keine Befehle'}\n-# Werden nach jedem Verbinden ausgeführt, z. B. /server smp. Bei HugoSMP nicht nötig.` },
   );
   return card({

@@ -237,6 +237,8 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
       notify('audit', { title: 'Minecraft: Auszahlung abgelehnt', description: `**${p.minecraftName}** · ${formatAmount(p.amount)} liegt über MC_PAYOUT_MAX.` });
       return;
     }
+    // Ohne Kontostand-Prüfung: sofort zahlen, Erfolg an der Antwort des Servers erkennen
+    if (!config.balanceCheck) return executePayoutFast(p);
     const before = await readBalance();
     settle(before);
     if (before < p.amount) {
@@ -281,6 +283,63 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
     await completePaid();
   }
 
+  // Antwort des Servers auf /pay: Fehler (nichts überwiesen) oder Erfolg (Name des Empfängers + „gesendet“ o. Ä.)
+  const PAY_FAILED = /(nicht genug|zu wenig|nicht gefunden|nicht online|kein spieler|ungültig|existiert nicht|kannst nicht|nicht möglich|not enough|insufficient|cannot|can't|unknown player|player not found)/i;
+  const PAY_OK = /(gesendet|überwiesen|gezahlt|bezahlt|geschickt|gegeben|sent|paid|transferred)/i;
+
+  /** Schnelle Auszahlung ohne /balance: ca. 1–2 Sekunden. Nie doppelt, Unklares wird gemeldet. */
+  async function executePayoutFast(p) {
+    if (db.lastBalance !== null && db.lastBalance < p.amount) {
+      await api.failPayout(p.id, { reason: 'Guthaben des Bots reicht nicht' }).catch(() => {});
+      notify('audit', { title: 'Minecraft: Auszahlung nicht möglich', description: `**${p.minecraftName}** · ${formatAmount(p.amount)}: Der Bot hat nur ${formatAmount(db.lastBalance)}.` });
+      return;
+    }
+    db.payouts[p.id] = { ...p, startedAt: new Date().toISOString(), state: 'sending' };
+    persisted.flush(); // vor dem Senden sichern: nach einem Absturz wird nie doppelt gezahlt
+    const vars = { name: p.minecraftName, amount: commandAmount(p.amount) };
+    const lines = [];
+    captures.add(lines);
+    let verdict = null;
+    try {
+      await command(fill(config.payCommand, vars));
+      if (config.payConfirmCommand) await command(fill(config.payConfirmCommand, vars));
+      const name = p.minecraftName.toLowerCase();
+      for (let waited = 0; waited < payoutCheckMs && !verdict; waited += 100) {
+        for (const l of lines) {
+          if (PLAYER_CHAT.test(l) && !/^\[HugoSMP\]/i.test(l)) continue; // Spieler-Chat zählt nie
+          if (PAY_FAILED.test(l)) { verdict = { ok: false, line: l }; break; }
+          if (PAY_OK.test(l) && l.toLowerCase().includes(name)) { verdict = { ok: true, line: l }; break; }
+        }
+        if (!verdict) await sleep(100);
+      }
+    } catch {
+      verdict = null;
+    } finally {
+      captures.delete(lines);
+    }
+    if (verdict?.ok === false) {
+      // Server hat abgelehnt → nichts überwiesen → Betrag zurück an den Spieler
+      db.payouts[p.id].state = 'failed';
+      persisted.flush();
+      await api.failPayout(p.id, { reason: `Im Spiel abgelehnt: ${verdict.line.slice(0, 150)}` }).catch(() => {});
+      notify('audit', { title: 'Minecraft: Auszahlung abgelehnt', description: `**${p.minecraftName}** · ${formatAmount(p.amount)}\n\`${verdict.line.slice(0, 200)}\`` });
+      return;
+    }
+    if (!verdict) {
+      db.payouts[p.id].state = 'uncertain';
+      persisted.flush();
+      await api.failPayout(p.id, { reason: 'Keine Bestätigung vom Server – bitte im Spiel prüfen', uncertain: true }).catch(() => {});
+      notify('audit', { title: 'Minecraft: Auszahlung unklar', description: `**${p.minecraftName}** · ${formatAmount(p.amount)}: Der Server hat /pay nicht bestätigt. Wird nicht wiederholt – bitte im Spiel prüfen (/money log).` });
+      return;
+    }
+    if (db.lastBalance !== null) setBalance(db.lastBalance - p.amount);
+    db.payouts[p.id].state = 'paid';
+    db.payouts[p.id].paidAt = new Date().toISOString();
+    persisted.flush();
+    notify('audit', { title: 'Minecraft: Auszahlung', fields: [{ name: 'Spieler', value: p.minecraftName, inline: true }, { name: 'Betrag', value: formatAmount(p.amount), inline: true }] });
+    await completePaid();
+  }
+
   /** Meldet bereits ausgeführte Auszahlungen an die Website (wiederholbar). */
   async function completePaid() {
     for (const p of Object.values(db.payouts)) {
@@ -296,7 +355,7 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
   }
 
   async function payoutTick() {
-    if (!config.payoutsEnabled || !state.online || !api.configured || db.lastBalance === null) return;
+    if (!config.payoutsEnabled || !state.online || !api.configured || (config.balanceCheck && db.lastBalance === null)) return;
     await completePaid();
     let list;
     try {
@@ -778,13 +837,7 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
     if (err) return { error: err };
     db.settings[key] = value;
     config[key] = value;
-    let note = null;
-    // Auszahlungen brauchen den Kontostand – ohne Prüfung werden sie mit abgeschaltet.
-    if (key === 'balanceCheck' && !value && config.payoutsEnabled) {
-      db.settings.payoutsEnabled = false;
-      config.payoutsEnabled = false;
-      note = 'Auszahlungen wurden mit ausgeschaltet (sie brauchen die Kontostand-Prüfung).';
-    }
+    const note = null;
     persisted.flush();
     return { ok: true, note };
   }
@@ -876,7 +929,6 @@ const SETTINGS = {
   balanceCheck: (v) => (typeof v === 'boolean' ? null : 'Ungültiger Wert.'),
   payoutsEnabled: (v, cfg) => {
     if (typeof v !== 'boolean') return 'Ungültiger Wert.';
-    if (v && !cfg.balanceCheck) return 'Auszahlungen brauchen die Kontostand-Prüfung – die ist aus, weil HugoSMP /balance für den Bot nicht beantwortet.';
     if (v && !(cfg.payoutMax > 0)) return 'Erst ein Auszahlungs-Limit setzen.';
     return null;
   },

@@ -331,7 +331,7 @@ test('Panel: Befehl mit Serverantwort, /pay führt den Kontostand nach', async (
 test('Panel-Einstellungen: geprüft, gespeichert, nach Neustart wirksam', async (t) => {
   const { mc, dataDir, world, api } = setup({ balanceCheck: false, payoutMax: 0, payoutsEnabled: false });
   t.after(() => mc.stop());
-  assert.match(mc.setSetting('payoutsEnabled', true).error, /Kontostand-Prüfung/);
+  assert.match(mc.setSetting('payoutsEnabled', true).error, /Limit/, 'Auszahlungen brauchen ein Limit');
   assert.match(mc.setSetting('joinCommands', ['server smp']).error, /beginnt mit \//);
   assert.equal(mc.setSetting('evil', 1).error, 'Unbekannte Einstellung.');
   assert.ok(mc.setSetting('joinCommands', ['/server smp']).ok);
@@ -339,10 +339,9 @@ test('Panel-Einstellungen: geprüft, gespeichert, nach Neustart wirksam', async 
   assert.match(mc.setSetting('payoutsEnabled', true).error, /Limit/);
   assert.ok(mc.setSetting('payoutMax', 5000).ok);
   assert.ok(mc.setSetting('payoutsEnabled', true).ok);
-  // Prüfung aus → Auszahlungen gehen mit aus
-  const off = mc.setSetting('balanceCheck', false);
-  assert.match(off.note, /Auszahlungen/);
-  assert.equal(mc.settings().payoutsEnabled, false);
+  // Prüfung aus → Auszahlungen bleiben an (schnell, Bestätigung über die Server-Antwort)
+  assert.ok(mc.setSetting('balanceCheck', false).ok);
+  assert.equal(mc.settings().payoutsEnabled, true);
   mc.stop();
 
   // Neuer Dienst mit derselben Datenablage übernimmt die Einstellungen vor der .env
@@ -466,4 +465,31 @@ test('Profilbilder: bei der Verknüpfung mitgeschickt und für alte Verknüpfung
   assert.equal(changed, 1);
   assert.equal(api.calls.links.at(-1).discordAvatar, 'https://cdn.discordapp.com/avatars/111111111111111111/b.png?size=128');
   assert.equal(await mc.refreshAvatars(async () => 'https://cdn.discordapp.com/avatars/111111111111111111/b.png?size=128'), 0, 'unverändert → nichts senden');
+});
+
+test('Schnelle Auszahlung ohne Kontostand-Prüfung: Bestätigung über die Server-Antwort', async (t) => {
+  const { world, api, mc, reports } = setup({ balanceCheck: false });
+  t.after(() => mc.stop());
+  mc.start();
+  await until(() => mc.state.online);
+  const bot = world.bots[0];
+  const chat = bot.chat;
+  bot.chat = (text) => {
+    chat(text);
+    const m = text.match(/^\/pay (\w+) (\d+)$/);
+    if (!m) return;
+    const reply = m[1] === 'Steve' ? `[HugoSMP] Du hast $${m[2]} an ${m[1]} gesendet.` : m[1] === 'Nobody' ? '[HugoSMP] Spieler nicht gefunden.' : null;
+    if (reply) setImmediate(() => bot.emit('messagestr', reply, 'system'));
+  };
+  api.payouts = [{ id: 'f1', minecraftName: 'Steve', amount: 100 }, { id: 'f2', minecraftName: 'Nobody', amount: 50 }, { id: 'f3', minecraftName: 'Stumm', amount: 20 }];
+  await mc._internal.payoutTick();
+  assert.deepEqual(api.calls.completed, ['f1'], 'bestätigt → ausgezahlt');
+  const f2 = api.calls.failed.find((f) => f.id === 'f2');
+  assert.ok(f2 && !f2.uncertain, 'abgelehnt → zurückgebucht');
+  const f3 = api.calls.failed.find((f) => f.id === 'f3');
+  assert.ok(f3 && f3.uncertain, 'keine Antwort → unklar, nicht zurückgebucht');
+  // nie doppelt
+  await mc._internal.payoutTick();
+  assert.equal(world.sent.filter((m) => m.startsWith('/pay Steve')).length, 1);
+  assert.ok(reports.some((r) => /unklar/.test(r.title)));
 });
