@@ -524,8 +524,10 @@ async function viewWallet() {
         ${me.mcName ? `
         <section class="panel"><h2>Einzahlen</h2>
           <p class="muted">Schick dem Bot auf HugoSMP Geld. Er schreibt es dir gut, sobald er die Zahlung sieht.</p>
-          <div class="cmd"><code translate="no">${esc(s.payCommand)}</code>
-            <button class="btn btn-sm" type="button" data-copy="${esc(s.payCommand.replace(' <Betrag>', ' '))}">Kopieren</button></div>
+          <div class="cmd"><code translate="no" id="pay-cmd">${esc(s.payCommand)}</code>
+            <button class="btn btn-sm" type="button" id="pay-copy" data-copy="${esc(s.payCommand.replace(' <Betrag>', ' '))}">Kopieren</button></div>
+          <div class="chips" id="pay-presets" aria-label="Betrag wählen">${[10e3, 50e3, 100e3, 500e3, 1e6].map((v) =>
+            `<button class="chip" type="button" data-pay="${v}">${v >= 1e6 ? `${v / 1e6}m` : `${v / 1e3}k`}</button>`).join('')}</div>
         </section>` : ''}
       </div>
       <div class="stack">
@@ -551,6 +553,14 @@ async function viewWallet() {
   app.querySelectorAll('[data-copy]').forEach((b) => b.onclick = async () => {
     await navigator.clipboard.writeText(b.dataset.copy);
     toast('Kopiert. Füg es im Minecraft-Chat ein.');
+  });
+  // Betrag antippen → fertiger Befehl, direkt kopiert
+  app.querySelectorAll('[data-pay]').forEach((b) => b.onclick = async () => {
+    const cmd = s.payCommand.replace('<Betrag>', b.dataset.pay);
+    document.getElementById('pay-cmd').textContent = cmd;
+    document.getElementById('pay-copy').dataset.copy = cmd;
+    app.querySelectorAll('[data-pay]').forEach((x) => x.classList.toggle('on', x === b));
+    try { await navigator.clipboard.writeText(cmd); toast(`Kopiert: ${cmd} – im Minecraft-Chat einfügen.`); } catch { /* Kopieren nicht erlaubt */ }
   });
   document.getElementById('logout-wallet')?.addEventListener('click', () => document.getElementById('logout')?.click());
   document.getElementById('wd-all')?.addEventListener('click', () => { document.getElementById('wd').value = Math.floor(me.balance); });
