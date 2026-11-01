@@ -535,7 +535,7 @@ async function viewWallet() {
           <div class="cmd"><code translate="no" id="pay-cmd">${esc(s.payCommand)}</code>
             <button class="btn btn-sm" type="button" id="pay-copy" data-cmd="${esc(s.payCommand.replace(' <Betrag>', ' '))}" aria-label="Befehl kopieren">
               <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M9 9h10v12H9zM5 15V3h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Kopieren</span></button></div>
-          <p class="muted" style="font-size:12px">Gutschrift nach ein paar Sekunden, der Bot flüstert dir eine Bestätigung.</p>
+          <p class="muted" style="font-size:12px">Das Geld ist direkt nach der Zahlung auf deinem Konto, der Bot flüstert dir eine Bestätigung.</p>
         </section>` : ''}
       </div>
       <div class="stack">
