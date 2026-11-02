@@ -231,6 +231,14 @@ async function setSupportOpen(guild, store, open) {
  */
 async function syncWaitingRoom(guild, store) {
   const g = store.guild(guild.id);
+  // Support-Räume für alle unsichtbar (Zugriff gibt es nur beim Abholen)
+  for (const key of ['supportRoom1', 'supportRoom2']) {
+    const room = g.channels[key] && guild.channels.cache.get(g.channels[key]);
+    const ow = room?.permissionOverwrites?.cache.get(guild.roles.everyone.id);
+    if (room && !ow?.deny.has([P.ViewChannel, P.Connect])) {
+      await room.permissionOverwrites.edit(guild.roles.everyone, { ViewChannel: false, Connect: false }, { reason: 'Support-Räume nur per Verschieben' });
+    }
+  }
   const channel = g.channels.waitingRoom && guild.channels.cache.get(g.channels.waitingRoom);
   if (!channel) return;
   const reason = 'Support-Warteraum: Chat nur für das Team';
