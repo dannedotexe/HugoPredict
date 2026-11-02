@@ -177,8 +177,9 @@ const profiles = {
     ow('bot', BOT_TEXT),
   ],
   /** Support-Raum: selbst betreten kann nur das Team, Nutzer werden hineingezogen. */
+  /** Support-Raum: für Mitglieder unsichtbar; wer abgeholt wird, bekommt beim Verschieben kurz Zugriff. */
   supportRoom: () => [
-    ow('everyone', [P.ViewChannel], [P.Connect]),
+    ow('everyone', [], [P.ViewChannel, P.Connect]),
     ...each(PRIVILEGES.ticketStaff, [P.ViewChannel, P.Connect, P.Speak, P.Stream, P.MoveMembers]),
     ow('bot', BOT_TEXT),
   ],

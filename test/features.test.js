@@ -242,7 +242,9 @@ test('Nächsten holen: Platz 1 in den eigenen Support-Raum, Gespräch beenden tr
     return m;
   };
   const place = (m, roomId) => { rooms[roomId].set(m.id, m); m.voice.channelId = roomId; };
-  const channel = (id) => ({ id, name: id, members: rooms[id], isTextBased: () => false });
+  const access = {}; // Raum → Personen mit persönlichem Zugriff
+  const channel = (id) => ({ id, name: id, members: rooms[id], isTextBased: () => false,
+    permissionOverwrites: { edit: async (who) => { (access[id] ??= new Set()).add(who); }, delete: async (who) => { access[id]?.delete(who); } } });
   const guild = { id: 'G', channels: { cache: new Collection(Object.keys(rooms).map((id) => [id, channel(id)])) } };
   const ctx = { channel: async () => null, roleId: () => null, can: (m) => m.id === 'staff' };
   const svc = createSupportVoiceService({ store, ctx, logger: console, now: () => t, renderDelayMs: 1e6 });
@@ -260,6 +262,10 @@ test('Nächsten holen: Platz 1 in den eigenen Support-Raum, Gespräch beenden tr
   let res = await svc.takeNext(guild, staff);
   assert.equal(res.member.id, 'anna', 'Platz 1 zuerst');
   assert.equal(anna.voice.channelId, 'S2', 'in den Raum des Teammitglieds');
+  assert.ok(access.S2?.has('anna'), 'unsichtbarer Raum: Zugriff nur für die abgeholte Person');
+  await svc.onVoiceStateUpdate({ channelId: 'S2', channel: guild.channels.cache.get('S2') }, { guild, member: anna, channelId: null });
+  assert.ok(!access.S2.has('anna'), 'nach dem Verlassen wieder entfernt');
+  place(anna, 'S2');
   assert.match(dms[0][1], /Du bist dran/);
   assert.equal((await svc.takeNext(guild, staff)).error, 'room_busy', 'erst Gespräch beenden');
 

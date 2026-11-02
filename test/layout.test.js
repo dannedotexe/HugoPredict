@@ -158,12 +158,13 @@ test('Vorschläge und Sprachkanal: erst ab Mitglied sichtbar', () => {
   assert.equal(channel('voice').type, 2, 'Sprachkanal');
 });
 
-test('Support-Sprachkanäle: Warteraum für alle, Support-Räume nur per Verschieben', () => {
+test('Support-Sprachkanäle: Warteraum für alle, Support-Räume unsichtbar und nur per Verschieben', () => {
   const wait = channel('waitingRoom');
   assert.ok(can(wait, [], P.Connect) && !can(wait, [], P.Speak), 'warten ohne zu sprechen');
   for (const key of ['supportRoom1', 'supportRoom2']) {
     const room = channel(key);
-    assert.ok(can(room, [], P.ViewChannel) && !can(room, [], P.Connect), `${key}: nicht selbst betreten`);
+    assert.ok(!can(room, [], P.ViewChannel) && !can(room, [], P.Connect), `${key}: unsichtbar, nur per Verschieben`);
+    assert.ok(!can(room, ['member', 'verified'], P.ViewChannel), key);
     assert.ok(can(room, ['support'], P.MoveMembers) && can(room, ['support'], P.Speak), `${key}: Supporter verschiebt`);
     assert.ok(!can(room, ['member', 'verified'], P.Connect), key);
   }

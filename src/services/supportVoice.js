@@ -133,7 +133,13 @@ function createSupportVoiceService({ store, ctx, logger, now = Date.now, renderD
     const member = newState.member;
     if (!guild || !member || member.user?.bot) return;
     const waitingId = store.guild(guild.id).channels.waitingRoom;
-    if (!waitingId || oldState.channelId === newState.channelId) return;
+    if (oldState.channelId === newState.channelId) return;
+    // Support-Raum verlassen → persönlichen Zugriff wieder entfernen (Raum wieder unsichtbar)
+    if (!isStaff(member) && supportRoomIds(guild).includes(oldState.channelId)) {
+      const room = oldState.channel ?? guild.channels.cache.get(oldState.channelId);
+      await room?.permissionOverwrites?.delete(member.id, 'Support-Gespräch vorbei').catch(() => {});
+    }
+    if (!waitingId) return;
     // Das Team steht nicht in der Schlange, wird aber unter „Team im Support“ angezeigt.
     if (isStaff(member)) {
       const ids = supportVoiceIds(guild);
@@ -183,6 +189,9 @@ function createSupportVoiceService({ store, ctx, logger, now = Date.now, renderD
     const member = nextId && waiting?.members.get(nextId);
     if (!member) return { error: 'empty' };
 
+    // Support-Räume sind unsichtbar: Zugriff nur für diese Person, solange sie drin ist
+    await room.permissionOverwrites?.edit(member.id, { ViewChannel: true, Connect: true, Speak: true, Stream: true }, { reason: 'Support: abgeholt' })
+      .catch((err) => logger.warn('Support-Raum freigeben:', err.message));
     await member.voice.setChannel(room, `Support: abgeholt von ${staff.user?.username ?? staff.id}`);
     queueOf(guild.id).delete(member.id);
     scheduleRender(guild);
