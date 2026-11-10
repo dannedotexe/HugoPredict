@@ -61,7 +61,9 @@ function createViewer({ port, secret, logger, viewDistance = 4 }) {
       return;
     }
     const b = bot;
-    socket.emit('version', b.version);
+    // Neuere Minecraft-Versionen (z. B. 26.x) kennt der Viewer nicht → neueste bekannte nehmen
+    const { getVersion, supportedVersions } = require('prismarine-viewer/viewer/lib/version');
+    socket.emit('version', getVersion(b.version) ?? supportedVersions[supportedVersions.length - 1]);
     const worldView = new WorldView(b.world, viewDistance, b.entity.position, socket);
     worldView.init(b.entity.position);
     const move = () => {
