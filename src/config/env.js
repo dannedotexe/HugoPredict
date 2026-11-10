@@ -82,8 +82,6 @@ const env = {
     payoutMax: int('MC_PAYOUT_MAX', 0, { min: 0, max: 1_000_000_000 }),
     // Wie oft der Bot nach neuen Auszahlungen fragt (lokal, kostet nichts). Der frühere Standard 30 gilt als 5.
     payoutIntervalSeconds: ((v) => (v === 30 ? 5 : v))(int('MC_PAYOUT_INTERVAL_SECONDS', 5, { min: 3, max: 3600 })),
-    // Bot-Sicht im Browser (prismarine-viewer), nur lokal; 0 = aus. Öffentlich über nginx /mc-sicht/
-    viewerPort: int('MC_VIEWER_PORT', 0, { min: 0, max: 65535 }),
   },
 
   // Wer /panel benutzen darf (Discord-IDs, kommagetrennt)

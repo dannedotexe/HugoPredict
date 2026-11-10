@@ -53,20 +53,6 @@ const handlers = loadInteractionHandlers();
 // Der Client wird in main() erstellt, sobald feststeht, welche Intents freigegeben sind.
 let client;
 
-// Bot-Sicht im Browser (optional, MC_VIEWER_PORT). Geheimnis für die Links bleibt im Datenordner.
-const viewer = env.minecraft.enabled && env.minecraft.viewerPort
-  ? require('./minecraft/viewer').createViewer({ port: env.minecraft.viewerPort, secret: viewerSecret(), logger })
-  : null;
-function viewerSecret() {
-  const fs = require('node:fs');
-  const file = require('node:path').join(env.dataDir, 'viewer-secret');
-  try { return fs.readFileSync(file, 'utf8').trim(); } catch { /* neu anlegen */ }
-  const secret = require('node:crypto').randomBytes(32).toString('hex');
-  fs.mkdirSync(env.dataDir, { recursive: true });
-  fs.writeFileSync(file, secret, { mode: 0o600 });
-  return secret;
-}
-
 // Minecraft-Bot (optional): meldet sich in den internen Channels aller Server.
 const minecraft = env.minecraft.enabled
   ? createMinecraftService({
@@ -75,7 +61,6 @@ const minecraft = env.minecraft.enabled
     logger,
     dataDir: env.dataDir,
     createBot: (opts) => require('mineflayer').createBot(opts),
-    viewer,
     report: async (route, entry) => {
       for (const guild of client?.guilds.cache.values() ?? []) await ctx.audit(guild, route, entry);
     },
@@ -96,7 +81,7 @@ try {
 }
 
 const deps = {
-  env, api, store, ctx, logger, limiter, locks, minecraft, viewer, activity, version,
+  env, api, store, ctx, logger, limiter, locks, minecraft, activity, version,
   services: {
     status,
     marketFeed,

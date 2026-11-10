@@ -122,7 +122,7 @@ function payConfirmView(name, amount) {
 const state = (on) => (on ? `${emojis.icon('resolved')}**An**` : `${emojis.icon('closed')}**Aus**`);
 
 /** Einstellungen des Minecraft-Bots (gelten sofort, bleiben nach Neustarts). notice: { ok, text } */
-function settingsView(minecraft, notice = null, { owner = false, viewer = false } = {}) {
+function settingsView(minecraft, notice = null, { owner = false } = {}) {
   const st = minecraft.settings();
   const blocks = [];
   if (notice) blocks.push({ heading: notice.ok ? 'Gespeichert' : 'Nicht gespeichert', icon: notice.ok ? 'check' : 'warning', body: notice.text });
@@ -150,8 +150,6 @@ function settingsView(minecraft, notice = null, { owner = false, viewer = false 
         button('hm:panel:refresh', 'Zurück', ButtonStyle.Primary),
         // Nur für den Inhaber: auf der Website mit dem Bot-Konto anmelden (zum Testen ohne Minecraft)
         ...(owner ? [button('hm:panel:weblogin', `Website-Login als ${minecraft.info().username ?? 'Bot'}`, ButtonStyle.Primary)] : []),
-        // Nur für den Inhaber: im Browser sehen, was der Bot sieht
-        ...(owner && viewer ? [button('hm:panel:viewer', 'Bot-Sicht', ButtonStyle.Primary)] : []),
       ),
     ],
     footer: null,

@@ -52,7 +52,7 @@ async function mojangUuid(name) {
   return null;
 }
 
-function createMinecraftService({ config: baseConfig, api, logger, report, dataDir, createBot, chatDelayMs = 1100, settleMs = 1500, payoutCheckMs = 2500, reconnectMs = 15_000, commandWaitMs = 2500, spawnDelayMs = 5000, balanceTimeoutMs = 6000, lookupUuid = mojangUuid, viewer = null }) {
+function createMinecraftService({ config: baseConfig, api, logger, report, dataDir, createBot, chatDelayMs = 1100, settleMs = 1500, payoutCheckMs = 2500, reconnectMs = 15_000, commandWaitMs = 2500, spawnDelayMs = 5000, balanceTimeoutMs = 6000, lookupUuid = mojangUuid }) {
   const persisted = new Store(dataDir, { fileName: 'minecraft.json' });
   const db = (persisted.data.minecraft ??= { outbox: {}, payouts: {}, links: {}, lastBalance: null });
   // Im /panel geänderte Einstellungen gelten vor der .env und bleiben nach Neustarts erhalten.
@@ -538,7 +538,6 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
       state.lastError = null;
       reconnectDelay = reconnectMs;
       logger.info(`Minecraft: verbunden als ${b.username} mit ${config.host}.`);
-      viewer?.attach(b);
       for (const cmd of config.joinCommands) await command(cmd).catch(() => {});
       if (config.joinCommands.length) await sleep(3000);
       // Ohne Kontostand-Prüfung (Standard) wird /balance beim Start nicht gebraucht.
@@ -603,7 +602,6 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
       logger.warn('Minecraft:', err.message);
     });
     b.once('end', (reason) => {
-      viewer?.detach(b);
       state.online = false;
       state.connecting = false;
       if (bot === b) bot = null;
