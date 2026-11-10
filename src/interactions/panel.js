@@ -1,6 +1,6 @@
 'use strict';
 
-const { MessageFlags } = require('discord.js');
+const { MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { embeds } = require('../lib/embeds');
 const { replyPrivate } = require('../lib/respond');
 const { parseAmount, formatAmount } = require('../minecraft/amount');
@@ -43,7 +43,18 @@ async function handle(interaction, deps, [action, arg]) {
   const mc = deps.minecraft;
   const state = stateOf(interaction.user.id);
   const owner = isPanelAdmin(deps, interaction.user.id);
-  const settingsView = (m, notice = null) => settingsViewFor(m, notice, { owner });
+  const settingsView = (m, notice = null) => settingsViewFor(m, notice, { owner, viewer: Boolean(deps.viewer && deps.env.websiteUrl) });
+
+  // Nur Inhaber: Link zur Bot-Sicht (gilt 2 Stunden, nur privat sichtbar)
+  if (action === 'viewer' && interaction.isButton() && owner) {
+    if (!deps.viewer || !deps.env.websiteUrl) return replyPrivate(interaction, { embeds: [embeds.error('Nicht eingerichtet', 'Die Bot-Sicht ist auf dem Server nicht eingeschaltet (MC_VIEWER_PORT).')] });
+    if (!mc?.state?.online) return replyPrivate(interaction, { embeds: [embeds.warning('Bot offline', 'Der Minecraft-Bot ist gerade nicht verbunden.')] });
+    const url = `${deps.env.websiteUrl.replace(/\/+$/, '')}${deps.viewer.prefix}/?t=${deps.viewer.createToken()}`;
+    return replyPrivate(interaction, {
+      embeds: [embeds.info('Bot-Sicht', 'Zeigt in 3D, was der Bot gerade sieht. Der Link gilt 2 Stunden und nur für dich – nicht weitergeben.')],
+      components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Bot-Sicht öffnen').setURL(url))],
+    });
+  }
 
   if (action === 'refresh' && interaction.isButton()) {
     state.pay = null;
