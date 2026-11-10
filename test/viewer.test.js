@@ -18,6 +18,12 @@ test('Bot-Sicht: nur mit signiertem Link, danach per Cookie; nur lokal', async (
   assert.match(cookie, /^mcv=\d{13}\./);
   const page = await fetch(`${base}/`, { headers: { cookie } });
   assert.equal(page.status, 200);
-  assert.match(await page.text(), /<html/i);
+  const html = await page.text();
+  assert.match(html, /<html/i);
+  assert.match(html, /hp-chat/, 'Chat-Fenster und Infozeile');
+  assert.equal((await fetch(`${base}/info.json`)).status, 403, 'Infos nur mit Zugang');
+  const info = await (await fetch(`${base}/info.json`, { headers: { cookie } })).json();
+  assert.equal(info.online, false);
+  assert.deepEqual(info.chat, []);
   assert.equal(createViewer({ port: 0, secret: 'x', logger: console }), null, 'ohne Port aus');
 });

@@ -55,7 +55,7 @@ let client;
 
 // Bot-Sicht im Browser (optional, MC_VIEWER_PORT). Geheimnis für die Links bleibt im Datenordner.
 const viewer = env.minecraft.enabled && env.minecraft.viewerPort
-  ? require('./minecraft/viewer').createViewer({ port: env.minecraft.viewerPort, secret: viewerSecret(), logger })
+  ? require('./minecraft/viewer').createViewer({ port: env.minecraft.viewerPort, secret: viewerSecret(), logger, info: () => minecraft?.info() })
   : null;
 function viewerSecret() {
   const fs = require('node:fs');
