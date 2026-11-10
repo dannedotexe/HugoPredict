@@ -15,28 +15,7 @@ flock -n 9 || exit 0
 DEPLOYED_FILE="$DIR/data/.deployed"
 [ -f "$DEPLOYED_FILE" ] || git rev-parse HEAD > "$DEPLOYED_FILE"
 
-# Selbstreparatur: Fehlen Pakete (z. B. Installation durch Absturz abgebrochen),
-# neu installieren und den Bot neu starten – auch ohne neuen Commit.
-restart_bot() {
-  if command -v pm2 >/dev/null && pm2 describe "$NAME" >/dev/null 2>&1; then
-    pm2 restart "$NAME" 9>&- || return 1
-  else
-    sudo -n systemctl restart "$NAME" || return 1
-  fi
-}
-heal_modules() {
-  if [ -d node_modules ] && npm ls --omit=dev --depth=0 >/dev/null 2>&1; then return 0; fi
-  # höchstens alle 10 Minuten versuchen (keine Neustart-Schleife)
-  local mark="$DIR/data/.heal-tried"
-  if [ -f "$mark" ] && [ $(( $(date +%s) - $(stat -c %Y "$mark") )) -lt 600 ]; then return 0; fi
-  touch "$mark"
-  echo "[$(date -Is)] Pakete unvollständig – installiere neu"
-  npm ci --omit=dev --no-audit --no-fund --loglevel=error || return 1
-  restart_bot && echo "[$(date -Is)] Nach Reparatur neu gestartet"
-}
-
 update_once() {
-  heal_modules || echo "[$(date -Is)] Reparatur der Pakete fehlgeschlagen"
   local branch target
   branch="$(git rev-parse --abbrev-ref HEAD)"
   git fetch -q origin "$branch" || return 1
