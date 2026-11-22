@@ -601,6 +601,15 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
     b.on('error', (err) => {
       state.lastError = err.message;
       logger.warn('Minecraft:', err.message);
+      // Fehler vor dem Spawn (z. B. Microsoft-Login gescheitert) beendet die Verbindung
+      // oft ohne „end“ – dann selbst aufräumen und später neu versuchen.
+      if (!state.online && bot === b && !b.hpRetryScheduled) {
+        b.hpRetryScheduled = true;
+        state.connecting = false;
+        bot = null;
+        try { b.end?.(); } catch { /* egal */ }
+        scheduleReconnect();
+      }
     });
     b.once('end', (reason) => {
       viewer?.detach(b);
@@ -610,7 +619,7 @@ function createMinecraftService({ config: baseConfig, api, logger, report, dataD
       if (balanceWaiter) balanceWaiter = null;
       heartbeat();
       logger.warn(`Minecraft: Verbindung beendet (${plain(reason)}).`);
-      scheduleReconnect();
+      if (!b.hpRetryScheduled) scheduleReconnect();
     });
   }
 

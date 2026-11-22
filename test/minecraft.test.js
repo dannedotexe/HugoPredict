@@ -477,3 +477,29 @@ test('Discord-Verknüpfung: Spieler auf anderem Unterserver (nicht in der Spiele
   assert.deepEqual(linked[0].player, { username: 'Sparko_Happy', uuid: 'uuid-sparko' });
   assert.equal(api.calls.links.at(-1).minecraftUuid, 'uuid-sparko');
 });
+
+test('Microsoft-Login scheitert vor dem Spawn → Bot versucht es später erneut', async (t) => {
+  const world = fakeWorld();
+  const original = world.createBot;
+  let failFirst = true;
+  world.createBot = (opts) => {
+    if (!failFirst) return original(opts);
+    failFirst = false;
+    const bot = new EventEmitter();
+    bot.end = () => {}; // wie mineflayer bei Auth-Fehlern: kein „end“-Ereignis
+    world.bots.push(bot);
+    setImmediate(() => bot.emit('error', new Error('Failed to obtain profile data for HugoPredict, does the account own minecraft?')));
+    return bot;
+  };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hm-mc-'));
+  const mc = createMinecraftService({
+    config, api: fakeApi(), dataDir: dir, createBot: world.createBot, report: () => {},
+    logger: { info() {}, warn() {}, error() {} }, chatDelayMs: 0, settleMs: 5, payoutCheckMs: 5, commandWaitMs: 20,
+    spawnDelayMs: 0, balanceTimeoutMs: 300, reconnectMs: 20, lookupUuid: async () => null,
+  });
+  t.after(() => mc.stop());
+  mc.start();
+  await until(() => mc.state.online);
+  assert.equal(world.bots.length, 2, 'zweiter Versuch nach dem gescheiterten Login');
+  assert.match(mc.info().lastError ?? '', /^$|profile data/);
+});
