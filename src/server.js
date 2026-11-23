@@ -30,7 +30,10 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '20kb' }));
 app.use('/api/bot', botApi);
 app.get('/api/health', (req, res) => res.json({ ok: true, uptime: Math.round(process.uptime()), bot: botState.online }));
-app.use(express.static(path.join(root, '..', 'public')));
+// Seite, Skript und Stil immer frisch prüfen lassen (nach Updates sofort die neue Version)
+app.use(express.static(path.join(root, '..', 'public'), {
+  setHeaders: (res, file) => { if (/\.(html|js|css)$/.test(file)) res.setHeader('Cache-Control', 'no-cache'); },
+}));
 app.get('/lmsr.js', (req, res) => res.sendFile(path.join(root, 'lmsr.js')));
 
 const COOKIE = 'hp_session';
