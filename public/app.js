@@ -47,7 +47,7 @@ const head = (name, cls = '') =>
 
 const CATS = { all: 'Alle', clan: 'Clan Fights', meta: 'Meta', server: 'Server', irl: 'Echte Welt' };
 const LEDGER = {
-  deposit: 'Einzahlung', withdraw: 'Auszahlung', withdraw_refund: 'Auszahlung zurückgebucht', buy: 'Gekauft', sell: 'Verkauft',
+  deposit: 'Einzahlung', withdraw: 'Auszahlung', withdraw_refund: 'Auszahlung zurückgebucht', buy: 'Tipp abgegeben', sell: 'Tipp verkauft',
   payout: 'Gewinn', refund: 'Erstattung', admin: 'Admin-Buchung',
 };
 const STATUS = { open: ['Läuft', 'live'], closed: ['Handel beendet', 'warn'], resolved: ['Entschieden', ''], cancelled: ['Storniert', 'bad'] };
@@ -171,6 +171,8 @@ async function router() {
       a.classList.toggle('active', a.dataset.route === nav);
     });
     window.scrollTo(0, 0);
+    document.title = { leaderboard: 'Rangliste – HugoPredict', admin: 'Admin – HugoPredict', portfolio: 'Meine Prognosen – HugoPredict', wallet: 'Wallet – HugoPredict' }[nav]
+      ?? (path === '/login' ? 'Anmelden – HugoPredict' : 'HugoPredict');
     // Lädt eine Seite länger, erscheint ein Platzhalter statt einer leeren Fläche
     // Nur solange die Seite noch nichts gezeichnet hat – sonst würde der Platzhalter sie überschreiben.
     const before = app.innerHTML;
@@ -178,13 +180,13 @@ async function router() {
     try {
       await view(...m.slice(1), new URLSearchParams(query));
     } catch (err) {
-      app.innerHTML = `<div class="panel empty"><p>${esc(err.message)}</p><a class="btn" href="#/">Zu den Prognosen</a></div>`;
+      app.innerHTML = emptyState({ icon: '⚠️', title: 'Das hat nicht geklappt', text: esc(err.message), action: '<a class="btn" href="#/">Zu den Prognosen</a>' });
     } finally {
       clearTimeout(loading);
     }
     return;
   }
-  app.innerHTML = '<div class="panel empty"><h1>Seite nicht gefunden</h1><a class="btn" href="#/">Zu den Märkten</a></div>';
+  app.innerHTML = emptyState({ icon: '🧭', title: 'Seite nicht gefunden', text: 'Diese Seite gibt es nicht (mehr).', action: '<a class="btn" href="#/">Zu den Prognosen</a>' });
 }
 
 function needLogin(what) {
@@ -232,94 +234,129 @@ function gauge(p) {
 
 // ---------- Markets ----------
 
+// Öffentlich zeigen wir keine stornierten Prognosen (nur Admins sehen sie)
+const visible = (m) => m.status !== 'cancelled' || state.me?.isAdmin;
+// Balken einer Antwort: Name, Prozent, Fortschritt
+const oddRow = (m, o, color) => `<a class="odd${o.id === m.resolvedOutcomeId ? ' won' : ''}" href="#/market/${m.id}?o=${o.id}" style="--w:${Math.round(o.price * 100)}%;--c:${color}">
+  <span>${o.id === m.resolvedOutcomeId ? '✓ ' : ''}${esc(o.label)}</span><b>${pct(o.price)}</b><i></i></a>`;
+
 function marketCard(m, i = 0) {
   const bin = isBinary(m);
   const [label, cls] = STATUS[m.status];
   const winner = m.outcomes.find((o) => o.id === m.resolvedOutcomeId);
   let body;
-  if (bin) {
+  if (bin && m.status === 'open') {
     const [ja, nein] = m.outcomes;
-    body = m.status === 'open'
-      ? `<div class="actions"><a class="btn btn-yes" href="#/market/${m.id}?o=${ja.id}">Auf Ja bieten</a>
-          <a class="btn btn-no" href="#/market/${m.id}?o=${nein.id}">Auf Nein bieten</a></div>`
-      : winner ? `<p class="result">Ergebnis: <b class="${winner === ja ? 'ja' : 'nein'}">${esc(winner.label)}</b></p>` : '';
+    body = `<div class="actions"><a class="btn btn-yes" href="#/market/${m.id}?o=${ja.id}">Ja · ${pct(ja.price)}</a>
+      <a class="btn btn-no" href="#/market/${m.id}?o=${nein.id}">Nein · ${pct(nein.price)}</a></div>`;
+  } else if (bin) {
+    body = winner ? `<p class="result">Ergebnis: <b class="${winner === m.outcomes[0] ? 'ja' : 'nein'}">${esc(winner.label)}</b></p>` : '';
   } else {
     const top = sortedOutcomes(m).slice(0, 3);
-    body = `${m.status === 'open' ? `<div class="big-pct"><b>${pct(top[0].price)}</b><span>${esc(top[0].label)}</span></div>` : ''}<div class="mini">${top.map((o) => `
-        <a class="mini-row" href="#/market/${m.id}?o=${o.id}"><span>${o.id === m.resolvedOutcomeId ? 'Gewonnen: ' : ''}${esc(o.label)}</span><b>${pct(o.price)}</b></a>`).join('')}
-        ${m.outcomes.length > 3 ? `<span class="muted more">und ${m.outcomes.length - 3} weitere</span>` : ''}</div>`;
+    body = `<div class="odds">${top.map((o) => oddRow(m, o, o.id === m.resolvedOutcomeId ? 'var(--brand)' : (o.color || 'var(--brand)'))).join('')}
+      ${m.outcomes.length > 3 ? `<small class="muted">+ ${m.outcomes.length - 3} weitere Antworten</small>` : ''}</div>`;
   }
   return `<article class="card${m.status === 'open' ? '' : ' done'}" style="--i:${Math.min(i, 11)}">
+    <div class="card-cat"><span class="pill">${CATEGORY_EMOJI[m.category] || ''} ${CATS[m.category]}</span>
+      ${m.status === 'open' ? endsBadge(m.closesAt) : `<span class="tag ${cls}">${label}</span>`}</div>
     <div class="card-top"><span class="slot" aria-hidden="true">${esc(m.emoji)}</span>
-      <h3><a href="#/market/${m.id}">${esc(m.title)}</a></h3>${bin ? gauge(m.outcomes[0].price) : ''}</div>
+      <h3><a href="#/market/${m.id}">${esc(m.title)}</a></h3></div>
     ${body}
     <div class="foot-line">
-      <span class="bidders">${(m.bidders || []).map((n) => head(n, 'xs')).join('')}${m.bidderCount > 3 ? `<small>+${m.bidderCount - 3}</small>` : ''}<span>${money(m.volume)}</span></span>
-      <span>${m.status === 'open' ? endsBadge(m.closesAt) : `<span class="tag ${cls}">${label}</span>`}</span></div>
+      <span class="bidders">${(m.bidders || []).map((n) => head(n, 'xs')).join('')}${m.bidderCount > 3 ? `<small>+${m.bidderCount - 3}</small>` : ''}</span>
+      <span>${money(m.volume)} gesetzt</span></div>
   </article>`;
 }
 
-function renderGrid() {
+const emptyState = ({ icon = '🔮', title, text, action = '' }) =>
+  `<div class="empty-state"><span class="empty-icon" aria-hidden="true">${icon}</span><div><b>${title}</b><p>${text}</p></div>${action}</div>`;
+
+let searchPool = null; // alle Prognosen für die Suche (laufend + entschieden)
+async function renderGrid() {
   const el = document.getElementById('markets');
   if (!el) return;
   const q = state.search.trim().toLowerCase();
-  const list = state.markets.filter((m) => !q || m.title.toLowerCase().includes(q));
+  if (q && !searchPool) searchPool = (await allMarkets()).filter(visible);
+  // Mit Suchtext: über alle Prognosen suchen, nicht nur die angezeigten
+  const list = q ? searchPool.filter((m) => m.title.toLowerCase().includes(q)) : state.markets;
+  document.getElementById('extra')?.classList.toggle('hidden', !!q);
+  document.getElementById('grid-title')?.replaceChildren(document.createTextNode(q ? `Suche: „${state.search.trim()}“` : (state.filter.status === 'open' ? 'Laufende Prognosen' : 'Entschiedene Prognosen')));
   el.innerHTML = list.length
     ? list.map(marketCard).join('')
-    : `<div class="panel empty" style="grid-column:1/-1"><p>${q ? `Kein Markt passt zu „${esc(state.search)}“.` : 'In dieser Kategorie gibt es gerade keine Märkte.'}</p>
-        <button class="btn btn-sm" type="button" id="reset-filter">Alle Märkte zeigen</button></div>`;
-  document.getElementById('reset-filter')?.addEventListener('click', () => {
-    state.filter = { category: 'all', status: 'open' };
-    state.search = '';
-    document.getElementById('search').value = '';
-    viewMarkets();
-  });
+    : q
+      ? emptyState({ icon: '🔍', title: 'Nichts gefunden', text: `Keine Prognose passt zu „${esc(state.search.trim())}“. Versuch es mit einem anderen Wort.` })
+      : state.filter.status === 'open'
+        ? emptyState({ title: state.filter.category === 'all' ? 'Gerade läuft keine Prognose' : `Gerade läuft nichts in „${CATS[state.filter.category]}“`,
+            text: 'Neue Prognosen kommen regelmäßig – im Discord wirst du benachrichtigt.',
+            action: state.me?.isAdmin ? '<a class="btn btn-ja" href="#/admin?t=markets">Prognose anlegen</a>' : '<button class="btn" type="button" data-st="done">Ergebnisse ansehen</button>' })
+        : emptyState({ icon: '🏁', title: 'Noch keine Ergebnisse', text: 'Hier erscheinen Prognosen, sobald sie entschieden sind.' });
 }
 
 async function viewMarkets() {
+  document.title = 'HugoPredict – Prognosen für HugoSMP';
+  const open = state.filter.status === 'open';
   app.innerHTML = `
-    <section class="feature" id="feature" aria-label="Meistgehandelter Markt"><div class="skeleton" style="grid-column:1/-1"></div></section>
-    <div class="filters" id="filters" role="toolbar" aria-label="Märkte filtern">
-      ${Object.entries(CATS).map(([k, v]) => `<button type="button" data-cat="${k}" aria-pressed="${state.filter.category === k}">${v}</button>`).join('')}
-      <span class="gap"></span>
-      <button type="button" data-st="open" aria-pressed="${state.filter.status === 'open'}">Laufend</button>
-      <button type="button" data-st="done" aria-pressed="${state.filter.status === 'done'}">Entschieden</button>
+    <section class="hero" aria-label="Willkommen">
+      <div><h1>Was passiert als Nächstes auf HugoSMP?</h1>
+        <p>Tippe mit deinem Ingame-Geld auf Clan Fights, Server-Events und mehr. Liegst du richtig, gewinnst du.</p>
+        <div class="hero-steps"><span><b>1</b>Ingame einzahlen</span><span><b>2</b>Antwort wählen</span><span><b>3</b>Gewinn kassieren</span></div></div>
+      <div class="hero-stats" id="hero-stats"></div>
+    </section>
+    <div class="filters" id="filters" role="toolbar" aria-label="Kategorie">
+      ${Object.entries(CATS).map(([k, v]) => `<button type="button" data-cat="${k}" aria-pressed="${state.filter.category === k}">${k === 'all' ? '' : `${CATEGORY_EMOJI[k]} `}${v}</button>`).join('')}
     </div>
+    <div id="extra"></div>
+    <div class="section-title"><h2 id="grid-title">${open ? 'Laufende Prognosen' : 'Entschiedene Prognosen'}</h2>
+      <div class="filters" style="margin:0" role="group" aria-label="Status">
+        <button type="button" data-st="open" aria-pressed="${open}">Laufend</button>
+        <button type="button" data-st="done" aria-pressed="${!open}">Ergebnisse</button></div></div>
     <div class="grid" id="markets">${'<div class="skeleton"></div>'.repeat(6)}</div>`;
 
-  document.getElementById('filters').addEventListener('click', (e) => {
-    const b = e.target.closest('button');
-    if (!b) return;
-    if (b.dataset.cat) state.filter.category = b.dataset.cat;
-    if (b.dataset.st) state.filter.status = b.dataset.st;
-    viewMarkets();
-  });
-
-  const [{ markets }, { markets: open }] = await Promise.all([
+  app.addEventListener('click', onMarketFilter);
+  const [{ markets }, { markets: openAll }] = await Promise.all([
     api(`/markets?category=${state.filter.category}&status=${state.filter.status}`),
     api('/markets?status=open'),
   ]);
-  state.markets = markets;
-  renderGrid();
+  if (!document.getElementById('markets')) return; // inzwischen weiternavigiert
+  state.markets = markets.filter(visible);
+  searchPool = null;
+  await renderGrid();
 
-  const featureEl = document.getElementById('feature');
-  // Oben: die vom Admin hervorgehobene Prognose, sonst die mit dem meisten Volumen
-  const top = open.find((m) => m.featured) ?? [...open].sort((a, b) => b.volume - a.volume)[0];
-  if (!featureEl) return;
-  if (!top) { featureEl.remove(); return; }
-  const { market: m } = await api(`/markets/${top.id}`);
-  // Inzwischen weiternavigiert? Dann nichts mehr zeichnen.
-  if (!featureEl.isConnected) return;
-  const lead = sortedOutcomes(m)[0];
-  featureEl.innerHTML = `
-    <div class="feature-q">
-      <div class="lead"><span class="slot lg" aria-hidden="true">${esc(m.emoji)}</span>
-        <div><div class="meta"><span>${CATS[m.category]}</span><span>${money(m.volume)} Volumen</span>${endsBadge(m.closesAt)}</div>
-          <h1><a href="#/market/${m.id}">${esc(m.title)}</a></h1></div></div>
-      <div class="odds-big"><b class="${yesLike(m, lead) ? 'blue' : ''}">${pct(lead.price)}</b><span class="muted">${isBinary(m) ? 'Chance auf Ja' : `für ${esc(lead.label)}`}</span></div>
-      <div class="feature-outcomes">${sortedOutcomes(m).slice(0, 4).map((o, i) => `<a class="btn ${isBinary(m) ? (i ? 'btn-no' : 'btn-yes') : ''}" href="#/market/${m.id}?o=${o.id}">${esc(o.label)} ${cents(o.price)}</a>`).join('')}</div>
-    </div>
-    <div class="feature-chart">${chart(m)}</div>`;
+  // Zahlen oben: nur echte Werte aus dem Backend
+  const pot = openAll.reduce((a, m) => a + (m.volume || 0), 0);
+  document.getElementById('hero-stats').innerHTML = `
+    <div class="hero-stat"><small>Laufend</small><b>${fmt(openAll.length)}</b></div>
+    <div class="hero-stat"><small>Im Topf</small><b>${money(pot)}</b></div>`;
+
+  // „Beliebt“: die drei Prognosen mit dem meisten Einsatz (Hervorgehobene zuerst)
+  const extra = document.getElementById('extra');
+  if (open && state.filter.category === 'all' && markets.length >= 4) {
+    const popular = [...markets].sort((a, b) => (b.featured - a.featured) || (b.volume - a.volume)).slice(0, 3);
+    extra.innerHTML = `<div class="section-title"><h2>🔥 Beliebt</h2><small>meiste Einsätze</small></div>
+      <div class="grid popular">${popular.map(marketCard).join('')}</div>`;
+    // Darunter nur die übrigen, damit nichts doppelt erscheint
+    const shown = new Set(popular.map((m) => m.id));
+    state.markets = state.markets.filter((m) => !shown.has(m.id));
+    document.getElementById('grid-title').textContent = 'Weitere Prognosen';
+    await renderGrid();
+    document.getElementById('grid-title').textContent = 'Weitere Prognosen';
+  } else if (open && !markets.length) {
+    // Nichts läuft: die letzten Ergebnisse zeigen, damit die Seite nicht leer wirkt
+    const { markets: done } = await api(`/markets?category=${state.filter.category}&status=done`);
+    const recent = done.filter((m) => m.status === 'resolved').slice(0, 3);
+    if (recent.length && document.getElementById('markets')) {
+      document.getElementById('markets').insertAdjacentHTML('afterend', `<div class="section-title"><h2>🏁 Zuletzt entschieden</h2></div><div class="grid">${recent.map(marketCard).join('')}</div>`);
+    }
+  }
+}
+
+function onMarketFilter(e) {
+  const b = e.target.closest('[data-cat], [data-st]');
+  if (!b || !document.getElementById('markets')) return;
+  if (b.dataset.cat) state.filter.category = b.dataset.cat;
+  if (b.dataset.st) state.filter.status = b.dataset.st;
+  app.removeEventListener('click', onMarketFilter);
+  viewMarkets();
 }
 
 // ---------- Market detail ----------
@@ -332,46 +369,52 @@ async function viewMarket(id, query) {
   const [label, cls] = STATUS[m.status];
   const lead = sortedOutcomes(m)[0];
   const trade = { side: 'buy', outcomeId: byId[Number(query.get('o'))] ? Number(query.get('o')) : lead.id, amount: '' };
+  document.title = `${m.title} – HugoPredict`;
+  const winner = byId[m.resolvedOutcomeId];
+  const banner = m.status === 'resolved' && winner
+    ? `<div class="result-banner"><span class="result-icon" aria-hidden="true">✅</span><div><small>Ergebnis</small><b>${esc(winner.label)}</b></div></div>`
+    : m.status === 'cancelled' ? '<div class="result-banner cancelled"><span class="result-icon" aria-hidden="true">↩️</span><div><small>Storniert</small><b>Alle Einsätze wurden erstattet</b></div></div>'
+    : m.status === 'closed' ? '<div class="result-banner cancelled" style="border-color:rgba(245,192,74,.4);background:rgba(245,192,74,.1)"><span class="result-icon" aria-hidden="true">⏳</span><div><small>Tippen beendet</small><b style="color:var(--gold)">Ergebnis folgt bald</b></div></div>' : '';
 
   app.innerHTML = `
-    <a href="#/" class="back">Alle Märkte</a>
+    <a href="#/" class="back">← Alle Prognosen</a>
     <div class="market">
       <div class="stack">
         <section class="detail">
           <div class="market-head"><span class="slot lg" aria-hidden="true">${esc(m.emoji)}</span><div>
             <h1>${esc(m.title)}</h1>
-            <div class="meta"><span>${CATS[m.category]}</span><span class="tag ${cls}">${label}</span><span>${money(m.volume)} Volumen</span>
+            <div class="meta"><span>${CATEGORY_EMOJI[m.category] || ''} ${CATS[m.category]}</span><span class="tag ${cls}">${label}</span><span>${money(m.volume)} gesetzt</span>
               ${m.closesAt && m.status === 'open' ? endsBadge(m.closesAt) : ''}</div></div>
             <button class="btn btn-sm share" type="button" id="share" aria-label="Prognose teilen">
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M5 14v6h14v-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Teilen</button></div>
-          <div class="odds-big"><b class="blue">${pct(lead.price)}</b><span class="muted">${bin ? 'Chance auf Ja' : `für ${esc(lead.label)}`}</span></div>
+          ${banner || `<div class="odds-big"><b class="blue">${pct(lead.price)}</b><span class="muted">${bin ? 'Chance auf Ja' : `für ${esc(lead.label)}`}</span></div>`}
           ${bin ? '' : `<div class="legend">${m.outcomes.map((o) => `<span style="--c:${o.color}">${esc(o.label)} ${pct(o.price)}</span>`).join('')}</div>`}
           ${chart(m)}
         </section>
 
-        ${bin ? '' : `<section class="panel"><h2>Alle Ausgänge</h2>
+        ${bin ? '' : `<section class="panel"><h2>Alle Antworten</h2>
           <div class="rows">${sortedOutcomes(m).map((o) => `
             <div class="outcome-row${o.id === m.resolvedOutcomeId ? ' won' : ''}"><span class="outcome-name">${esc(o.label)}</span><b>${pct(o.price)}</b>
-              ${open ? `<button class="btn btn-yes btn-sm" type="button" data-o="${o.id}">Kaufen ${cents(o.price)}</button>` : ''}</div>`).join('')}</div>
+              ${open ? `<button class="btn btn-yes btn-sm" type="button" data-o="${o.id}">Tippen</button>` : ''}</div>`).join('')}</div>
         </section>`}
 
         ${m.description ? `<section class="panel"><h2>So wird entschieden</h2><p class="rules">${esc(m.description)}</p></section>` : ''}
 
-        <section class="panel"><h2>Letzte Trades</h2>
+        <section class="panel"><h2>Letzte Tipps</h2>
           ${m.recent.length ? `<div class="feed">${m.recent.map((t) => `
             <div class="feed-row">${head(t.username, 'sm')}<span><a href="${playerLink(t.username)}" style="text-decoration:none"><b>${esc(t.username)}</b></a> ${t.side === 'buy'
-                ? `bot <b>${money(t.amount)}</b> auf <b>${esc(byId[t.outcome_id]?.label)}</b>`
+                ? `setzt <b>${money(t.amount)}</b> auf <b>${esc(byId[t.outcome_id]?.label)}</b>`
                 : `verkaufte <b>${esc(byId[t.outcome_id]?.label)}</b> für <b>${money(t.amount)}</b>`}</span>
               <span class="when">${ago(t.created_at)}</span></div>`).join('')}</div>`
-            : '<p class="muted">Noch hat niemand gehandelt. Der erste Trade bewegt den Preis am stärksten.</p>'}
+            : '<p class="muted">Noch hat niemand getippt. Der erste Tipp bewegt die Chancen am stärksten.</p>'}
         </section>
       </div>
 
       <aside class="stack side">
         <section class="trader" id="trade" aria-label="Handeln"></section>
-        ${m.positions.length ? `<section class="panel"><h2>Deine Anteile</h2><div class="holdings">
+        ${m.positions.length ? `<section class="panel"><h2>Dein Tipp</h2><div class="holdings">
           ${m.positions.map((p) => `<div><b>${esc(byId[p.outcome_id].label)}</b>
-            <span>${fmt(p.shares)} Anteile, wert ${money(p.shares * byId[p.outcome_id].price)}</span></div>`).join('')}</div></section>` : ''}
+            <span>${fmt(p.shares)} Anteile · jetzt ${money(p.shares * byId[p.outcome_id].price)} wert · bei Treffer ${money(p.shares)}</span></div>`).join('')}</div></section>` : ''}
       </aside>
     </div>`;
   document.getElementById('share')?.addEventListener('click', async () => {
@@ -397,7 +440,7 @@ async function viewMarket(id, query) {
   function renderTrade() {
     if (!open) {
       const w = byId[m.resolvedOutcomeId];
-      el.innerHTML = `<h2>${label}</h2><p class="muted">${
+      el.innerHTML = `<h2>${m.status === 'resolved' ? 'Entschieden' : label}</h2><p class="muted">${
         m.status === 'resolved' ? `Gewonnen hat <b class="ja">${esc(w.label)}</b>. Die Gewinne wurden automatisch gutgeschrieben.`
         : m.status === 'cancelled' ? 'Dieser Markt wurde storniert. Alle Einsätze wurden erstattet.'
         : 'Der Handel ist beendet. Sobald das Ergebnis feststeht, wird der Markt entschieden und ausgezahlt.'}</p>`;
@@ -409,20 +452,21 @@ async function viewMarket(id, query) {
     const buying = trade.side === 'buy';
 
     el.innerHTML = `
-      <div class="seg" role="group" aria-label="Kaufen oder verkaufen">
-        <button type="button" data-side="buy" aria-pressed="${buying}">Kaufen</button>
-        <button type="button" data-side="sell" aria-pressed="${!buying}">Verkaufen</button></div>
-      <div class="pick${bin ? '' : ' pick-many'}" role="group" aria-label="Ausgang wählen">
-        ${sortedOutcomes(m).map((x) => `<button type="button" class="${bin ? (x.id === m.outcomes[0].id ? 'p-yes' : 'p-no') : 'p-yes'}" data-pick="${x.id}" aria-pressed="${x.id === o.id}"><span>${esc(x.label)}</span> <b>${cents(x.price)}</b></button>`).join('')}</div>
-      <label class="amount" for="amt"><span>${buying ? 'Betrag' : `Anteile (du hast ${fmt(pos?.shares || 0)})`}</span>
+      <div class="seg" role="group" aria-label="Tippen oder verkaufen">
+        <button type="button" data-side="buy" aria-pressed="${buying}">Tippen</button>
+        ${pos || !buying ? `<button type="button" data-side="sell" aria-pressed="${!buying}">Verkaufen</button>` : ''}</div>
+      <p class="muted" style="font-size:13px;margin:-6px 0 10px">${buying ? '1. Antwort wählen · 2. Betrag eingeben · 3. Bestätigen' : 'Anteile zurückverkaufen und Geld sofort zurückbekommen'}</p>
+      <div class="pick${bin ? '' : ' pick-many'}" role="group" aria-label="Antwort wählen">
+        ${sortedOutcomes(m).map((x) => `<button type="button" class="${bin ? (x.id === m.outcomes[0].id ? 'p-yes' : 'p-no') : 'p-yes'}" data-pick="${x.id}" aria-pressed="${x.id === o.id}"><span>${esc(x.label)}</span> <b>${pct(x.price)}</b></button>`).join('')}</div>
+      <label class="amount" for="amt"><span>${buying ? 'Einsatz' : `Anteile (du hast ${fmt(pos?.shares || 0)})`}</span>
         <span class="amount-in"><input id="amt" name="amount" inputmode="text" autocomplete="off" autocapitalize="off" placeholder="0" value="${esc(trade.amount)}">${buying ? '<i>$</i>' : ''}</span></label>
       <div class="quick">${(buying ? ['+1', '+20', '+100', 'Max'] : ['25 %', '50 %', 'Alle']).map((q) => `<button type="button" data-q="${q}">${q}</button>`).join('')}</div>
       <dl class="receipt" id="receipt"></dl>
       <p class="why" id="why" role="alert"></p>
       ${state.me
-        ? `<button class="btn btn-primary btn-block" id="go" type="button">${buying ? `${esc(o.label)} kaufen` : `${esc(o.label)} verkaufen`}</button>
-           <p class="note">Guthaben ${money(state.me.balance)}, Gebühr ${fmt(fee * 100)}&nbsp;%</p>`
-        : '<a class="btn btn-primary btn-block" href="#/login">Anmelden, um zu handeln</a>'}`;
+        ? `<button class="btn btn-primary btn-block" id="go" type="button">${buying ? `Auf „${esc(o.label)}“ tippen` : `„${esc(o.label)}“ verkaufen`}</button>
+           <p class="note">Guthaben ${money(state.me.balance)} · Gebühr ${fmt(fee * 100)}&nbsp;%</p>`
+        : '<a class="btn btn-primary btn-block" href="#/login">Anmelden und mittippen</a>'}`;
 
     const input = el.querySelector('#amt');
     const update = () => {
@@ -432,9 +476,9 @@ async function viewMarket(id, query) {
       if (buying) {
         const out = amt > 0 ? lmsr.sharesForAmount(qs, m.b, idx, amt * (1 - fee)) : 0;
         const after = qs.slice(); after[idx] += out;
-        rows = `<div><dt>Durchschnittspreis</dt><dd>${out ? `${fmt((amt / out) * 100)}¢` : cents(o.price)}</dd></div>
+        rows = `<div><dt>Du setzt</dt><dd>${money(amt)}</dd></div>
           <div><dt>Chance danach</dt><dd>${pct(lmsr.prices(after, m.b)[idx])}</dd></div>
-          <div class="win"><dt>Zu gewinnen</dt><dd>${money(out)}</dd></div>`;
+          <div class="win"><dt>Möglicher Gewinn</dt><dd>${money(out)}</dd></div>`;
         if (state.me && amt > state.me.balance) why = `Du hast nur ${money(state.me.balance)}. Zahl ingame mehr ein.`;
         else if (amt > 0 && amt < 1) why = 'Der Mindesteinsatz ist 1 $.';
       } else {
@@ -463,11 +507,11 @@ async function viewMarket(id, query) {
     el.querySelector('#go')?.addEventListener('click', async (e) => {
       const amt = update();
       e.target.disabled = true;
-      e.target.textContent = buying ? 'Wird gekauft…' : 'Wird verkauft…';
+      e.target.textContent = buying ? 'Tipp wird abgegeben…' : 'Wird verkauft…';
       try {
         if (buying) {
           const r = await api(`/markets/${m.id}/buy`, { outcomeId: o.id, amount: amt });
-          toast(`Gebot steht: ${money(amt)} auf ${o.label}`);
+          toast(`Tipp abgegeben: ${money(amt)} auf ${o.label}`);
           confetti();
         } else {
           const r = await api(`/markets/${m.id}/sell`, { outcomeId: o.id, shares: Math.min(amt, pos.shares) });
@@ -487,40 +531,43 @@ async function viewMarket(id, query) {
 // ---------- Portfolio ----------
 
 async function viewPortfolio() {
-  if (needLogin('Im Portfolio siehst du deine Anteile und jede Buchung.')) return;
+  document.title = 'Meine Prognosen – HugoPredict';
+  if (needLogin('Hier siehst du deine Tipps, Gewinne und jede Buchung.')) return;
   const [{ positions, ledger }, { markets }] = await Promise.all([api('/portfolio'), api('/markets?category=all&status=all')]);
   const titles = Object.fromEntries(markets.map((m) => [String(m.id), m.title]));
   const value = positions.reduce((a, p) => a + p.value, 0);
   const spent = positions.reduce((a, p) => a + p.spent, 0);
   const diff = value - spent;
+  const won = ledger.filter((l) => l.type === 'payout').reduce((a, l) => a + l.amount, 0);
   app.innerHTML = `
-    <div class="page-title"><div><h1>Portfolio</h1><p>Deine laufenden Wetten und alle Buchungen</p></div></div>
-    <div class="split-2" style="margin-bottom:20px">
-      <section class="panel"><h2 class="muted" style="font-size:16px;font-family:var(--body);font-weight:500">Wert deiner Anteile</h2>
-        <p class="balance">${money(value)}</p><p class="${diff >= 0 ? 'ja' : 'nein'}">${diff >= 0 ? '+' : ''}${money(diff)} seit dem Kauf</p></section>
-      <section class="panel"><h2 class="muted" style="font-size:16px;font-family:var(--body);font-weight:500">Freies Guthaben</h2>
-        <p class="balance" style="color:var(--text)">${money(state.me.balance)}</p><a href="#/wallet">Ein- und auszahlen</a></section>
+    <div class="page-title"><div><h1>Meine Prognosen</h1><p>Deine laufenden Tipps, Gewinne und alle Buchungen</p></div></div>
+    <div class="stat-grid panel" style="margin-bottom:20px">
+      <div class="stat"><small>Laufende Tipps</small><b>${fmt(positions.length)}</b></div>
+      <div class="stat"><small>Aktueller Wert</small><b>${money(value)}</b><span class="${diff >= 0 ? 'ja' : 'nein'}">${diff >= 0 ? '+' : ''}${money(diff)} seit dem Tipp</span></div>
+      <div class="stat"><small>Bisher gewonnen</small><b class="ja">${money(won)}</b></div>
+      <div class="stat"><small>Freies Guthaben</small><b>${money(state.me.balance)}</b><a href="#/wallet" style="font-size:13px">Ein- und auszahlen</a></div>
     </div>
-    <section class="panel" style="margin-bottom:20px"><h2>Anteile</h2>
-      ${positions.length ? `<div class="table-wrap"><table class="table stackable"><thead><tr><th>Markt</th><th>Ausgang</th><th class="r">Anteile</th><th class="r">Chance</th><th class="r">Wert</th><th class="r">Gewinn/Verlust</th></tr></thead><tbody>
+    <section class="panel" style="margin-bottom:20px"><h2>Laufende Tipps</h2>
+      ${positions.length ? `<div class="table-wrap"><table class="table stackable"><thead><tr><th>Prognose</th><th>Dein Tipp</th><th class="r">Anteile</th><th class="r">Chance</th><th class="r">Wert jetzt</th><th class="r">Plus/Minus</th></tr></thead><tbody>
         ${positions.map((p) => `<tr><td class="title"><a href="#/market/${p.market_id}">${esc(p.title)}</a></td>
-          <td data-label="Ausgang"><b style="color:${p.color}">${esc(p.label)}</b></td><td class="r" data-label="Anteile">${fmt(p.shares)}</td>
-          <td class="r" data-label="Chance">${pct(p.price)}</td><td class="r" data-label="Wert">${money(p.value)}</td>
-          <td class="r ${p.value - p.spent >= 0 ? 'ja' : 'nein'}" data-label="Gewinn/Verlust">${p.value - p.spent >= 0 ? '+' : ''}${money(p.value - p.spent)}</td></tr>`).join('')}
-      </tbody></table></div>` : '<div class="empty"><p>Du hast noch keine Anteile.</p><a class="btn btn-ja" href="#/">Markt aussuchen</a></div>'}
+          <td data-label="Dein Tipp"><b style="color:${p.color}">${esc(p.label)}</b></td><td class="r" data-label="Anteile">${fmt(p.shares)}</td>
+          <td class="r" data-label="Chance">${pct(p.price)}</td><td class="r" data-label="Wert jetzt">${money(p.value)}</td>
+          <td class="r ${p.value - p.spent >= 0 ? 'ja' : 'nein'}" data-label="Plus/Minus">${p.value - p.spent >= 0 ? '+' : ''}${money(p.value - p.spent)}</td></tr>`).join('')}
+      </tbody></table></div>` : emptyState({ icon: '🎯', title: 'Noch kein laufender Tipp', text: 'Such dir eine Prognose aus und setz auf die Antwort, die du für richtig hältst.', action: '<a class="btn btn-ja" href="#/">Prognose aussuchen</a>' })}
     </section>
     <section class="panel"><h2>Buchungen</h2>
       ${ledger.length ? `<div class="table-wrap"><table class="table"><tbody>${ledger.map((l) => `
         <tr><td><b>${LEDGER[l.type] || esc(l.type)}</b>${l.ref?.startsWith('m#') ? `<br><a class="muted" href="#/market/${l.ref.slice(2)}">${esc(titles[l.ref.slice(2)] || `Markt ${l.ref.slice(2)}`)}</a>` : ''}
           <br><small class="muted">${ago(l.created_at)}</small></td>
         <td class="r ${l.amount >= 0 ? 'ja' : 'nein'}" style="white-space:nowrap"><b>${l.amount >= 0 ? '+' : ''}${money(l.amount)}</b></td></tr>`).join('')}
-      </tbody></table></div>` : '<p class="muted">Noch keine Buchungen. Deine erste Einzahlung erscheint hier.</p>'}
+      </tbody></table></div>` : emptyState({ icon: '🧾', title: 'Noch keine Buchungen', text: 'Deine erste Einzahlung erscheint hier.', action: '<a class="btn" href="#/wallet">Einzahlen</a>' })}
     </section>`;
 }
 
 // ---------- Wallet ----------
 
 async function viewWallet() {
+  document.title = 'Wallet – HugoPredict';
   if (needLogin('In der Wallet zahlst du Ingame-Geld ein und wieder aus.')) return;
   await refreshMe();
   const me = state.me, s = state.status;
@@ -536,7 +583,7 @@ async function viewWallet() {
         <section class="panel"><h2 class="muted" style="font-size:16px;font-family:var(--body);font-weight:500">Guthaben</h2>
           <p class="balance">${money(me.balance)}</p>
           <p class="muted">${me.mcName ? `Verknüpft mit <b style="color:var(--text)">${esc(me.mcName)}</b>` : 'Noch kein Minecraft-Account verknüpft'}</p>
-          <button class="btn btn-quiet btn-sm show-sm" type="button" id="logout-wallet" style="margin-top:8px;padding-left:0">Abmelden</button></section>
+</section>
         ${isBot ? `<section class="panel"><h2>Bot-Konto</h2><p class="muted" style="margin-top:4px">Du bist mit dem Konto des Bots angemeldet (Testzugang). Ein- und Auszahlen geht damit nicht – der Bot kann sich nicht selbst bezahlen. Testgeld bucht ein Admin unter <b>Admin → Spieler</b>.</p></section>` : ''}
         ${me.mcName && !isBot ? `
         <section class="panel deposit"><h2>Einzahlen</h2>
@@ -642,19 +689,22 @@ const PERIOD_LABEL = { week: 'Woche', month: 'Monat', all: 'Gesamt' };
 
 async function viewLeaderboard(query) {
   const period = PERIOD_LABEL[query?.get('p')] ? query.get('p') : 'all';
-  const { leaders } = await api(`/leaderboard?period=${period}`);
+  document.title = 'Rangliste – HugoPredict';
+  const { leaders: all } = await api(`/leaderboard?period=${period}`);
+  // Nur wer wirklich getippt hat (kein Podest für +0 $ ohne einen einzigen Tipp)
+  const leaders = all.filter((l) => Math.abs(l.profit) > 0.004 || (l.markets ?? 0) > 0 || (l.trades ?? 0) > 0);
   const name = (l) => l.mcName || l.username;
   const top = leaders.slice(0, 3);
   // Podest: 2 – 1 – 3
   const podium = top.length ? `<div class="podium">${[1, 0, 2].map((i) => !top[i] ? `
     <div class="podium-spot p${i + 1} empty"><span class="podium-head"></span><b>—</b><span>frei</span><div class="podium-block">${i + 1}</div></div>` : `
     <a class="podium-spot p${i + 1}" href="${playerLink(name(top[i]))}">
-      <img class="podium-head" src="https://mc-heads.net/avatar/${encodeURIComponent(name(top[i]))}/64" width="56" height="56" alt="">
+      <img class="podium-head" src="https://mc-heads.net/avatar/${encodeURIComponent(name(top[i]))}/64" width="56" height="56" alt="" onerror="this.onerror=null;this.src='https://mc-heads.net/avatar/MHF_Steve/64'">
       <b>${esc(name(top[i]))}</b><span class="${top[i].profit >= 0 ? 'ja' : 'nein'}">${top[i].profit >= 0 ? '+' : ''}${money(top[i].profit)}</span>
       <div class="podium-block">${i + 1}</div></a>`).join('')}</div>` : '';
   app.innerHTML = `
     <div class="page-title"><div><h1>Rangliste</h1><p>${period === 'all'
-      ? 'Wer auf HugoSMP am besten vorhersagt, sortiert nach Gewinn'
+      ? 'Wer auf HugoSMP am besten tippt – sortiert nach Gewinn'
       : `Gewinn aus Prognosen, die in ${period === 'week' ? 'dieser Woche' : 'diesem Monat'} entschieden wurden`}</p></div></div>
     <div class="filters" role="group" aria-label="Zeitraum">${Object.entries(PERIOD_LABEL).map(([k, v]) =>
       `<button type="button" data-p="${k}" aria-pressed="${k === period}">${v}</button>`).join('')}</div>
@@ -665,13 +715,14 @@ async function viewLeaderboard(query) {
         <td><a class="who" href="${playerLink(name(l))}" style="text-decoration:none">${head(name(l))}<b>${esc(name(l))}</b></a></td>
         <td class="r ${l.profit >= 0 ? 'ja' : 'nein'}">${l.profit >= 0 ? '+' : ''}${money(l.profit)}</td>
         <td class="r hide-sm">${period === 'all' ? money(l.netWorth) : fmt(l.markets)}</td></tr>`).join('')}
-      </tbody></table></div>` : `<div class="empty"><p>${period === 'all' ? 'Noch niemand auf der Rangliste. Der erste Gewinn bringt dich auf Platz 1.' : 'In diesem Zeitraum wurde noch keine Prognose entschieden.'}</p><a class="btn btn-ja" href="#/">Markt aussuchen</a></div>`}</section>`;
+      </tbody></table></div>` : `<div class="empty"><p>${period === 'all' ? 'Noch niemand auf der Rangliste. Der erste Gewinn bringt dich auf Platz 1.' : 'In diesem Zeitraum wurde noch keine Prognose entschieden.'}</p><a class="btn btn-ja" href="#/">Prognose aussuchen</a></div>`}</section>`;
   app.querySelectorAll('[data-p]').forEach((b) => b.onclick = () => { location.hash = `#/leaderboard?p=${b.dataset.p}`; });
 }
 
 // ---------- Mein Profil ----------
 
 async function viewMe() {
+  document.title = 'Mein Profil – HugoPredict';
   if (needLogin('Hier siehst du dein Konto, deine Discord-Verknüpfung und deine Statistik.')) return;
   const { profile: p } = await api('/me/profile');
   const name = p.mcName || p.username;
@@ -687,7 +738,6 @@ async function viewMe() {
         ${p.uuid ? `<div class="kv"><small class="eyebrow">UUID</small><code>${esc(p.uuid)}</code></div>` : ''}
         <div class="kv"><small class="eyebrow">Dabei seit</small><span>${date(p.since)}</span></div>
         ${p.banned ? `<p class="tag bad" style="margin-top:10px">Zugang gesperrt${p.banRule ? ` – Verstoß gegen ${esc(p.banRule)}` : ''}. Melde dich beim Support.</p>` : ''}
-        <button class="btn btn-block" type="button" id="me-logout" style="margin-top:14px">Abmelden</button>
       </section>
       <div class="stack">
         <section class="panel">
@@ -710,16 +760,19 @@ async function viewMe() {
     </div>
     <section class="panel" style="margin-top:16px">
       <small class="eyebrow blue">Statistik</small>
-      <h2 style="margin-bottom:12px">Deine Gebote</h2>
+      <h2 style="margin-bottom:12px">Deine Tipps</h2>
       <div class="stat-grid">
         <div class="stat"><small>Platz</small><b>${p.rank ? `#${p.rank}` : '—'}</b></div>
         <div class="stat"><small>Gewinn</small><b class="${p.profit >= 0 ? 'ja' : 'nein'}">${signed(p.profit || 0)}</b></div>
         <div class="stat"><small>Trefferquote</small><b>${st?.hitRate == null ? '—' : `${Math.round(st.hitRate * 100)} %`}</b>${st ? `<span class="muted">${st.wins} von ${st.resolved}</span>` : ''}</div>
-        <div class="stat"><small>Laufende Gebote</small><b>${st?.openBets ?? 0}</b></div>
+        <div class="stat"><small>Laufende Tipps</small><b>${st?.openBets ?? 0}</b></div>
       </div>
       <a class="btn btn-sm" href="${playerLink(name)}" style="margin-top:14px">Öffentliches Profil ansehen</a>
-    </section>`;
-  document.getElementById('me-logout').onclick = () => document.getElementById('logout')?.click();
+    </section>
+    <button class="signout" type="button" id="me-logout">Abmelden</button>`;
+  document.getElementById('me-logout').onclick = async () => {
+    if (await confirmDialog({ title: 'Abmelden?', body: '<p>Zum Anmelden brauchst du danach wieder einen Code im Minecraft-Chat.</p>', ok: 'Abmelden', danger: true })) document.getElementById('logout')?.click();
+  };
   mountSkinViewer(document.getElementById('skin-stage'), name);
 }
 
@@ -812,13 +865,13 @@ async function viewPlayer(rawName) {
       <div class="panel stat"><small>Gewinn</small><b class="${p.profit >= 0 ? 'ja' : 'nein'}">${signed(p.profit)}</b></div>
       <div class="panel stat"><small>Trefferquote</small><b>${st.hitRate === null ? '—' : `${Math.round(st.hitRate * 100)} %`}</b><span class="muted">${st.wins} von ${st.resolved}</span></div>
       <div class="panel stat"><small>Größter Gewinn</small><b class="ja">${st.biggestWin > 0 ? `+${money(st.biggestWin)}` : '—'}</b></div>
-      <div class="panel stat"><small>Laufende Gebote</small><b>${st.openBets}</b></div>
+      <div class="panel stat"><small>Laufende Tipps</small><b>${st.openBets}</b></div>
     </div>
     <div class="split-2" style="margin-top:16px">
-      <section class="panel"><h2>Laufende Gebote</h2>
+      <section class="panel"><h2>Laufende Tipps</h2>
         ${p.open.length ? `<div class="feed">${p.open.map((o) => `<a class="feed-row" style="text-decoration:none" href="#/market/${o.marketId}">
           <span class="slot" aria-hidden="true">${esc(o.emoji)}</span><span><b>${esc(o.title)}</b><br><span class="muted">auf <b style="color:${o.color}">${esc(o.label)}</b> · ${money(o.spent)} geboten</span></span>
-          <span class="when">wert ${money(o.value)}</span></a>`).join('')}</div>` : '<p class="muted">Gerade keine laufenden Gebote.</p>'}
+          <span class="when">wert ${money(o.value)}</span></a>`).join('')}</div>` : '<p class="muted">Gerade keine laufenden Tipps.</p>'}
       </section>
       <section class="panel"><h2>Entschiedene Prognosen</h2>
         ${p.history.length ? `<div class="feed">${p.history.map((h) => `<a class="feed-row" style="text-decoration:none" href="#/market/${h.marketId}">
@@ -924,7 +977,7 @@ function adminOverviewTab(body, { ov, st }) {
     <section class="panel" style="margin-top:16px"><h2>Zeiträume</h2><div class="table-wrap"><table class="table">
       <thead><tr><th></th><th class="r">Heute</th><th class="r">7 Tage</th></tr></thead><tbody>
       ${row('Einzahlungen', (p) => money(p.deposits))}${row('Auszahlungen', (p) => money(p.withdrawals))}
-      ${row('Gebote (Volumen)', (p) => money(p.volume))}${row('Gebühren', (p) => money(p.fees))}${row('Neue Spieler', (p) => fmt(p.newUsers))}
+      ${row('Einsätze', (p) => money(p.volume))}${row('Gebühren', (p) => money(p.fees))}${row('Neue Spieler', (p) => fmt(p.newUsers))}
     </tbody></table></div></section>
     ${ov.bot.lastError ? `<section class="panel" style="margin-top:16px"><p><b class="nein">Letzter Bot-Fehler:</b> ${esc(ov.bot.lastError)}</p></section>` : ''}`;
 }
@@ -951,8 +1004,8 @@ async function adminMarketsTab(body, { run }) {
           <div class="chips" id="close-chips">${CLOSE_PRESETS.map((p, i) => `<button class="chip" type="button" data-close-preset="${i}">${p.label}</button>`).join('')}</div>
           <input class="input" id="f-close" type="datetime-local" name="closesAt" value="${localInput(soon)}"></div>
         <details class="more-opts"><summary>Mehr Optionen</summary>
-          <div class="field" style="margin-top:12px"><label for="f-desc">So wird entschieden</label><textarea class="input" id="f-desc" name="description" rows="3" placeholder="Wann zählt welcher Ausgang als gewonnen?…"></textarea></div>
-          <div class="field"><label for="f-b">Liquidität (wie stark Gebote den Kurs bewegen)</label><input class="input" id="f-b" name="b" inputmode="numeric" autocomplete="off" placeholder="Standard: 100…"></div>
+          <div class="field" style="margin-top:12px"><label for="f-desc">So wird entschieden</label><textarea class="input" id="f-desc" name="description" rows="3" placeholder="Wann zählt welche Antwort als gewonnen?…"></textarea></div>
+          <div class="field"><label for="f-b">Marktaktivität (wie stark ein Tipp die Chancen bewegt)</label><input class="input" id="f-b" name="b" inputmode="numeric" autocomplete="off" placeholder="Standard: 100…"></div>
         </details>
         <p class="muted" style="font-size:13px;margin:4px 0 8px">Vorschau</p>
         <div id="preview" class="preview"></div>
@@ -963,7 +1016,7 @@ async function adminMarketsTab(body, { run }) {
       ${active.length ? active.map((m) => `<div class="admin-market">
         <p><span aria-hidden="true">${esc(m.emoji)}</span> <a href="#/market/${m.id}"><b>${esc(m.title)}</b></a>
           <span class="tag ${STATUS[m.status][1]}">${STATUS[m.status][0]}</span>${m.featured ? ' <span class="tag warn">★ Oben</span>' : ''}</p>
-        <p class="muted" style="font-size:13px">${money(m.volume)} Volumen ${endsBadge(m.closesAt)}</p>
+        <p class="muted" style="font-size:13px">${money(m.volume)} gesetzt ${endsBadge(m.closesAt)}</p>
         <div class="admin-actions">
           <select class="input" data-sel="${m.id}" aria-label="Gewinner für ${esc(m.title)}">
             ${sortedOutcomes(m).map((o) => `<option value="${o.id}">${esc(o.label)} (${pct(o.price)})</option>`).join('')}</select>
@@ -984,10 +1037,10 @@ async function adminMarketsTab(body, { run }) {
           </div>
           <div class="field"><label>Handel endet</label><input class="input" type="datetime-local" name="closesAt" value="${m.closesAt ? localInput(m.closesAt) : ''}"></div>
           <div class="field"><label>So wird entschieden</label><textarea class="input" name="description" rows="3">${esc(m.description || '')}</textarea></div>
-          <p class="muted" style="font-size:13px;margin-bottom:10px">Die Ausgänge bleiben gleich, damit bisherige Gebote gültig bleiben.</p>
+          <p class="muted" style="font-size:13px;margin-bottom:10px">Die Antworten bleiben gleich, damit bisherige Tipps gültig bleiben.</p>
           <button class="btn btn-sm btn-ja">Speichern</button>
         </form>
-      </div>`).join('') : '<p class="muted">Keine laufenden Prognosen. Leg links eine an.</p>'}
+      </div>`).join('') : '<p class="muted">Keine laufenden Prognosen. Leg eine neue an.</p>'}
       ${recent.length ? `<h2 style="margin-top:22px">Zuletzt beendet</h2><div class="feed">${recent.map((m) => `<div class="feed-row">
         <span aria-hidden="true">${esc(m.emoji)}</span><span>${esc(m.title)}</span>
         <button class="btn btn-sm" type="button" data-copy-market="${m.id}" style="margin-left:auto">Nochmal</button></div>`).join('')}</div>` : ''}
@@ -1090,9 +1143,9 @@ async function adminMarketsTab(body, { run }) {
 }
 
 function adminPayoutsTab(body, { ov, run }) {
-  body.innerHTML = `<section class="panel"><h2>Auszahlungen</h2><div class="table-wrap"><table class="table"><tbody>
-    ${ov.withdrawals.map((w) => `<tr><td><div class="who">${head(w.mc_name)}<span><b>${esc(w.mc_name)}</b>${w.username && w.username !== w.mc_name ? `<br><small class="muted">${esc(w.username)}</small>` : ''}</span></div></td><td style="white-space:nowrap">${money(w.amount)}</td>
-      <td><span class="tag ${w.status === 'done' ? 'live' : w.status === 'failed' ? 'bad' : 'warn'}">${WITHDRAW_STATUS[w.status] || esc(w.status)}</span>${w.error ? `<br><small class="muted">${esc(w.error)}</small>` : ''}</td><td class="muted">${ago(w.created_at)}</td>
+  body.innerHTML = `<section class="panel"><h2>Auszahlungen</h2><div class="table-wrap"><table class="table stackable"><tbody>
+    ${ov.withdrawals.map((w) => `<tr><td class="title"><div class="who">${head(w.mc_name)}<span><b>${esc(w.mc_name)}</b>${w.username && w.username !== w.mc_name ? `<br><small class="muted">${esc(w.username)}</small>` : ''}</span></div></td><td style="white-space:nowrap" data-label="Betrag"><b>${money(w.amount)}</b></td>
+      <td data-label="Status"><span class="tag ${w.status === 'done' ? 'live' : w.status === 'failed' ? 'bad' : 'warn'}">${WITHDRAW_STATUS[w.status] || esc(w.status)}</span>${w.error ? `<br><small class="muted">${esc(w.error)}</small>` : ''}</td><td class="muted" data-label="Wann">${ago(w.created_at)}</td>
       <td class="r">${w.status === 'pending' && state.status?.payoutsNeedApproval ? `<button class="btn btn-sm btn-ja" type="button" data-approve="${w.id}">Freigeben</button>` : ''}</td></tr>`).join('') || '<tr><td class="muted">Noch keine Auszahlungen</td></tr>'}
   </tbody></table></div></section>`;
   body.querySelectorAll('[data-approve]').forEach((b) => b.onclick = () => run(() => api(`/admin/withdrawals/${b.dataset.approve}/approve`, {}), 'Freigegeben'));
@@ -1115,7 +1168,7 @@ async function adminPlayersTab(body, { run }) {
     list.innerHTML = users.length ? users.map((u) => `<div class="player-row" data-uid="${u.id}">
       <button class="player-head" type="button" data-open="${u.id}">${head(u.mcName || u.username)}
         <span class="player-name"><b>${esc(u.mcName || u.username)}</b>${u.banned ? ` <span class="tag bad">gesperrt${u.banRule ? ` · ${esc(u.banRule.split(' ')[0])}` : ''}</span>` : ''}<br>
-          <small class="muted">${u.discordName ? `Discord: ${esc(u.discordName)} · ` : ''}${fmt(u.trades)} Gebote</small></span>
+          <small class="muted">${u.discordName ? `Discord: ${esc(u.discordName)} · ` : ''}${fmt(u.trades)} ${u.trades === 1 ? 'Tipp' : 'Tipps'}</small></span>
         <span class="r"><b>${money(u.balance)}</b><br><small class="muted">+ ${money(u.inPositions)} in Anteilen</small></span></button>
       <div class="player-detail hidden" data-detail="${u.id}"></div></div>`).join('') : '<p class="muted">Keine Spieler gefunden.</p>';
     list.querySelectorAll('[data-open]').forEach((b) => b.onclick = () => openPlayer(Number(b.dataset.open)));
@@ -1332,7 +1385,7 @@ async function allMarkets() {
 const searchEl = document.getElementById('search');
 searchEl.addEventListener('input', () => {
   state.search = searchEl.value;
-  if ((location.hash.slice(1) || '/').split('?')[0] === '/') renderGrid();
+  if ((location.hash.slice(1) || '/').split('?')[0] === '/') renderGrid().catch(() => {});
 });
 attachSuggest(searchEl, async (q) => {
   const t = q.toLowerCase();
